@@ -951,8 +951,9 @@ class TestAgentCommand:
 
         from kernle.cli.commands.stack import cmd_stack
 
-        # Add stack_id attribute to mock
+        # Add stack_id and _storage attributes to mock
         mock_kernle.stack_id = "test-agent"
+        mock_kernle._storage = Mock()  # Non-SQLiteStorage; skips DB queries
 
         args = argparse.Namespace(stack_action="list")
         kernle_home = tmp_path / ".kernle"
