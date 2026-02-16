@@ -18,7 +18,7 @@ import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from kernle.core.enrichment import (
     build_derived_from,
@@ -170,7 +170,7 @@ class _PluginContextImpl:
         tags: Optional[list[str]] = None,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -196,7 +196,7 @@ class _PluginContextImpl:
         confidence: float = 0.8,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -219,7 +219,7 @@ class _PluginContextImpl:
         priority: int = 50,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -243,7 +243,7 @@ class _PluginContextImpl:
         priority: str = "medium",
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -267,7 +267,7 @@ class _PluginContextImpl:
         tags: Optional[list[str]] = None,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -291,7 +291,7 @@ class _PluginContextImpl:
         notes: Optional[str] = None,
         entity_type: Optional[str] = None,
         derived_from: Optional[list[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -316,7 +316,7 @@ class _PluginContextImpl:
         decay_hours: int = 24,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:

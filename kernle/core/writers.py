@@ -56,7 +56,7 @@ class WritersMixin:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Record an episodic experience.
 
@@ -175,7 +175,7 @@ class WritersMixin:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Capture a quick note (decision, insight, quote).
 
@@ -673,7 +673,7 @@ class WritersMixin:
         context_tags: Optional[List[str]] = None,
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Add or update a belief.
 
@@ -719,7 +719,7 @@ class WritersMixin:
         context_tags: Optional[List[str]] = None,
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Add or affirm a value.
 
@@ -763,7 +763,7 @@ class WritersMixin:
         context_tags: Optional[List[str]] = None,
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Add a goal.
 
@@ -864,7 +864,7 @@ class WritersMixin:
         context_tags: Optional[List[str]] = None,
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Set or update a drive.
 
