@@ -24,6 +24,7 @@ from kernle.types import (
     Note,
     RawEntry,
     Relationship,
+    SourceType,
     TrustAssessment,
     Value,
 )
@@ -1363,3 +1364,248 @@ class TestEntityEnrichmentParity:
         entity.relationship("alice")
         r = stack.save_relationship.call_args[0][0]
         assert r.last_interaction is not None
+
+
+# ---- source_type Parameter Coverage for Entity Writer Methods ----
+
+
+class TestEntitySourceType:
+    """Entity writer methods should handle source_type correctly."""
+
+    # -- episode --
+
+    def test_episode_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("obj", "out")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.source_type == "direct_experience"
+
+    def test_episode_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("obj", "out", source_type=SourceType.EXTERNAL)
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.source_type == "external"
+
+    def test_episode_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("obj", "out", source_type="external")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.source_type == "external"
+
+    def test_episode_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.episode("obj", "out", source_type="telepathy")
+
+    # -- belief --
+
+    def test_belief_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.belief("the sky is blue")
+        b = stack.save_belief.call_args[0][0]
+        assert b.source_type == "direct_experience"
+
+    def test_belief_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.belief("the sky is blue", source_type=SourceType.EXTERNAL)
+        b = stack.save_belief.call_args[0][0]
+        assert b.source_type == "external"
+
+    def test_belief_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.belief("the sky is blue", source_type="external")
+        b = stack.save_belief.call_args[0][0]
+        assert b.source_type == "external"
+
+    def test_belief_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.belief("the sky is blue", source_type="telepathy")
+
+    # -- value --
+
+    def test_value_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.value("honesty", "Be truthful")
+        v = stack.save_value.call_args[0][0]
+        assert v.source_type == "direct_experience"
+
+    def test_value_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.value("honesty", "Be truthful", source_type=SourceType.EXTERNAL)
+        v = stack.save_value.call_args[0][0]
+        assert v.source_type == "external"
+
+    def test_value_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.value("honesty", "Be truthful", source_type="external")
+        v = stack.save_value.call_args[0][0]
+        assert v.source_type == "external"
+
+    def test_value_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.value("honesty", "Be truthful", source_type="telepathy")
+
+    # -- goal --
+
+    def test_goal_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.goal("learn rust")
+        g = stack.save_goal.call_args[0][0]
+        assert g.source_type == "direct_experience"
+
+    def test_goal_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.goal("learn rust", source_type=SourceType.EXTERNAL)
+        g = stack.save_goal.call_args[0][0]
+        assert g.source_type == "external"
+
+    def test_goal_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.goal("learn rust", source_type="external")
+        g = stack.save_goal.call_args[0][0]
+        assert g.source_type == "external"
+
+    def test_goal_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.goal("learn rust", source_type="telepathy")
+
+    # -- note --
+
+    def test_note_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.note("important thought")
+        n = stack.save_note.call_args[0][0]
+        assert n.source_type == "direct_experience"
+
+    def test_note_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.note("important thought", source_type=SourceType.EXTERNAL)
+        n = stack.save_note.call_args[0][0]
+        assert n.source_type == "external"
+
+    def test_note_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.note("important thought", source_type="external")
+        n = stack.save_note.call_args[0][0]
+        assert n.source_type == "external"
+
+    def test_note_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.note("important thought", source_type="telepathy")
+
+    # -- drive --
+
+    def test_drive_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.drive("curiosity", intensity=0.8)
+        d = stack.save_drive.call_args[0][0]
+        assert d.source_type == "direct_experience"
+
+    def test_drive_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.drive("curiosity", intensity=0.8, source_type=SourceType.CONSOLIDATION)
+        d = stack.save_drive.call_args[0][0]
+        assert d.source_type == "consolidation"
+
+    def test_drive_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.drive("curiosity", intensity=0.8, source_type="consolidation")
+        d = stack.save_drive.call_args[0][0]
+        assert d.source_type == "consolidation"
+
+    def test_drive_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.drive("curiosity", source_type="telepathy")
+
+    # -- relationship --
+
+    def test_relationship_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.relationship("other-agent")
+        r = stack.save_relationship.call_args[0][0]
+        assert r.source_type == "direct_experience"
+
+    def test_relationship_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.relationship("other-agent", source_type=SourceType.EXTERNAL)
+        r = stack.save_relationship.call_args[0][0]
+        assert r.source_type == "external"
+
+    def test_relationship_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.relationship("other-agent", source_type="external")
+        r = stack.save_relationship.call_args[0][0]
+        assert r.source_type == "external"
+
+    def test_relationship_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.relationship("other-agent", source_type="telepathy")
+
+
+# ---- PluginContext source_type Passthrough ----
+
+
+class TestPluginContextSourceType:
+    """PluginContext should pass source_type through to Entity methods."""
+
+    def test_episode_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.episode("obj", "out", source_type="external")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.source_type == "external"
+
+    def test_episode_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.episode("obj", "out")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.source_type == "direct_experience"
+
+    def test_belief_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.belief("test statement", source_type="seed")
+        b = stack.save_belief.call_args[0][0]
+        assert b.source_type == "seed"
+
+    def test_relationship_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.relationship("other-agent", source_type="external")
+        r = stack.save_relationship.call_args[0][0]
+        assert r.source_type == "external"
+
+    def test_note_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.note("a note", source_type="inference")
+        n = stack.save_note.call_args[0][0]
+        assert n.source_type == "inference"
+
+    def test_goal_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.goal("learn rust", source_type="external")
+        g = stack.save_goal.call_args[0][0]
+        assert g.source_type == "external"
+
+    def test_drive_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.drive("curiosity", source_type="consolidation")
+        d = stack.save_drive.call_args[0][0]
+        assert d.source_type == "consolidation"
+
+    def test_value_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.value("honesty", "Be truthful", source_type="seed")
+        v = stack.save_value.call_args[0][0]
+        assert v.source_type == "seed"

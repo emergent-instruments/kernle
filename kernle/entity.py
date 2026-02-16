@@ -28,6 +28,7 @@ from kernle.core.enrichment import (
     infer_outcome_type,
     normalize_belief_type,
     normalize_note_type,
+    normalize_source_type,
     validate_drive_type,
     validate_goal_type,
 )
@@ -55,10 +56,13 @@ from kernle.types import (
     Note,
     RawEntry,
     Relationship,
+    SourceType,
     TrustAssessment,
     Value,
 )
 from kernle.utils import get_kernle_home
+
+_normalize_source_type = normalize_source_type
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +170,7 @@ class _PluginContextImpl:
         tags: Optional[list[str]] = None,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -180,6 +185,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def belief(
@@ -190,6 +196,7 @@ class _PluginContextImpl:
         confidence: float = 0.8,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -201,6 +208,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def value(
@@ -211,6 +219,7 @@ class _PluginContextImpl:
         priority: int = 50,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -222,6 +231,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def goal(
@@ -233,6 +243,7 @@ class _PluginContextImpl:
         priority: str = "medium",
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -245,6 +256,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def note(
@@ -255,6 +267,7 @@ class _PluginContextImpl:
         tags: Optional[list[str]] = None,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -266,6 +279,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def relationship(
@@ -277,6 +291,7 @@ class _PluginContextImpl:
         notes: Optional[str] = None,
         entity_type: Optional[str] = None,
         derived_from: Optional[list[str]] = None,
+        source_type: Optional[str] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -289,6 +304,7 @@ class _PluginContextImpl:
             entity_type=entity_type,
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
+            source_type=source_type,
         )
 
     def drive(
@@ -300,6 +316,7 @@ class _PluginContextImpl:
         decay_hours: int = 24,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -312,6 +329,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def raw(
@@ -668,6 +686,7 @@ class Entity:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         episode_id = _generate_id()
@@ -683,7 +702,7 @@ class Entity:
             tags=tags or ["manual"],
             confidence=0.8,
             created_at=datetime.now(timezone.utc),
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -712,6 +731,7 @@ class Entity:
         context_tags: Optional[list[str]] = None,
         source: Optional[str] = None,
         derived_from: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         b = Belief(
@@ -722,7 +742,7 @@ class Entity:
             confidence=clamp_confidence(confidence),
             created_at=datetime.now(timezone.utc),
             is_protected=foundational,
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -745,6 +765,7 @@ class Entity:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         v = Value(
@@ -755,7 +776,7 @@ class Entity:
             priority=priority,
             created_at=datetime.now(timezone.utc),
             is_protected=foundational,
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -777,6 +798,7 @@ class Entity:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         validate_goal_type(goal_type)
@@ -792,7 +814,7 @@ class Entity:
             status="active",
             is_protected=is_protected,
             created_at=datetime.now(timezone.utc),
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -819,6 +841,7 @@ class Entity:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         note_type = normalize_note_type(type)
@@ -833,7 +856,7 @@ class Entity:
             tags=tags or [],
             created_at=datetime.now(timezone.utc),
             is_protected=protect,
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -855,6 +878,7 @@ class Entity:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         validate_drive_type(drive_type)
@@ -867,7 +891,7 @@ class Entity:
             focus_areas=focus_areas or [],
             created_at=now,
             updated_at=now,
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -888,6 +912,7 @@ class Entity:
         entity_type: Optional[str] = None,
         derived_from: Optional[list[str]] = None,
         source: Optional[str] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         now = datetime.now(timezone.utc)
@@ -905,7 +930,7 @@ class Entity:
             interaction_count=1,
             last_interaction=now,
             created_at=now,
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
         )
         if source:

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from kernle.core import Kernle
+from kernle.types import SourceType
 
 # =========================================================================
 # ValidationMixin edge cases
@@ -228,23 +229,25 @@ class TestWritersEdgeCases:
         assert ep.outcome_type == "failure"
 
     def test_episode_source_type_external(self):
-        """Episode infers external source_type from source hint."""
+        """Episode uses explicit external source_type."""
         k = self._make_kernle()
         ep_id = k.episode(
             objective="Test",
             outcome="Completed",
             source="told by Alice",
+            source_type=SourceType.EXTERNAL,
         )
         ep = k._storage.get_episode(ep_id)
         assert ep.source_type == "external"
 
     def test_episode_source_type_inference(self):
-        """Episode infers inference source_type from source hint."""
+        """Episode uses explicit inference source_type."""
         k = self._make_kernle()
         ep_id = k.episode(
             objective="Test",
             outcome="Completed",
             source="inferred from data",
+            source_type=SourceType.INFERENCE,
         )
         ep = k._storage.get_episode(ep_id)
         assert ep.source_type == "inference"
@@ -336,26 +339,28 @@ class TestWritersEdgeCases:
         with pytest.raises(ValueError, match="Invalid note type"):
             k.note(content="test", type="invalid")
 
-    def test_note_source_type_quote_defaults_external(self):
-        """Quote note with source defaults to external source_type."""
+    def test_note_source_type_quote_with_explicit_external(self):
+        """Quote note with explicit source_type=external is stored correctly."""
         k = self._make_kernle()
         note_id = k.note(
             content="Quote text",
             type="quote",
             source="from a book",
+            source_type="external",
         )
-        # Verify source_type is external for quotes with a source
+        # Verify source_type is external when explicitly set
         notes = k._storage.get_notes(limit=100)
         matched = [n for n in notes if n.id == note_id]
         assert len(matched) == 1
         assert matched[0].source_type == "external"
 
     def test_belief_source_consolidation(self):
-        """Belief infers consolidation source_type."""
+        """Belief uses explicit consolidation source_type."""
         k = self._make_kernle()
         belief_id = k.belief(
             statement="Test belief",
             source="consolidation pass",
+            source_type=SourceType.CONSOLIDATION,
         )
         # Via storage
         beliefs = k._storage.get_beliefs(limit=100)
@@ -363,11 +368,12 @@ class TestWritersEdgeCases:
         assert matched[0].source_type == "consolidation"
 
     def test_belief_source_seed(self):
-        """Belief infers seed source_type."""
+        """Belief uses explicit seed source_type."""
         k = self._make_kernle()
         belief_id = k.belief(
             statement="Test belief",
             source="seed initialization",
+            source_type=SourceType.SEED,
         )
         beliefs = k._storage.get_beliefs(limit=100)
         matched = [b for b in beliefs if b.id == belief_id]
@@ -439,9 +445,14 @@ class TestWritersEdgeCases:
         assert drive_id1 == drive_id2  # Same drive updated
 
     def test_drive_source_type_consolidation(self):
-        """Drive infers consolidation source_type."""
+        """Drive uses explicit consolidation source_type."""
         k = self._make_kernle()
-        k.drive(drive_type="growth", intensity=0.5, source="consolidation")
+        k.drive(
+            drive_type="growth",
+            intensity=0.5,
+            source="consolidation",
+            source_type=SourceType.CONSOLIDATION,
+        )
         drive = k._storage.get_drive("growth")
         assert drive.source_type == "consolidation"
 

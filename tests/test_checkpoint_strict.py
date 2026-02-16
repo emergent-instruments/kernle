@@ -96,6 +96,38 @@ class TestCheckpointEpisodeSaveStrict:
                 k.checkpoint(task="test task")
 
 
+class TestCheckpointEpisodeProvenance:
+    """Checkpoint episode carries correct source_type and source_entity."""
+
+    def test_checkpoint_episode_has_observation_source_type(self, tmp_path):
+        """Checkpoint sidecar episode has source_type='observation'."""
+        storage = _make_storage()
+        captured_episodes = []
+        storage.save_episode.side_effect = lambda ep: captured_episodes.append(ep) or "ep-id"
+
+        k, _ = _make_kernle(tmp_path, strict=False, storage=storage)
+
+        k.checkpoint(task="provenance test")
+
+        assert len(captured_episodes) == 1
+        ep = captured_episodes[0]
+        assert ep.source_type == "observation"
+
+    def test_checkpoint_episode_has_kernle_checkpoint_source_entity(self, tmp_path):
+        """Checkpoint sidecar episode has source_entity='kernle:checkpoint'."""
+        storage = _make_storage()
+        captured_episodes = []
+        storage.save_episode.side_effect = lambda ep: captured_episodes.append(ep) or "ep-id"
+
+        k, _ = _make_kernle(tmp_path, strict=False, storage=storage)
+
+        k.checkpoint(task="entity test")
+
+        assert len(captured_episodes) == 1
+        ep = captured_episodes[0]
+        assert ep.source_entity == "kernle:checkpoint"
+
+
 class TestCheckpointBootExportStrict:
     """Boot file export within checkpoint -- strict vs. permissive."""
 

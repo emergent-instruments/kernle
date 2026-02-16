@@ -891,7 +891,10 @@ class TestSyncPull:
         assert k._storage._get_sync_meta("last_sync_time") != sentinel_cursor
 
         notes = k._storage.get_notes(limit=20)
-        assert any(n.id == "note-ok" for n in notes)
+        pulled_note = next(n for n in notes if n.id == "note-ok")
+        assert pulled_note is not None
+        assert pulled_note.source_type == "external"
+        assert pulled_note.source_entity == "kernle:sync"
 
         pull_conflicts = k._storage.get_sync_conflicts(limit=10)
         assert any(
@@ -953,6 +956,38 @@ class TestSyncPull:
         assert "Pulled 1 changes" in captured
         notes = k._storage.get_notes(limit=20)
         assert any(n.id == "note-retry-1" for n in notes)
+
+    def test_pull_episode_has_external_source_type_and_sync_entity(self, k, capsys, tmp_path):
+        """Pulled episodes carry source_type='external' and source_entity='kernle:sync'."""
+        creds = {"backend_url": "https://api.test.com", "auth_token": "tok"}
+        creds_path = tmp_path / "pull_ep_prov"
+        creds_path.mkdir()
+        (creds_path / "credentials.json").write_text(json.dumps(creds))
+
+        ops = [
+            {
+                "table": "episodes",
+                "record_id": "ep-pulled-1",
+                "operation": "upsert",
+                "data": {
+                    "objective": "Remote episode",
+                    "outcome": "synced",
+                    "outcome_type": "success",
+                },
+            },
+        ]
+        pull_resp = _make_response(200, json_data={"operations": ops, "has_more": False})
+        mock_httpx = _mock_httpx_module(post_response=pull_resp)
+
+        with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
+            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
+                with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                    cmd_sync(_args(sync_action="pull"), k)
+
+        episodes = k._storage.get_episodes(limit=20)
+        pulled_ep = next(e for e in episodes if e.id == "ep-pulled-1")
+        assert pulled_ep.source_type == "external"
+        assert pulled_ep.source_entity == "kernle:sync"
 
 
 # ============================================================================
@@ -1229,7 +1264,10 @@ class TestSyncFull:
         assert k._storage._get_sync_meta("last_sync_time") != sentinel_cursor
 
         notes = k._storage.get_notes(limit=20)
-        assert any(n.id == "full-note-1" for n in notes)
+        pulled_note = next(n for n in notes if n.id == "full-note-1")
+        assert pulled_note is not None
+        assert pulled_note.source_type == "external"
+        assert pulled_note.source_entity == "kernle:sync"
 
     def test_full_sync_pull_apply_failure_is_quarantined_and_cursor_advances(
         self, k, capsys, tmp_path

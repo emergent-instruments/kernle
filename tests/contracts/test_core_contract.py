@@ -413,6 +413,37 @@ class TestProvenance:
         b = [x for x in beliefs if x.id == b_id][0]
         assert b.derived_from == ["episode:abc", "belief:xyz"]
 
+    def test_episode_explicit_source_type(self, entity_with_stack):
+        """Explicit source_type parameter overrides default."""
+        entity, stack = entity_with_stack
+        ep_id = entity.episode(
+            "External observation",
+            "Noted from partner",
+            source_type="external",
+        )
+
+        episodes = stack.get_episodes()
+        ep = [e for e in episodes if e.id == ep_id][0]
+        assert ep.source_type == "external"
+
+    def test_note_explicit_source_type(self, entity_with_stack):
+        """Note with explicit source_type stores correctly."""
+        entity, stack = entity_with_stack
+        n_id = entity.note("Observation note", source_type="observation")
+
+        notes = stack.get_notes()
+        n = [x for x in notes if x.id == n_id][0]
+        assert n.source_type == "observation"
+
+    def test_relationship_has_source_entity(self, entity_with_stack):
+        """Relationship created through Entity has source_entity set."""
+        entity, stack = entity_with_stack
+        r_id = entity.relationship("partner-test", entity_type="agent")
+
+        rels = stack.get_relationships()
+        r = [x for x in rels if x.id == r_id][0]
+        assert r.source_type == "direct_experience"
+
 
 # ============================================================================
 # 5. Plugin Lifecycle

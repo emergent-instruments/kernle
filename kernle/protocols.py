@@ -49,6 +49,7 @@ from typing import (
     Literal,
     Optional,
     Protocol,
+    Union,
     runtime_checkable,
 )
 
@@ -66,6 +67,7 @@ from kernle.types import (
     Relationship,
     SearchResult,
     SelfNarrative,
+    SourceType,
     Summary,
     TrustAssessment,
     Value,
@@ -1276,6 +1278,7 @@ class PluginContext(Protocol):
         tags: Optional[list[str]] = None,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         """Write an episode. Returns memory ID or None if no active stack."""
         ...
@@ -1288,6 +1291,7 @@ class PluginContext(Protocol):
         confidence: float = 0.8,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         """Write a belief."""
         ...
@@ -1300,6 +1304,7 @@ class PluginContext(Protocol):
         priority: int = 50,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         """Write a value."""
         ...
@@ -1313,6 +1318,7 @@ class PluginContext(Protocol):
         priority: str = "medium",
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         """Write a goal."""
         ...
@@ -1325,6 +1331,7 @@ class PluginContext(Protocol):
         tags: Optional[list[str]] = None,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         """Write a note."""
         ...
@@ -1338,6 +1345,7 @@ class PluginContext(Protocol):
         notes: Optional[str] = None,
         entity_type: Optional[str] = None,
         derived_from: Optional[list[str]] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         """Write or update a relationship."""
         ...
@@ -1729,6 +1737,7 @@ class CoreProtocol(Protocol):
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str: ...
 
     def belief(
@@ -1742,6 +1751,7 @@ class CoreProtocol(Protocol):
         context_tags: Optional[list[str]] = None,
         source: Optional[str] = None,
         derived_from: Optional[list[str]] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str: ...
 
     def value(
@@ -1756,6 +1766,7 @@ class CoreProtocol(Protocol):
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str: ...
 
     def goal(
@@ -1769,6 +1780,7 @@ class CoreProtocol(Protocol):
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str: ...
 
     def note(
@@ -1784,6 +1796,7 @@ class CoreProtocol(Protocol):
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str: ...
 
     def drive(
@@ -1797,6 +1810,7 @@ class CoreProtocol(Protocol):
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str: ...
 
     def relationship(
@@ -1809,6 +1823,7 @@ class CoreProtocol(Protocol):
         entity_type: Optional[str] = None,
         derived_from: Optional[list[str]] = None,
         source: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str: ...
 
     def raw(

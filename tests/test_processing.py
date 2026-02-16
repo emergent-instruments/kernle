@@ -1462,6 +1462,7 @@ class TestWriteMemories:
         assert saved_ep.objective == "learned things"
         assert saved_ep.derived_from == ["raw:r1", "raw:r2"]
         assert saved_ep.source_type == "processing"
+        assert saved_ep.source_entity.startswith("core:")
 
     def test_write_raw_to_note(self):
         mock_stack = _make_mock_stack()
@@ -1480,6 +1481,8 @@ class TestWriteMemories:
         saved_note = mock_stack.save_note.call_args[0][0]
         assert saved_note.content == "factual note"
         assert saved_note.derived_from == ["raw:r1"]
+        assert saved_note.source_type == "processing"
+        assert saved_note.source_entity.startswith("core:")
 
     def test_write_episode_to_belief(self):
         mock_stack = _make_mock_stack()
@@ -1500,6 +1503,8 @@ class TestWriteMemories:
         assert saved.statement == "testing is vital"
         assert saved.confidence == 0.85
         assert saved.derived_from == ["episode:ep-1"]
+        assert saved.source_type == "processing"
+        assert saved.source_entity.startswith("core:")
 
     def test_write_episode_to_goal(self):
         mock_stack = _make_mock_stack()
@@ -1521,6 +1526,8 @@ class TestWriteMemories:
         assert saved.title == "ship feature"
         assert saved.priority == "high"
         assert saved.derived_from == ["episode:ep-2"]
+        assert saved.source_type == "processing"
+        assert saved.source_entity.startswith("core:")
 
     def test_write_episode_to_relationship(self):
         mock_stack = _make_mock_stack()
@@ -1542,6 +1549,8 @@ class TestWriteMemories:
         assert saved.entity_name == "Alice"
         assert saved.sentiment == 0.7
         assert saved.notes == "collaborative"
+        assert saved.source_type == "processing"
+        assert saved.source_entity.startswith("core:")
 
     def test_write_belief_to_value(self):
         mock_stack = _make_mock_stack()
@@ -1562,6 +1571,8 @@ class TestWriteMemories:
         assert saved.name == "integrity"
         assert saved.priority == 90
         assert saved.derived_from == ["belief:b-1"]
+        assert saved.source_type == "processing"
+        assert saved.source_entity.startswith("core:")
 
     def test_write_episode_to_drive(self):
         mock_stack = _make_mock_stack()
@@ -1581,6 +1592,8 @@ class TestWriteMemories:
         assert saved.drive_type == "curiosity"
         assert saved.intensity == 0.8
         assert saved.derived_from == ["episode:ep-4"]
+        assert saved.source_type == "processing"
+        assert saved.source_entity.startswith("core:")
 
     def test_write_multiple_items(self):
         mock_stack = _make_mock_stack()

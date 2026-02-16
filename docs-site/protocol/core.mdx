@@ -188,7 +188,7 @@ The provenance step populates:
 - **id**: New UUID
 - **stack_id**: From the active stack
 - **source_entity**: `"core:{core_id}"` or a custom source (plugins use `"plugin:{name}"`)
-- **source_type**: `"direct_experience"`
+- **source_type**: Explicit on all write paths. Accepts a string or `SourceType` enum value. Defaults to `"direct_experience"` when not specified. Invalid strings raise `ValueError`. Internal subsystems pass explicit values: checkpoint uses `"observation"`, sync uses `"external"` with `source_entity="kernle:sync"`, doctor uses `"observation"` with `source_entity="kernle:doctor"`.
 - **created_at**: Current UTC timestamp
 - **derived_from**: Optional lineage chain
 - **context / context_tags**: Optional grouping
