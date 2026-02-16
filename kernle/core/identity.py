@@ -122,6 +122,7 @@ class IdentityMixin:
                     confidence=confidence,
                     source="promotion",
                     derived_from=derived_from,
+                    source_type="consolidation",
                 )
                 suggestion["promoted"] = True
                 suggestion["belief_id"] = belief_id

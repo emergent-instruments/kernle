@@ -8,6 +8,7 @@ Tests cover:
 - Entity model CRUD operations
 - Core API methods (get_relationship_history, add_entity_model, etc.)
 - CLI command handlers
+- Relationship source_type and source_entity provenance
 """
 
 import json
@@ -19,6 +20,7 @@ import pytest
 from kernle.core import Kernle
 from kernle.storage import EntityModel, Relationship, RelationshipHistoryEntry
 from kernle.storage.sqlite import SQLiteStorage
+from kernle.types import SourceType
 
 # === Fixtures ===
 
@@ -567,3 +569,118 @@ class TestCoreEntityModels:
         )
         model = k.get_entity_model(model_id)
         assert model["source_episodes"] == ep_ids
+
+
+# === Relationship Source Provenance Tests ===
+
+
+class TestRelationshipSourceProvenance:
+    """Tests for source_type and source_entity on relationship writes."""
+
+    def test_new_relationship_explicit_external_source_type(self, kernle_with_storage):
+        """New relationship with explicit source_type=EXTERNAL stores 'external'."""
+        k, s = kernle_with_storage
+
+        k.relationship(
+            "ExternalBot",
+            entity_type="agent",
+            source_type=SourceType.EXTERNAL,
+        )
+        rel = s.get_relationship("ExternalBot")
+        assert rel is not None
+        assert rel.source_type == "external"
+
+    def test_new_relationship_explicit_source_entity_accepted(self, kernle_with_storage):
+        """Relationship writer accepts source_entity parameter without error."""
+        k, s = kernle_with_storage
+
+        # Verify source_entity parameter is accepted
+        r_id = k.relationship(
+            "NamedCaller",
+            entity_type="agent",
+            source_entity="test-caller",
+        )
+        assert isinstance(r_id, str)
+        assert len(r_id) > 0
+
+    def test_new_relationship_default_source_type(self, kernle_with_storage):
+        """New relationship without explicit source_type defaults to 'direct_experience'."""
+        k, s = kernle_with_storage
+
+        k.relationship("DefaultPerson", entity_type="person")
+        rel = s.get_relationship("DefaultPerson")
+        assert rel is not None
+        assert rel.source_type == "direct_experience"
+
+    def test_updated_relationship_preserves_source_type_when_not_passed(self, kernle_with_storage):
+        """Updating a relationship without source_type keeps the existing value."""
+        k, s = kernle_with_storage
+
+        k.relationship(
+            "PreserveTest",
+            entity_type="person",
+            source_type=SourceType.EXTERNAL,
+        )
+        rel_before = s.get_relationship("PreserveTest")
+        assert rel_before.source_type == "external"
+
+        # Update without passing source_type
+        k.relationship("PreserveTest", trust_level=0.9)
+
+        rel_after = s.get_relationship("PreserveTest")
+        assert rel_after.source_type == "external"
+
+    def test_updated_relationship_changes_source_type_when_passed(self, kernle_with_storage):
+        """Updating a relationship with explicit source_type changes the stored value."""
+        k, s = kernle_with_storage
+
+        k.relationship(
+            "ChangeTest",
+            entity_type="person",
+            source_type=SourceType.DIRECT_EXPERIENCE,
+        )
+        rel_before = s.get_relationship("ChangeTest")
+        assert rel_before.source_type == "direct_experience"
+
+        # Update with new source_type
+        k.relationship("ChangeTest", source_type=SourceType.EXTERNAL)
+
+        rel_after = s.get_relationship("ChangeTest")
+        assert rel_after.source_type == "external"
+
+    def test_updated_relationship_source_entity_param_accepted(self, kernle_with_storage):
+        """Updating a relationship with source_entity is accepted without error."""
+        k, s = kernle_with_storage
+
+        k.relationship(
+            "EntityChangeTest",
+            entity_type="person",
+        )
+
+        # Update with source_entity should not raise
+        r_id = k.relationship("EntityChangeTest", source_entity="new-caller")
+        assert isinstance(r_id, str)
+
+    def test_new_relationship_string_source_type(self, kernle_with_storage):
+        """New relationship with string source_type normalizes correctly."""
+        k, s = kernle_with_storage
+
+        k.relationship(
+            "StringType",
+            entity_type="person",
+            source_type="observation",
+        )
+        rel = s.get_relationship("StringType")
+        assert rel is not None
+        assert rel.source_type == "observation"
+
+    def test_new_relationship_invalid_source_type_raises(self, kernle_with_storage):
+        """Invalid source_type raises ValueError."""
+        k, s = kernle_with_storage
+
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            k.relationship(
+                "BadType",
+                entity_type="person",
+                source_type="completely_invalid",
+            )

@@ -3,7 +3,7 @@
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from kernle.core.enrichment import (
     DRIVE_TYPES,
@@ -56,7 +56,7 @@ class WritersMixin:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Record an episodic experience.
 
@@ -65,7 +65,7 @@ class WritersMixin:
             source: Source context (e.g., 'session with Sean', 'heartbeat check')
             context: Project/scope context (e.g., 'project:api-service', 'repo:myorg/myrepo')
             context_tags: Additional context tags for filtering
-            source_type: Explicit source type override (auto-derived from source if not set)
+            source_type: How this memory was acquired (default: direct_experience)
         """
         # Validate inputs
         objective = self._validate_string_input(objective, "objective", 1000)
@@ -84,17 +84,7 @@ class WritersMixin:
 
         outcome_type = infer_outcome_type(outcome)
 
-        # Determine source_type from explicit param or source context
-        if source_type is None:
-            source_type_val = SourceType.DIRECT_EXPERIENCE
-            if source:
-                source_lower = source.lower()
-                if any(x in source_lower for x in ["told", "said", "heard", "learned from"]):
-                    source_type_val = SourceType.EXTERNAL
-                elif any(x in source_lower for x in ["infer", "deduce", "conclude"]):
-                    source_type_val = SourceType.INFERENCE
-        else:
-            source_type_val = source_type
+        resolved = self._normalize_source_type(source_type)
 
         derived_from_value = build_derived_from(derived_from, source)
 
@@ -110,7 +100,7 @@ class WritersMixin:
             tags=tags or ["manual"],
             created_at=datetime.now(timezone.utc),
             confidence=0.8,
-            source_type=normalize_source_type(source_type_val),
+            source_type=resolved.value,
             source_episodes=None,  # Reserved for supporting evidence (episode IDs)
             derived_from=derived_from_value,
             # Context/scope fields
@@ -185,7 +175,7 @@ class WritersMixin:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Capture a quick note (decision, insight, quote).
 
@@ -194,7 +184,7 @@ class WritersMixin:
             source: Source context (e.g., 'conversation with X', 'reading Y')
             context: Project/scope context (e.g., 'project:api-service', 'repo:myorg/myrepo')
             context_tags: Additional context tags for filtering
-            source_type: Explicit source type override (auto-derived from source if not set)
+            source_type: How this memory was acquired (default: direct_experience)
         """
         # Validate inputs
         content = self._validate_string_input(content, "content", 2000)
@@ -211,19 +201,7 @@ class WritersMixin:
 
         formatted = format_note_content(content, type, speaker=speaker, reason=reason)
 
-        # Determine source_type from explicit param or source context
-        if source_type is None:
-            source_type_val = SourceType.DIRECT_EXPERIENCE
-            if source:
-                source_lower = source.lower()
-                if any(x in source_lower for x in ["told", "said", "heard", "learned from"]):
-                    source_type_val = SourceType.EXTERNAL
-                elif any(x in source_lower for x in ["infer", "deduce", "conclude"]):
-                    source_type_val = SourceType.INFERENCE
-                elif type == "quote":
-                    source_type_val = SourceType.EXTERNAL
-        else:
-            source_type_val = source_type
+        resolved = self._normalize_source_type(source_type)
 
         derived_from_value = build_derived_from(derived_from, source)
 
@@ -236,7 +214,7 @@ class WritersMixin:
             reason=reason,
             tags=tags or [],
             created_at=datetime.now(timezone.utc),
-            source_type=normalize_source_type(source_type_val),
+            source_type=resolved.value,
             source_episodes=None,  # Reserved for supporting evidence (episode IDs)
             derived_from=derived_from_value,
             is_protected=protect,
@@ -695,7 +673,7 @@ class WritersMixin:
         context_tags: Optional[List[str]] = None,
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Add or update a belief.
 
@@ -704,26 +682,12 @@ class WritersMixin:
             context_tags: Additional context tags for filtering
             source: Source context (e.g., 'raw-processing', 'consolidation', 'told by Claire')
             derived_from: List of memory refs this was derived from (format: type:id)
-            source_type: Explicit source type override (auto-derived from source if not set)
+            source_type: How this memory was acquired (default: direct_experience)
         """
         confidence = clamp_confidence(confidence)
         belief_id = str(uuid.uuid4())
 
-        # Determine source_type from explicit param or source context
-        if source_type is None:
-            source_type_val = SourceType.DIRECT_EXPERIENCE
-            if source:
-                source_lower = source.lower()
-                if any(x in source_lower for x in ["told", "said", "heard", "learned from"]):
-                    source_type_val = SourceType.EXTERNAL
-                elif any(x in source_lower for x in ["infer", "deduce", "conclude"]):
-                    source_type_val = SourceType.INFERENCE
-                elif "consolidat" in source_lower or "promot" in source_lower:
-                    source_type_val = SourceType.CONSOLIDATION
-                elif "seed" in source_lower:
-                    source_type_val = SourceType.SEED
-        else:
-            source_type_val = source_type
+        resolved = self._normalize_source_type(source_type)
 
         derived_from_value = build_derived_from(derived_from, source)
         derived_from_value = self._validate_derived_from(derived_from_value)
@@ -735,7 +699,7 @@ class WritersMixin:
             belief_type=normalize_belief_type(type),
             confidence=confidence,
             created_at=datetime.now(timezone.utc),
-            source_type=normalize_source_type(source_type_val),
+            source_type=resolved.value,
             derived_from=derived_from_value,
             context=context,
             context_tags=context_tags,
@@ -755,7 +719,7 @@ class WritersMixin:
         context_tags: Optional[List[str]] = None,
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Add or affirm a value.
 
@@ -764,25 +728,11 @@ class WritersMixin:
             context_tags: Additional context tags for filtering
             source: Source context (e.g., 'consolidation', 'told by X', 'raw-processing')
             derived_from: List of memory refs this was derived from (format: type:id)
-            source_type: Explicit source type override (auto-derived from source if not set)
+            source_type: How this memory was acquired (default: direct_experience)
         """
         value_id = str(uuid.uuid4())
 
-        # Determine source_type from explicit param or source context
-        if source_type is None:
-            source_type_val = SourceType.DIRECT_EXPERIENCE
-            if source:
-                source_lower = source.lower()
-                if any(x in source_lower for x in ["told", "said", "heard", "learned from"]):
-                    source_type_val = SourceType.EXTERNAL
-                elif any(x in source_lower for x in ["infer", "deduce", "conclude"]):
-                    source_type_val = SourceType.INFERENCE
-                elif "consolidat" in source_lower or "promot" in source_lower:
-                    source_type_val = SourceType.CONSOLIDATION
-                elif "seed" in source_lower:
-                    source_type_val = SourceType.SEED
-        else:
-            source_type_val = source_type
+        resolved = self._normalize_source_type(source_type)
 
         derived_from_value = build_derived_from(derived_from, source)
         derived_from_value = self._validate_derived_from(derived_from_value)
@@ -794,7 +744,7 @@ class WritersMixin:
             statement=statement,
             priority=priority,
             created_at=datetime.now(timezone.utc),
-            source_type=normalize_source_type(source_type_val),
+            source_type=resolved.value,
             derived_from=derived_from_value if derived_from_value else None,
             context=context,
             context_tags=context_tags,
@@ -813,7 +763,7 @@ class WritersMixin:
         context_tags: Optional[List[str]] = None,
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Add a goal.
 
@@ -823,7 +773,7 @@ class WritersMixin:
             context_tags: Additional context tags for filtering
             source: Source context (e.g., 'consolidation', 'told by X', 'raw-processing')
             derived_from: List of memory refs this was derived from (format: type:id)
-            source_type: Explicit source type override (auto-derived from source if not set)
+            source_type: How this memory was acquired (default: direct_experience)
         """
         validate_goal_type(goal_type)
 
@@ -832,21 +782,7 @@ class WritersMixin:
         # Set protection based on goal_type
         is_protected = goal_type in ("aspiration", "commitment")
 
-        # Determine source_type from explicit param or source context
-        if source_type is None:
-            source_type_val = SourceType.DIRECT_EXPERIENCE
-            if source:
-                source_lower = source.lower()
-                if any(x in source_lower for x in ["told", "said", "heard", "learned from"]):
-                    source_type_val = SourceType.EXTERNAL
-                elif any(x in source_lower for x in ["infer", "deduce", "conclude"]):
-                    source_type_val = SourceType.INFERENCE
-                elif "consolidat" in source_lower or "promot" in source_lower:
-                    source_type_val = SourceType.CONSOLIDATION
-                elif "seed" in source_lower:
-                    source_type_val = SourceType.SEED
-        else:
-            source_type_val = source_type
+        resolved = self._normalize_source_type(source_type)
 
         derived_from_value = build_derived_from(derived_from, source)
         derived_from_value = self._validate_derived_from(derived_from_value)
@@ -861,7 +797,7 @@ class WritersMixin:
             status="active",
             created_at=datetime.now(timezone.utc),
             is_protected=is_protected,
-            source_type=normalize_source_type(source_type_val),
+            source_type=resolved.value,
             derived_from=derived_from_value if derived_from_value else None,
             context=context,
             context_tags=context_tags,
@@ -928,7 +864,7 @@ class WritersMixin:
         context_tags: Optional[List[str]] = None,
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
-        source_type: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> str:
         """Set or update a drive.
 
@@ -937,25 +873,11 @@ class WritersMixin:
             context_tags: Additional context tags for filtering
             source: Source context (e.g., 'consolidation', 'told by X', 'raw-processing')
             derived_from: List of memory refs this was derived from (format: type:id)
-            source_type: Explicit source type override (auto-derived from source if not set)
+            source_type: How this memory was acquired (default: direct_experience)
         """
         validate_drive_type(drive_type)
 
-        # Determine source_type from explicit param or source context
-        if source_type is None:
-            source_type_val = SourceType.DIRECT_EXPERIENCE
-            if source:
-                source_lower = source.lower()
-                if any(x in source_lower for x in ["told", "said", "heard", "learned from"]):
-                    source_type_val = SourceType.EXTERNAL
-                elif any(x in source_lower for x in ["infer", "deduce", "conclude"]):
-                    source_type_val = SourceType.INFERENCE
-                elif "consolidat" in source_lower or "promot" in source_lower:
-                    source_type_val = SourceType.CONSOLIDATION
-                elif "seed" in source_lower:
-                    source_type_val = SourceType.SEED
-        else:
-            source_type_val = source_type
+        resolved = self._normalize_source_type(source_type)
 
         derived_from_value = build_derived_from(derived_from, source)
         derived_from_value = self._validate_derived_from(derived_from_value)
@@ -976,7 +898,7 @@ class WritersMixin:
                 existing.context = context
             if context_tags is not None:
                 existing.context_tags = context_tags
-            existing.source_type = normalize_source_type(source_type_val)
+            existing.source_type = resolved.value
             if derived_from_value:
                 existing.derived_from = derived_from_value
             self._write_backend.update_drive_atomic(existing)
@@ -991,7 +913,7 @@ class WritersMixin:
                 focus_areas=focus_areas or [],
                 created_at=now,
                 updated_at=now,
-                source_type=normalize_source_type(source_type_val),
+                source_type=resolved.value,
                 derived_from=derived_from_value if derived_from_value else None,
                 context=context,
                 context_tags=context_tags,
@@ -1026,6 +948,8 @@ class WritersMixin:
         interaction_type: Optional[str] = None,
         entity_type: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
+        source_entity: Optional[str] = None,
     ) -> str:
         """Update relationship model for another entity.
 
@@ -1036,7 +960,11 @@ class WritersMixin:
             interaction_type: Type of interaction being logged
             entity_type: Type of entity (person, agent, organization, system)
             derived_from: Memory IDs this relationship was derived from
+            source_type: How this memory was acquired (default: direct_experience)
+            source_entity: Who/what created this memory
         """
+        resolved = self._normalize_source_type(source_type)
+
         # Check existing — use write backend for consistent strict-mode path
         backend = self._write_backend
         existing = backend.get_relationship(other_stack_id)
@@ -1053,6 +981,10 @@ class WritersMixin:
                 existing.entity_type = entity_type
             if derived_from:
                 existing.derived_from = derived_from
+            if source_type is not None:
+                existing.source_type = resolved.value
+            if source_entity is not None:
+                existing.source_entity = source_entity
             existing.interaction_count += 1
             existing.last_interaction = now
             self._write_backend.update_relationship_atomic(existing)
@@ -1070,6 +1002,8 @@ class WritersMixin:
                 interaction_count=1,
                 last_interaction=now,
                 created_at=now,
+                source_type=resolved.value,
+                source_entity=source_entity,
                 derived_from=derived_from,
             )
             self._write_backend.save_relationship(relationship)

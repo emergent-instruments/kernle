@@ -144,11 +144,11 @@ class TestEpisodeOutcomeTypeDetection:
 # =========================================================================
 
 
-class TestEpisodeSourceTypeInference:
-    """episode() should infer source_type from the source string."""
+class TestEpisodeSourceType:
+    """episode() should handle source_type correctly."""
 
-    def test_no_source_defaults_to_direct_experience(self, mocked_kernle):
-        """When source is None, source_type should be DIRECT_EXPERIENCE."""
+    def test_no_source_type_defaults_to_direct_experience(self, mocked_kernle):
+        """When source_type is None, it should default to DIRECT_EXPERIENCE."""
         k, mock_wb, _ = mocked_kernle
 
         k.episode(objective="Test", outcome="Done")
@@ -156,8 +156,8 @@ class TestEpisodeSourceTypeInference:
         saved_episode = mock_wb.save_episode.call_args[0][0]
         assert saved_episode.source_type == SourceType.DIRECT_EXPERIENCE
 
-    def test_told_source_infers_external(self, mocked_kernle):
-        """Source containing 'told' should infer EXTERNAL."""
+    def test_source_without_source_type_defaults_to_direct_experience(self, mocked_kernle):
+        """When source is set but source_type is not, it should still default to DIRECT_EXPERIENCE."""
         k, mock_wb, _ = mocked_kernle
 
         k.episode(
@@ -167,23 +167,23 @@ class TestEpisodeSourceTypeInference:
         )
 
         saved_episode = mock_wb.save_episode.call_args[0][0]
-        assert saved_episode.source_type == SourceType.EXTERNAL
+        assert saved_episode.source_type == SourceType.DIRECT_EXPERIENCE
 
-    def test_infer_source_infers_inference(self, mocked_kernle):
-        """Source containing 'infer' should infer INFERENCE."""
+    def test_explicit_enum_source_type(self, mocked_kernle):
+        """When source_type is a SourceType enum, it should be used directly."""
         k, mock_wb, _ = mocked_kernle
 
         k.episode(
             objective="Pattern analysis",
             outcome="Found correlation",
-            source="inferred from logs",
+            source_type=SourceType.INFERENCE,
         )
 
         saved_episode = mock_wb.save_episode.call_args[0][0]
         assert saved_episode.source_type == SourceType.INFERENCE
 
-    def test_explicit_source_type_overrides_inference(self, mocked_kernle):
-        """When source_type is explicitly set, it should override inference."""
+    def test_explicit_string_source_type(self, mocked_kernle):
+        """When source_type is a valid string, it should be converted to SourceType."""
         k, mock_wb, _ = mocked_kernle
 
         k.episode(
@@ -195,6 +195,13 @@ class TestEpisodeSourceTypeInference:
 
         saved_episode = mock_wb.save_episode.call_args[0][0]
         assert saved_episode.source_type == SourceType.SEED
+
+    def test_invalid_source_type_raises_error(self, mocked_kernle):
+        """When source_type is an invalid string, it should raise ValueError."""
+        k, _, _ = mocked_kernle
+
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            k.episode(objective="Test", outcome="Done", source_type="telepathy")
 
 
 # =========================================================================
@@ -293,29 +300,47 @@ class TestBeliefMethods:
         saved_belief = mock_wb.save_belief.call_args[0][0]
         assert saved_belief.confidence == 0.0
 
-    def test_belief_source_consolidation_infers_type(self, mocked_kernle):
-        """Source containing 'consolidation' should infer CONSOLIDATION."""
+    def test_belief_default_source_type(self, mocked_kernle):
+        """belief() with no source_type should default to DIRECT_EXPERIENCE."""
+        k, mock_wb, _ = mocked_kernle
+
+        k.belief(statement="Pattern holds", source="consolidation pass")
+
+        saved_belief = mock_wb.save_belief.call_args[0][0]
+        assert saved_belief.source_type == SourceType.DIRECT_EXPERIENCE
+
+    def test_belief_explicit_enum_source_type(self, mocked_kernle):
+        """belief() with SourceType enum should use it directly."""
         k, mock_wb, _ = mocked_kernle
 
         k.belief(
             statement="Pattern holds",
             source="consolidation pass",
+            source_type=SourceType.CONSOLIDATION,
         )
 
         saved_belief = mock_wb.save_belief.call_args[0][0]
         assert saved_belief.source_type == SourceType.CONSOLIDATION
 
-    def test_belief_source_seed_infers_type(self, mocked_kernle):
-        """Source containing 'seed' should infer SEED."""
+    def test_belief_explicit_string_source_type(self, mocked_kernle):
+        """belief() with valid string source_type should convert to SourceType."""
         k, mock_wb, _ = mocked_kernle
 
         k.belief(
             statement="Initial setup fact",
             source="seed data",
+            source_type="seed",
         )
 
         saved_belief = mock_wb.save_belief.call_args[0][0]
         assert saved_belief.source_type == SourceType.SEED
+
+    def test_belief_invalid_source_type_raises_error(self, mocked_kernle):
+        """belief() with invalid source_type should raise ValueError."""
+        k, _, _ = mocked_kernle
+
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            k.belief(statement="Test", source_type="telepathy")
 
 
 # =========================================================================
@@ -828,3 +853,182 @@ class TestNotesBatchEnrichment:
 
         saved = mock_wb.save_notes_batch.call_args[0][0]
         assert saved[0].derived_from == ["episode:ep1", "context:standup"]
+
+
+# =========================================================================
+# source_type parameter coverage for all writer methods
+# =========================================================================
+
+
+class TestNoteSourceType:
+    """note() should handle source_type parameter correctly."""
+
+    def test_default_source_type(self, mocked_kernle):
+        """note() with no source_type should default to direct_experience."""
+        k, mock_wb, _ = mocked_kernle
+        k.note(content="Test note")
+        saved_note = mock_wb.save_note.call_args[0][0]
+        assert saved_note.source_type == SourceType.DIRECT_EXPERIENCE
+
+    def test_enum_source_type(self, mocked_kernle):
+        """note() with SourceType enum should use it directly."""
+        k, mock_wb, _ = mocked_kernle
+        k.note(content="Test note", source_type=SourceType.EXTERNAL)
+        saved_note = mock_wb.save_note.call_args[0][0]
+        assert saved_note.source_type == SourceType.EXTERNAL
+
+    def test_string_source_type(self, mocked_kernle):
+        """note() with valid string source_type should convert to SourceType."""
+        k, mock_wb, _ = mocked_kernle
+        k.note(content="Test note", source_type="external")
+        saved_note = mock_wb.save_note.call_args[0][0]
+        assert saved_note.source_type == SourceType.EXTERNAL
+
+    def test_invalid_source_type_raises_error(self, mocked_kernle):
+        """note() with invalid source_type should raise ValueError."""
+        k, _, _ = mocked_kernle
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            k.note(content="Test note", source_type="telepathy")
+
+
+class TestValueSourceType:
+    """value() should handle source_type parameter correctly."""
+
+    def test_default_source_type(self, mocked_kernle):
+        """value() with no source_type should default to direct_experience."""
+        k, mock_wb, _ = mocked_kernle
+        k.value(name="honesty", statement="Be truthful")
+        saved_value = mock_wb.save_value.call_args[0][0]
+        assert saved_value.source_type == SourceType.DIRECT_EXPERIENCE
+
+    def test_enum_source_type(self, mocked_kernle):
+        """value() with SourceType enum should use it directly."""
+        k, mock_wb, _ = mocked_kernle
+        k.value(name="honesty", statement="Be truthful", source_type=SourceType.EXTERNAL)
+        saved_value = mock_wb.save_value.call_args[0][0]
+        assert saved_value.source_type == SourceType.EXTERNAL
+
+    def test_string_source_type(self, mocked_kernle):
+        """value() with valid string source_type should convert to SourceType."""
+        k, mock_wb, _ = mocked_kernle
+        k.value(name="honesty", statement="Be truthful", source_type="external")
+        saved_value = mock_wb.save_value.call_args[0][0]
+        assert saved_value.source_type == SourceType.EXTERNAL
+
+    def test_invalid_source_type_raises_error(self, mocked_kernle):
+        """value() with invalid source_type should raise ValueError."""
+        k, _, _ = mocked_kernle
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            k.value(name="honesty", statement="Be truthful", source_type="telepathy")
+
+
+class TestGoalSourceType:
+    """goal() should handle source_type parameter correctly."""
+
+    def test_default_source_type(self, mocked_kernle):
+        """goal() with no source_type should default to direct_experience."""
+        k, mock_wb, _ = mocked_kernle
+        k.goal(title="Learn Rust")
+        saved_goal = mock_wb.save_goal.call_args[0][0]
+        assert saved_goal.source_type == SourceType.DIRECT_EXPERIENCE
+
+    def test_enum_source_type(self, mocked_kernle):
+        """goal() with SourceType enum should use it directly."""
+        k, mock_wb, _ = mocked_kernle
+        k.goal(title="Learn Rust", source_type=SourceType.EXTERNAL)
+        saved_goal = mock_wb.save_goal.call_args[0][0]
+        assert saved_goal.source_type == SourceType.EXTERNAL
+
+    def test_string_source_type(self, mocked_kernle):
+        """goal() with valid string source_type should convert to SourceType."""
+        k, mock_wb, _ = mocked_kernle
+        k.goal(title="Learn Rust", source_type="external")
+        saved_goal = mock_wb.save_goal.call_args[0][0]
+        assert saved_goal.source_type == SourceType.EXTERNAL
+
+    def test_invalid_source_type_raises_error(self, mocked_kernle):
+        """goal() with invalid source_type should raise ValueError."""
+        k, _, _ = mocked_kernle
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            k.goal(title="Learn Rust", source_type="telepathy")
+
+
+class TestDriveSourceType:
+    """drive() should handle source_type parameter correctly."""
+
+    def test_default_source_type(self, mocked_kernle):
+        """drive() with no source_type should default to direct_experience."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.get_drives.return_value = []
+        k.drive("curiosity", intensity=0.7)
+        saved_drive = mock_wb.save_drive.call_args[0][0]
+        assert saved_drive.source_type == SourceType.DIRECT_EXPERIENCE
+
+    def test_enum_source_type(self, mocked_kernle):
+        """drive() with SourceType enum should use it directly."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.get_drives.return_value = []
+        k.drive("curiosity", intensity=0.7, source_type=SourceType.CONSOLIDATION)
+        saved_drive = mock_wb.save_drive.call_args[0][0]
+        assert saved_drive.source_type == SourceType.CONSOLIDATION
+
+    def test_string_source_type(self, mocked_kernle):
+        """drive() with valid string source_type should convert to SourceType."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.get_drives.return_value = []
+        k.drive("curiosity", intensity=0.7, source_type="consolidation")
+        saved_drive = mock_wb.save_drive.call_args[0][0]
+        assert saved_drive.source_type == SourceType.CONSOLIDATION
+
+    def test_invalid_source_type_raises_error(self, mocked_kernle):
+        """drive() with invalid source_type should raise ValueError."""
+        k, _, _ = mocked_kernle
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            k.drive("curiosity", intensity=0.7, source_type="telepathy")
+
+
+class TestRelationshipSourceType:
+    """relationship() should handle source_type and source_entity parameters correctly."""
+
+    def test_default_source_type(self, mocked_kernle):
+        """relationship() with no source_type should default to direct_experience."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.get_relationship.return_value = None
+        k.relationship(other_stack_id="Alice", trust_level=0.8)
+        saved_rel = mock_wb.save_relationship.call_args[0][0]
+        assert saved_rel.source_type == SourceType.DIRECT_EXPERIENCE
+
+    def test_enum_source_type(self, mocked_kernle):
+        """relationship() with SourceType enum should use it directly."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.get_relationship.return_value = None
+        k.relationship(other_stack_id="Alice", trust_level=0.8, source_type=SourceType.EXTERNAL)
+        saved_rel = mock_wb.save_relationship.call_args[0][0]
+        assert saved_rel.source_type == SourceType.EXTERNAL
+
+    def test_string_source_type(self, mocked_kernle):
+        """relationship() with valid string source_type should convert to SourceType."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.get_relationship.return_value = None
+        k.relationship(other_stack_id="Alice", trust_level=0.8, source_type="external")
+        saved_rel = mock_wb.save_relationship.call_args[0][0]
+        assert saved_rel.source_type == SourceType.EXTERNAL
+
+    def test_invalid_source_type_raises_error(self, mocked_kernle):
+        """relationship() with invalid source_type should raise ValueError."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.get_relationship.return_value = None
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            k.relationship(other_stack_id="Alice", source_type="telepathy")
+
+    def test_source_entity_passed_through(self, mocked_kernle):
+        """relationship() should pass source_entity to the Relationship object."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.get_relationship.return_value = None
+        k.relationship(
+            other_stack_id="Alice",
+            trust_level=0.8,
+            source_entity="user:bob",
+        )
+        saved_rel = mock_wb.save_relationship.call_args[0][0]
+        assert saved_rel.source_entity == "user:bob"

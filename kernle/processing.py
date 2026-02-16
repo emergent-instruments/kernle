@@ -1487,6 +1487,7 @@ class MemoryProcessor:
                         priority=item.get("priority", "medium"),
                         created_at=now,
                         source_type="processing",
+                        source_entity=f"core:{self._core_id}",
                         derived_from=derived_from,
                     )
                     gid = self._stack.save_goal(goal)
@@ -1505,6 +1506,7 @@ class MemoryProcessor:
                         sentiment=item.get("sentiment", 0.0),
                         created_at=now,
                         source_type="processing",
+                        source_entity=f"core:{self._core_id}",
                         derived_from=derived_from,
                     )
                     rid = self._stack.save_relationship(rel)
@@ -1521,6 +1523,7 @@ class MemoryProcessor:
                         priority=item.get("priority", 50),
                         created_at=now,
                         source_type="processing",
+                        source_entity=f"core:{self._core_id}",
                         derived_from=derived_from,
                     )
                     vid = self._stack.save_value(value)
@@ -1536,6 +1539,7 @@ class MemoryProcessor:
                         intensity=item.get("intensity") or 0.5,
                         created_at=now,
                         source_type="processing",
+                        source_entity=f"core:{self._core_id}",
                         derived_from=derived_from,
                     )
                     did = self._stack.save_drive(drive)

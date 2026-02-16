@@ -10,7 +10,9 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from kernle.core.writers import WritersMixin as _WritersMixin
 from kernle.storage import Episode
+from kernle.types import SourceType
 
 if TYPE_CHECKING:
     from kernle.core import Kernle
@@ -322,6 +324,7 @@ class EmotionsMixin:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[List[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         """Record an episode with emotional tagging.
 
@@ -379,14 +382,7 @@ class EmotionsMixin:
         else:
             outcome_type = "partial"
 
-        # Determine source_type from source context
-        source_type = "direct_experience"
-        if source:
-            source_lower = source.lower()
-            if any(x in source_lower for x in ["told", "said", "heard", "learned from"]):
-                source_type = "external"
-            elif any(x in source_lower for x in ["infer", "deduce", "conclude"]):
-                source_type = "inference"
+        resolved_source_type = _WritersMixin._normalize_source_type(source_type)
 
         # Keep explicit lineage and include source marker as annotation metadata.
         derived_from_value = list(derived_from) if derived_from else []
@@ -406,7 +402,7 @@ class EmotionsMixin:
             emotional_arousal=arousal or 0.0,
             emotional_tags=emotional_tags,
             confidence=0.8,
-            source_type=source_type,
+            source_type=resolved_source_type.value,
             source_episodes=derived_from,  # Link to source memories
             derived_from=derived_from_value if derived_from_value else None,
             # Context/scope fields

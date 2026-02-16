@@ -525,6 +525,10 @@ class TestCmdDoctorStructural:
         assert len(notes) >= 1
         assert "Structural health check" in notes[0].content
 
+        # Verify provenance fields
+        assert notes[0].source_type == "observation"
+        assert notes[0].source_entity == "kernle:doctor"
+
     def test_save_note_not_saved_when_no_findings(self, kernle_instance):
         args = argparse.Namespace(json=False, save_note=True)
         with patch("sys.stdout", new=StringIO()):

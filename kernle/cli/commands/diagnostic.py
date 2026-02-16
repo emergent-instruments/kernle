@@ -35,10 +35,11 @@ def cmd_status(args, k: "Kernle"):
 
         stacks_info = entity.stacks
         if stacks_info:
-            for alias, info in stacks_info.items():
+            for stack_id, info in stacks_info.items():
                 active_marker = " (active)" if info.is_active else ""
+                alias_label = f" [{info.alias}]" if info.alias else ""
                 print(
-                    f"Stack:      {info.stack_id} [{alias}]{active_marker} (schema v{info.schema_version})"
+                    f"Stack:      {stack_id}{alias_label}{active_marker} (schema v{info.schema_version})"
                 )
         else:
             # Show stack from compat layer if not yet attached

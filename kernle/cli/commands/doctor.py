@@ -784,6 +784,8 @@ def cmd_doctor_structural(args, k: "Kernle"):
             note_type="diagnostic",
             reason="kernle doctor structural",
             created_at=datetime.now(timezone.utc),
+            source_type="observation",
+            source_entity="kernle:doctor",
         )
         k._storage.save_note(note)
         if not output_json:

@@ -18,7 +18,7 @@ import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from kernle.core.enrichment import (
     build_derived_from,
@@ -28,6 +28,7 @@ from kernle.core.enrichment import (
     infer_outcome_type,
     normalize_belief_type,
     normalize_note_type,
+    normalize_source_type,
     validate_drive_type,
     validate_goal_type,
 )
@@ -55,10 +56,13 @@ from kernle.types import (
     Note,
     RawEntry,
     Relationship,
+    SourceType,
     TrustAssessment,
     Value,
 )
 from kernle.utils import get_kernle_home
+
+_normalize_source_type = normalize_source_type
 
 logger = logging.getLogger(__name__)
 
@@ -75,22 +79,6 @@ def _env_truthy(value: Optional[str]) -> bool:
     if value is None:
         return False
     return value.strip().lower() in {"1", "true", "yes", "on", "y"}
-
-
-def _extract_stack_id(value: Any) -> Optional[str]:
-    """Extract a stack id from a binding stack spec.
-
-    Supports current (`str`) and legacy (`{"stack_id": str`) forms.
-    """
-    if isinstance(value, str):
-        value = value.strip()
-        return value or None
-    if isinstance(value, dict):
-        stack_id = value.get("stack_id")
-        if isinstance(stack_id, str):
-            stack_id = stack_id.strip()
-            return stack_id or None
-    return None
 
 
 def _now_iso() -> str:
@@ -182,6 +170,7 @@ class _PluginContextImpl:
         tags: Optional[list[str]] = None,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -196,6 +185,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def belief(
@@ -206,6 +196,7 @@ class _PluginContextImpl:
         confidence: float = 0.8,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -217,6 +208,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def value(
@@ -227,6 +219,7 @@ class _PluginContextImpl:
         priority: int = 50,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -238,6 +231,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def goal(
@@ -249,6 +243,7 @@ class _PluginContextImpl:
         priority: str = "medium",
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -261,6 +256,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def note(
@@ -271,6 +267,7 @@ class _PluginContextImpl:
         tags: Optional[list[str]] = None,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -282,6 +279,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def relationship(
@@ -293,6 +291,7 @@ class _PluginContextImpl:
         notes: Optional[str] = None,
         entity_type: Optional[str] = None,
         derived_from: Optional[list[str]] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -305,6 +304,7 @@ class _PluginContextImpl:
             entity_type=entity_type,
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
+            source_type=source_type,
         )
 
     def drive(
@@ -316,6 +316,7 @@ class _PluginContextImpl:
         decay_hours: int = 24,
         derived_from: Optional[list[str]] = None,
         context: Optional[str] = None,
+        source_type: Optional[Union[str, SourceType]] = None,
     ) -> Optional[str]:
         stack = self._entity.active_stack
         if stack is None:
@@ -328,6 +329,7 @@ class _PluginContextImpl:
             derived_from=derived_from,
             source=f"plugin:{self._plugin_name}",
             context=context,
+            source_type=source_type,
         )
 
     def raw(
@@ -435,8 +437,9 @@ class Entity:
         self._core_id = core_id
         self._data_dir = data_dir or get_kernle_home()
         self._model: Optional[ModelProtocol] = None
-        self._stacks: dict[str, StackProtocol] = {}
-        self._active_stack_alias: Optional[str] = None
+        self._stacks: dict[str, StackProtocol] = {}  # stack_id -> stack
+        self._stack_aliases: dict[str, Optional[str]] = {}  # stack_id -> alias (cosmetic)
+        self._active_stack_id: Optional[str] = None
         self._plugins: dict[str, PluginProtocol] = {}
         self._plugin_contexts: dict[str, _PluginContextImpl] = {}
         self._plugin_tools: dict[str, list[ToolDefinition]] = {}
@@ -468,20 +471,20 @@ class Entity:
 
     @property
     def active_stack(self) -> Optional[StackProtocol]:
-        if self._active_stack_alias:
-            return self._stacks.get(self._active_stack_alias)
+        if self._active_stack_id:
+            return self._stacks.get(self._active_stack_id)
         return None
 
     @property
     def stacks(self) -> dict[str, StackInfo]:
         result: dict[str, StackInfo] = {}
-        for alias, stack in self._stacks.items():
-            result[alias] = StackInfo(
-                stack_id=stack.stack_id,
-                alias=alias,
+        for sid, stack in self._stacks.items():
+            result[sid] = StackInfo(
+                stack_id=sid,
+                alias=self._stack_aliases.get(sid),
                 schema_version=stack.schema_version,
                 stats=stack.get_stats(),
-                is_active=alias == self._active_stack_alias,
+                is_active=sid == self._active_stack_id,
             )
         return result
 
@@ -507,28 +510,32 @@ class Entity:
         alias: Optional[str] = None,
         set_active: bool = True,
     ) -> str:
-        resolved_alias = alias or stack.stack_id
-        self._stacks[resolved_alias] = stack
+        sid = stack.stack_id
+        if sid in self._stacks:
+            raise ValueError(f"Stack with stack_id '{sid}' is already attached")
+        self._stacks[sid] = stack
+        self._stack_aliases[sid] = alias
         stack.on_attach(self._core_id, self._get_inference_service())
         if set_active:
-            self._active_stack_alias = resolved_alias
+            self._active_stack_id = sid
         # Register already-loaded plugins with the new stack
         if hasattr(stack, "register_plugin"):
             for plugin_name in self._plugins:
                 stack.register_plugin(plugin_name)
-        return resolved_alias
+        return sid
 
-    def detach_stack(self, alias: str) -> None:
-        stack = self._stacks.pop(alias, None)
+    def detach_stack(self, stack_id: str) -> None:
+        stack = self._stacks.pop(stack_id, None)
         if stack:
             stack.on_detach(self._core_id)
-        if self._active_stack_alias == alias:
-            self._active_stack_alias = None
+        self._stack_aliases.pop(stack_id, None)
+        if self._active_stack_id == stack_id:
+            self._active_stack_id = None
 
-    def set_active_stack(self, alias: str) -> None:
-        if alias not in self._stacks:
-            raise ValueError(f"No stack with alias '{alias}'")
-        self._active_stack_alias = alias
+    def set_active_stack(self, stack_id: str) -> None:
+        if stack_id not in self._stacks:
+            raise ValueError(f"No stack with stack_id '{stack_id}'")
+        self._active_stack_id = stack_id
 
     # ---- Plugin Management ----
 
@@ -679,6 +686,7 @@ class Entity:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         episode_id = _generate_id()
@@ -694,7 +702,7 @@ class Entity:
             tags=tags or ["manual"],
             confidence=0.8,
             created_at=datetime.now(timezone.utc),
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -723,6 +731,7 @@ class Entity:
         context_tags: Optional[list[str]] = None,
         source: Optional[str] = None,
         derived_from: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         b = Belief(
@@ -733,7 +742,7 @@ class Entity:
             confidence=clamp_confidence(confidence),
             created_at=datetime.now(timezone.utc),
             is_protected=foundational,
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -756,6 +765,7 @@ class Entity:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         v = Value(
@@ -766,7 +776,7 @@ class Entity:
             priority=priority,
             created_at=datetime.now(timezone.utc),
             is_protected=foundational,
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -788,6 +798,7 @@ class Entity:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         validate_goal_type(goal_type)
@@ -803,7 +814,7 @@ class Entity:
             status="active",
             is_protected=is_protected,
             created_at=datetime.now(timezone.utc),
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -830,6 +841,7 @@ class Entity:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         note_type = normalize_note_type(type)
@@ -844,7 +856,7 @@ class Entity:
             tags=tags or [],
             created_at=datetime.now(timezone.utc),
             is_protected=protect,
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -866,6 +878,7 @@ class Entity:
         source: Optional[str] = None,
         context: Optional[str] = None,
         context_tags: Optional[list[str]] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         validate_drive_type(drive_type)
@@ -878,7 +891,7 @@ class Entity:
             focus_areas=focus_areas or [],
             created_at=now,
             updated_at=now,
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
@@ -899,6 +912,7 @@ class Entity:
         entity_type: Optional[str] = None,
         derived_from: Optional[list[str]] = None,
         source: Optional[str] = None,
+        source_type: Optional[str | SourceType] = None,
     ) -> str:
         stack = self._require_active_stack()
         now = datetime.now(timezone.utc)
@@ -916,7 +930,7 @@ class Entity:
             interaction_count=1,
             last_interaction=now,
             created_at=now,
-            source_type="direct_experience",
+            source_type=_normalize_source_type(source_type).value,
             derived_from=build_derived_from(derived_from, source),
         )
         if source:
@@ -976,10 +990,11 @@ class Entity:
             "stacks": {},
             "plugins": {},
         }
-        for alias, stack in self._stacks.items():
-            result["stacks"][alias] = {
-                "stack_id": stack.stack_id,
-                "active": alias == self._active_stack_alias,
+        for sid, stack in self._stacks.items():
+            result["stacks"][sid] = {
+                "stack_id": sid,
+                "alias": self._stack_aliases.get(sid),
+                "active": sid == self._active_stack_id,
                 "stats": stack.get_stats(),
             }
         for name, plugin in self._plugins.items():
@@ -1328,90 +1343,138 @@ class Entity:
         cp_path = checkpoint_dir / f"{cp_id}.json"
         binding = self.get_binding()
         data = {
+            "schema_version": 1,
             "checkpoint_id": cp_id,
             "message": message,
             "binding": {
                 "core_id": binding.core_id,
                 "model_config": binding.model_config,
                 "stacks": binding.stacks,
-                "active_stack_alias": binding.active_stack_alias,
+                "active_stack_id": binding.active_stack_id,
                 "plugins": binding.plugins,
             },
             "created_at": _now_iso(),
         }
         cp_path.write_text(json.dumps(data, indent=2))
+        self._cleanup_old_checkpoints(checkpoint_dir)
         return cp_id
+
+    def _cleanup_old_checkpoints(self, checkpoint_dir: Path, keep: int = 10) -> None:
+        """Remove old checkpoints, keeping the most recent `keep` per core_id."""
+        try:
+            files = sorted(
+                checkpoint_dir.glob(f"{self._core_id}_*.json"),
+                key=lambda p: p.stat().st_mtime,
+            )
+        except OSError as exc:
+            logger.warning("Failed to list checkpoints for cleanup: %s", exc)
+            return
+        to_remove = files[:-keep] if len(files) > keep else []
+        for f in to_remove:
+            try:
+                f.unlink()
+                logger.debug("Removed old checkpoint: %s", f.name)
+            except OSError as exc:
+                logger.warning("Failed to remove old checkpoint %s: %s", f.name, exc)
+
+    @classmethod
+    def from_checkpoint(cls, checkpoint_path: Path) -> Entity:
+        """Restore an Entity from a checkpoint file.
+
+        Reads checkpoint JSON, validates schema version, extracts
+        the embedded binding, and delegates to from_binding(Binding)
+        for full rehydration of stacks, plugins, and model.
+
+        Args:
+            checkpoint_path: Path to the checkpoint JSON file.
+
+        Returns:
+            A rehydrated Entity instance.
+
+        Raises:
+            FileNotFoundError: If the checkpoint file doesn't exist.
+            ValueError: If JSON is invalid, schema_version is unsupported,
+                       or binding key is missing.
+        """
+        if not checkpoint_path.exists():
+            raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+
+        try:
+            data = json.loads(checkpoint_path.read_text())
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON in checkpoint: {exc}") from exc
+
+        schema_version = data.get("schema_version")
+        if schema_version is None:
+            logger.warning(
+                "Checkpoint %s has no schema_version — treating as v1",
+                checkpoint_path.name,
+            )
+        elif schema_version > 1:
+            raise ValueError(
+                f"Unsupported checkpoint schema_version {schema_version} "
+                f"(this code supports version 1)"
+            )
+
+        if "binding" not in data:
+            raise ValueError(f"Checkpoint missing 'binding' key: {checkpoint_path}")
+
+        binding_data = data["binding"]
+        if not isinstance(binding_data, dict):
+            raise ValueError(
+                f"Checkpoint 'binding' must be a dict, got {type(binding_data).__name__}"
+            )
+        if "core_id" not in binding_data:
+            raise ValueError("Checkpoint binding missing required 'core_id' field")
+        binding = Binding(
+            core_id=binding_data["core_id"],
+            model_config=binding_data.get("model_config", {}),
+            stacks=binding_data.get("stacks", {}),
+            active_stack_id=binding_data.get("active_stack_id"),
+            plugins=binding_data.get("plugins", []),
+        )
+
+        # Infer data_dir from checkpoint path structure
+        data_dir = None
+        if checkpoint_path.parent.name == "checkpoints":
+            data_dir = checkpoint_path.parent.parent
+
+        return cls.from_binding(binding, data_dir=data_dir)
 
     # ---- Binding Management ----
 
     def get_binding(self) -> Binding:
-        stack_map: dict[str, str] = {}
-        for alias, stack in self._stacks.items():
-            stack_map[alias] = stack.stack_id
+        stack_map: dict[str, Optional[str]] = {}
+        for sid in self._stacks:
+            stack_map[sid] = self._stack_aliases.get(sid)
         return Binding(
             core_id=self._core_id,
-            model_config={"model_id": self._model.model_id} if self._model else {},
+            model_config=(
+                {"provider": self._model.capabilities.provider, "model_id": self._model.model_id}
+                if self._model
+                else {}
+            ),
             stacks=stack_map,
-            active_stack_alias=self._active_stack_alias,
+            active_stack_id=self._active_stack_id,
             plugins=list(self._plugins.keys()),
             created_at=datetime.now(timezone.utc),
         )
 
-    def save_binding(self, path: Optional[Path] = None) -> Path:
-        binding = self.get_binding()
-        if path is None:
-            bindings_dir = self._data_dir / "bindings"
-            bindings_dir.mkdir(parents=True, exist_ok=True)
-            path = bindings_dir / f"{self._core_id}.json"
-        data = {
-            "core_id": binding.core_id,
-            "model_config": binding.model_config,
-            "stacks": binding.stacks,
-            "active_stack_alias": binding.active_stack_alias,
-            "plugins": binding.plugins,
-            "created_at": binding.created_at.isoformat() if binding.created_at else None,
-        }
-        path.write_text(json.dumps(data, indent=2))
-        return path
-
     @classmethod
-    def from_binding(cls, binding: Binding | Path) -> Entity:
-        binding_path = None
-        data_dir = None
-
-        if isinstance(binding, Path):
-            binding_path = binding
-            data = json.loads(binding.read_text())
-            binding = Binding(
-                core_id=data["core_id"],
-                model_config=data.get("model_config", {}),
-                stacks=data.get("stacks", {}),
-                active_stack_alias=data.get("active_stack_alias"),
-                plugins=data.get("plugins", []),
-            )
-            if binding_path.name.endswith(".json") and binding_path.parent.name == "bindings":
-                data_dir = binding_path.parent.parent
-
+    def from_binding(cls, binding: Binding, *, data_dir: Optional[Path] = None) -> Entity:
         entity = cls(core_id=binding.core_id, data_dir=data_dir)
         entity._restored_binding = binding
 
-        # Rehydrate stack instances from saved aliases → stack IDs.
-        for alias, stack_spec in (binding.stacks or {}).items():
-            stack_id = _extract_stack_id(stack_spec)
-            if not alias or not stack_id:
-                logger.warning(
-                    "Ignoring invalid binding stack alias='%s' spec='%s'", alias, stack_spec
-                )
-                continue
+        # Rehydrate stack instances from saved stack_id → alias map.
+        for sid, alias in (binding.stacks or {}).items():
             try:
                 from kernle.stack import SQLiteStack
 
-                stack = SQLiteStack(stack_id=stack_id, enforce_provenance=False)
+                stack = SQLiteStack(stack_id=sid, enforce_provenance=False)
             except Exception as exc:
                 logger.warning(
-                    "Failed to instantiate stack '%s' for binding (stack_id=%s): %s",
-                    alias,
-                    stack_id,
+                    "Failed to instantiate stack '%s' for binding: %s",
+                    sid,
                     exc,
                     exc_info=True,
                 )
@@ -1420,24 +1483,24 @@ class Entity:
                 entity.attach_stack(stack, alias=alias, set_active=False)
             except Exception as exc:
                 logger.warning(
-                    "Failed to attach stack '%s' from binding: %s", alias, exc, exc_info=True
+                    "Failed to attach stack '%s' from binding: %s", sid, exc, exc_info=True
                 )
 
-        if binding.active_stack_alias is not None:
-            if binding.active_stack_alias in entity._stacks:
+        if binding.active_stack_id is not None:
+            if binding.active_stack_id in entity._stacks:
                 try:
-                    entity.set_active_stack(binding.active_stack_alias)
+                    entity.set_active_stack(binding.active_stack_id)
                 except Exception as exc:
                     logger.warning(
                         "Failed to restore active stack '%s': %s",
-                        binding.active_stack_alias,
+                        binding.active_stack_id,
                         exc,
                         exc_info=True,
                     )
             else:
                 logger.warning(
                     "Binding active stack '%s' is missing after restore",
-                    binding.active_stack_alias,
+                    binding.active_stack_id,
                 )
 
         # Restore plugins after stacks so plugin context is available.

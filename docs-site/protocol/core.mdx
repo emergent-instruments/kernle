@@ -24,7 +24,7 @@ The default implementation is `kernle.entity.Entity`.
 | `core_id` | `str` | Persistent identifier for this core |
 | `model` | `Optional[ModelProtocol]` | Currently bound model (`None` if not configured) |
 | `active_stack` | `Optional[StackProtocol]` | Currently active stack (`None` if none attached) |
-| `stacks` | `dict[str, StackInfo]` | All attached stacks, keyed by alias |
+| `stacks` | `dict[str, StackInfo]` | All attached stacks, keyed by stack_id |
 | `plugins` | `dict[str, PluginInfo]` | All loaded plugins, keyed by name |
 
 ### Model Management
@@ -37,9 +37,9 @@ The default implementation is `kernle.entity.Entity`.
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `attach_stack` | `(stack, *, alias=None, set_active=True) -> str` | Attach a stack. Returns the assigned alias. |
-| `detach_stack` | `(alias: str) -> None` | Detach a stack. The stack continues to exist independently. |
-| `set_active_stack` | `(alias: str) -> None` | Switch which attached stack receives routed operations. |
+| `attach_stack` | `(stack, *, alias=None, set_active=True) -> str` | Attach a stack. Returns the stack_id. Raises `ValueError` on duplicate. |
+| `detach_stack` | `(stack_id: str) -> None` | Detach a stack. The stack continues to exist independently. |
+| `set_active_stack` | `(stack_id: str) -> None` | Switch which attached stack receives routed operations. |
 
 ### Plugin Management
 
@@ -78,13 +78,13 @@ The default implementation is `kernle.entity.Entity`.
 | `trust_get` | `(entity, *, domain=None) -> list[TrustAssessment]` |
 | `trust_list` | `(*, domain=None, min_score=None) -> list[TrustAssessment]` |
 
-### Binding Management
+### Checkpoint & Binding
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_binding` | `() -> Binding` | Snapshot the current composition |
-| `save_binding` | `(path=None) -> Path` | Save the binding to disk |
-| `from_binding` | `(binding: Binding \| Path) -> CoreProtocol` | Restore a core from a saved binding (classmethod) |
+| `checkpoint` | `(message="") -> str` | Save composition checkpoint, returns checkpoint_id |
+| `from_checkpoint` | `(path: Path) -> CoreProtocol` | Restore from checkpoint file (classmethod) |
+| `get_binding` | `() -> Binding` | Snapshot current composition (used internally by checkpoint) |
 
 ## Stack Management
 
@@ -97,14 +97,14 @@ from kernle.stack import SQLiteStack
 # Create the core
 entity = Entity(core_id="my-entity")
 
-# Attach stacks
+# Attach stacks (returns stack_id, alias is cosmetic)
 entity.attach_stack(SQLiteStack("primary"), alias="primary")
 entity.attach_stack(SQLiteStack("work"), alias="work", set_active=False)
 
-# Switch context
+# Switch context (by stack_id)
 entity.set_active_stack("work")
 
-# Detach when done
+# Detach when done (by stack_id)
 entity.detach_stack("work")
 ```
 
@@ -188,7 +188,7 @@ The provenance step populates:
 - **id**: New UUID
 - **stack_id**: From the active stack
 - **source_entity**: `"core:{core_id}"` or a custom source (plugins use `"plugin:{name}"`)
-- **source_type**: `"direct_experience"`
+- **source_type**: Explicit on all write paths. Accepts a string or `SourceType` enum value. Defaults to `"direct_experience"` when not specified. Invalid strings raise `ValueError`. Internal subsystems pass explicit values: checkpoint uses `"observation"`, sync uses `"external"` with `source_entity="kernle:sync"`, doctor uses `"observation"` with `source_entity="kernle:doctor"`.
 - **created_at**: Current UTC timestamp
 - **derived_from**: Optional lineage chain
 - **context / context_tags**: Optional grouping
@@ -215,27 +215,31 @@ stack.save_episode(Episode(
 ))
 ```
 
-## Binding Save and Restore
+## Checkpoint Save and Restore
 
-A **Binding** is a serializable snapshot of the current composition: which core, which model, which stacks, which plugins.
+The `checkpoint()` method saves the current composition to a timestamped JSON file. `from_checkpoint()` restores an Entity from a saved checkpoint.
 
 ```python
 # Save current composition
-entity.save_binding()
-# Saves to ~/.kernle/bindings/{core_id}.json
+cp_id = entity.checkpoint("before refactor")
+# Saves to ~/.kernle/checkpoints/{core_id}_{timestamp}_{uuid}.json
 
 # Restore later
-restored = Entity.from_binding(Path("~/.kernle/bindings/my-entity.json"))
-# restored._restored_binding contains the binding data
-# Stacks and plugins need to be reattached/loaded from the binding info
+from pathlib import Path
+restored = Entity.from_checkpoint(Path.home() / ".kernle/checkpoints/my-entity_20260216_...json")
 ```
 
-The binding captures:
-- `core_id` -- the persistent identity
-- `model_config` -- which model was bound (provider, model_id)
-- `stacks` -- alias-to-stack_id mapping
-- `active_stack_alias` -- which stack was active
-- `plugins` -- list of loaded plugin names
-- `created_at` -- when the binding was taken
+Checkpoint files include:
+- `schema_version` -- format version (currently `1`) for forward compatibility
+- `checkpoint_id` -- unique identifier for this checkpoint
+- `message` -- human-readable description
+- `binding` -- the composition snapshot (core_id, model_config, stacks, plugins)
+- `created_at` -- UTC timestamp
 
-This enables reproducible compositions: save a binding, share it, and another instance can recreate the same setup.
+**Schema versioning policy:**
+- Missing `schema_version` is treated as version 1 with a warning (backward compat for checkpoints created before this change)
+- `schema_version > 1` raises `ValueError` (forward compat -- prevents loading newer formats with older code)
+
+**Restore semantics:** Restore is best-effort. Individual stack, plugin, or model failures during rehydration are logged at WARNING level but do not abort the restore. A partially restored entity is better than no entity in alpha.
+
+**Retention:** Each `checkpoint()` call retains the 10 most recent checkpoints per `core_id`, removing older ones automatically.

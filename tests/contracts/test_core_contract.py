@@ -8,7 +8,7 @@ real SQLiteStack instances for stack operations. Tests cover:
 - Provenance populated on routed writes
 - Plugin lifecycle with mock plugins
 - Status assembly
-- Binding save/restore
+- Checkpoint save/restore
 
 Designed to be reusable: future core implementations can run the
 same contract suite by substituting fixtures.
@@ -80,10 +80,13 @@ def _make_mock_plugin(name="test-plugin", version="1.0.0"):
     return plugin
 
 
-def _make_mock_model(model_id="test-model"):
+def _make_mock_model(model_id="test-model", provider="anthropic"):
     """Create a mock ModelProtocol."""
     model = MagicMock()
     type(model).model_id = PropertyMock(return_value=model_id)
+    capabilities = MagicMock()
+    type(capabilities).provider = PropertyMock(return_value=provider)
+    type(model).capabilities = PropertyMock(return_value=capabilities)
     return model
 
 
@@ -93,14 +96,14 @@ def _make_mock_model(model_id="test-model"):
 
 
 class TestStackManagement:
-    def test_attach_stack(self, entity, stack):
-        alias = entity.attach_stack(stack, alias="primary")
-        assert alias == "primary"
+    def test_attach_stack_returns_stack_id(self, entity, stack):
+        result = entity.attach_stack(stack, alias="primary")
+        assert result == STACK_ID
         assert entity.active_stack is stack
 
-    def test_attach_uses_stack_id_as_default_alias(self, entity, stack):
-        alias = entity.attach_stack(stack)
-        assert alias == STACK_ID
+    def test_attach_uses_stack_id_as_key(self, entity, stack):
+        result = entity.attach_stack(stack)
+        assert result == STACK_ID
 
     def test_attach_calls_on_attach(self, entity, stack):
         entity.attach_stack(stack)
@@ -108,7 +111,7 @@ class TestStackManagement:
 
     def test_detach_stack(self, entity, stack):
         entity.attach_stack(stack, alias="temp")
-        entity.detach_stack("temp")
+        entity.detach_stack(STACK_ID)
 
         assert entity.active_stack is None
         assert stack._attached_core_id is None
@@ -127,21 +130,22 @@ class TestStackManagement:
 
         assert entity.active_stack is s1
 
-        entity.set_active_stack("second")
+        entity.set_active_stack("s2")
         assert entity.active_stack is s2
 
     def test_set_active_missing_raises(self, entity):
-        with pytest.raises(ValueError, match="No stack with alias"):
+        with pytest.raises(ValueError, match="No stack with stack_id"):
             entity.set_active_stack("missing")
 
     def test_stacks_property(self, entity, stack):
         entity.attach_stack(stack, alias="main")
 
         stacks = entity.stacks
-        assert "main" in stacks
-        info = stacks["main"]
+        assert STACK_ID in stacks
+        info = stacks[STACK_ID]
         assert isinstance(info, StackInfo)
         assert info.stack_id == STACK_ID
+        assert info.alias == "main"
         assert info.is_active is True
 
     def test_multiple_stacks(self, entity, tmp_path):
@@ -155,8 +159,8 @@ class TestStackManagement:
 
         stacks = entity.stacks
         assert len(stacks) == 2
-        assert stacks["alpha"].is_active is True
-        assert stacks["beta"].is_active is False
+        assert stacks["s1"].is_active is True
+        assert stacks["s2"].is_active is False
 
 
 # ============================================================================
@@ -409,6 +413,37 @@ class TestProvenance:
         b = [x for x in beliefs if x.id == b_id][0]
         assert b.derived_from == ["episode:abc", "belief:xyz"]
 
+    def test_episode_explicit_source_type(self, entity_with_stack):
+        """Explicit source_type parameter overrides default."""
+        entity, stack = entity_with_stack
+        ep_id = entity.episode(
+            "External observation",
+            "Noted from partner",
+            source_type="external",
+        )
+
+        episodes = stack.get_episodes()
+        ep = [e for e in episodes if e.id == ep_id][0]
+        assert ep.source_type == "external"
+
+    def test_note_explicit_source_type(self, entity_with_stack):
+        """Note with explicit source_type stores correctly."""
+        entity, stack = entity_with_stack
+        n_id = entity.note("Observation note", source_type="observation")
+
+        notes = stack.get_notes()
+        n = [x for x in notes if x.id == n_id][0]
+        assert n.source_type == "observation"
+
+    def test_relationship_has_source_entity(self, entity_with_stack):
+        """Relationship created through Entity has source_entity set."""
+        entity, stack = entity_with_stack
+        r_id = entity.relationship("partner-test", entity_type="agent")
+
+        rels = stack.get_relationships()
+        r = [x for x in rels if x.id == r_id][0]
+        assert r.source_type == "direct_experience"
+
 
 # ============================================================================
 # 5. Plugin Lifecycle
@@ -507,8 +542,8 @@ class TestStatus:
         entity.episode("Status test", "Done")
 
         status = entity.status()
-        assert "main" in status["stacks"]
-        stack_info = status["stacks"]["main"]
+        assert STACK_ID in status["stacks"]
+        stack_info = status["stacks"][STACK_ID]
         assert "stats" in stack_info
         assert stack_info["stats"].get("episodes", 0) >= 1
 
@@ -570,11 +605,11 @@ class TestModelBinding:
 
 
 # ============================================================================
-# 8. Binding Save/Restore
+# 8. Checkpoint Save/Restore
 # ============================================================================
 
 
-class TestBindingSaveRestore:
+class TestCheckpointSaveRestore:
     def test_get_binding(self, entity_with_stack):
         entity, stack = entity_with_stack
         model = _make_mock_model("binding-model")
@@ -583,35 +618,31 @@ class TestBindingSaveRestore:
         binding = entity.get_binding()
         assert isinstance(binding, Binding)
         assert binding.core_id == CORE_ID
-        assert "main" in binding.stacks
-        assert binding.stacks["main"] == STACK_ID
-        assert binding.active_stack_alias == "main"
+        assert STACK_ID in binding.stacks
+        assert binding.stacks[STACK_ID] == "main"
+        assert binding.active_stack_id == STACK_ID
         assert binding.model_config.get("model_id") == "binding-model"
+        assert binding.model_config.get("provider") == "anthropic"
 
-    def test_save_binding_creates_file(self, entity_with_stack, data_dir):
+    def test_checkpoint_creates_file(self, entity_with_stack, data_dir):
         entity, stack = entity_with_stack
-        path = entity.save_binding()
+        cp_id = entity.checkpoint("test")
 
-        assert path.exists()
-        data = json.loads(path.read_text())
-        assert data["core_id"] == CORE_ID
-        assert "main" in data["stacks"]
+        assert isinstance(cp_id, str)
+        cp_dir = data_dir / "checkpoints"
+        assert cp_dir.exists()
+        files = list(cp_dir.glob("*.json"))
+        assert len(files) >= 1
 
-    def test_save_binding_custom_path(self, entity_with_stack, tmp_path):
+    def test_checkpoint_is_valid_json(self, entity_with_stack):
         entity, stack = entity_with_stack
-        custom = tmp_path / "custom_binding.json"
-        path = entity.save_binding(path=custom)
+        entity.checkpoint("json test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
 
-        assert path == custom
-        assert custom.exists()
-
-    def test_binding_is_valid_json(self, entity_with_stack, tmp_path):
-        entity, stack = entity_with_stack
-        path = entity.save_binding(path=tmp_path / "binding.json")
-
-        data = json.loads(path.read_text())
+        data = json.loads(files[0].read_text())
         assert isinstance(data, dict)
-        assert all(k in data for k in ["core_id", "stacks", "plugins"])
+        assert all(k in data for k in ["schema_version", "checkpoint_id", "binding"])
 
     def test_binding_includes_plugins(self, entity_with_stack):
         entity, stack = entity_with_stack
@@ -621,13 +652,6 @@ class TestBindingSaveRestore:
         binding = entity.get_binding()
         assert "bind-plugin" in binding.plugins
 
-    def test_from_binding_path(self, entity_with_stack, tmp_path):
-        entity, stack = entity_with_stack
-        path = entity.save_binding(path=tmp_path / "restore.json")
-
-        restored = Entity.from_binding(path)
-        assert restored.core_id == CORE_ID
-
     def test_from_binding_object(self, entity_with_stack):
         entity, stack = entity_with_stack
         binding = entity.get_binding()
@@ -635,21 +659,33 @@ class TestBindingSaveRestore:
         restored = Entity.from_binding(binding)
         assert restored.core_id == CORE_ID
 
-    def test_binding_roundtrip_preserves_data(self, entity_with_stack, tmp_path):
+    def test_from_checkpoint(self, entity_with_stack):
+        entity, stack = entity_with_stack
+        entity.checkpoint("restore test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
+
+        restored = Entity.from_checkpoint(files[0])
+        assert restored.core_id == CORE_ID
+
+    def test_checkpoint_roundtrip_preserves_data(self, entity_with_stack):
         entity, stack = entity_with_stack
         model = _make_mock_model("roundtrip-model")
         entity.set_model(model)
         plugin = _make_mock_plugin("roundtrip-plugin")
         entity.load_plugin(plugin)
 
-        path = entity.save_binding(path=tmp_path / "roundtrip.json")
-        data = json.loads(path.read_text())
+        entity.checkpoint("roundtrip test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
+        data = json.loads(files[0].read_text())
 
-        assert data["core_id"] == CORE_ID
-        assert data["stacks"]["main"] == STACK_ID
-        assert data["active_stack_alias"] == "main"
-        assert data["model_config"]["model_id"] == "roundtrip-model"
-        assert "roundtrip-plugin" in data["plugins"]
+        assert data["binding"]["core_id"] == CORE_ID
+        assert data["binding"]["stacks"][STACK_ID] == "main"
+        assert data["binding"]["active_stack_id"] == STACK_ID
+        assert data["binding"]["model_config"]["model_id"] == "roundtrip-model"
+        assert data["binding"]["model_config"]["provider"] == "anthropic"
+        assert "roundtrip-plugin" in data["binding"]["plugins"]
 
 
 # ============================================================================

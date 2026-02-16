@@ -24,6 +24,7 @@ from kernle.types import (
     Note,
     RawEntry,
     Relationship,
+    SourceType,
     TrustAssessment,
     Value,
 )
@@ -252,10 +253,13 @@ def _make_mock_plugin(name="test-plugin", version="1.0.0"):
     return plugin
 
 
-def _make_mock_model(model_id="test-model"):
+def _make_mock_model(model_id="test-model", provider="anthropic"):
     """Create a mock ModelProtocol."""
     model = MagicMock()
     type(model).model_id = PropertyMock(return_value=model_id)
+    capabilities = MagicMock()
+    type(capabilities).provider = PropertyMock(return_value=provider)
+    type(model).capabilities = PropertyMock(return_value=capabilities)
     return model
 
 
@@ -306,14 +310,14 @@ class TestGenerateIdSequenceOrdering:
 
 
 class TestStackManagement:
-    def test_attach_stack_default_alias(self, entity, stack):
-        alias = entity.attach_stack(stack)
-        assert alias == "test-stack"
+    def test_attach_stack_returns_stack_id(self, entity, stack):
+        result = entity.attach_stack(stack)
+        assert result == "test-stack"
         stack.on_attach.assert_called_once_with("test-core", None)
 
-    def test_attach_stack_custom_alias(self, entity, stack):
-        alias = entity.attach_stack(stack, alias="my-alias")
-        assert alias == "my-alias"
+    def test_attach_stack_with_alias_still_returns_stack_id(self, entity, stack):
+        result = entity.attach_stack(stack, alias="my-alias")
+        assert result == "test-stack"
 
     def test_attach_stack_sets_active(self, entity, stack):
         entity.attach_stack(stack)
@@ -323,22 +327,29 @@ class TestStackManagement:
         entity.attach_stack(stack, set_active=False)
         assert entity.active_stack is None
 
+    def test_attach_duplicate_stack_id_raises(self, entity, stack):
+        entity.attach_stack(stack)
+        duplicate = _make_mock_stack(stack_id="test-stack")
+        with pytest.raises(ValueError, match="already attached"):
+            entity.attach_stack(duplicate)
+
     def test_stacks_property_returns_stack_info(self, entity, stack):
         entity.attach_stack(stack, alias="primary")
         stacks = entity.stacks
-        assert "primary" in stacks
-        info = stacks["primary"]
+        assert "test-stack" in stacks
+        info = stacks["test-stack"]
         assert isinstance(info, StackInfo)
         assert info.stack_id == "test-stack"
+        assert info.alias == "primary"
         assert info.is_active is True
         assert info.schema_version == 22
         assert info.stats == {"episodes": 5, "beliefs": 3}
 
     def test_detach_stack(self, entity, stack):
         entity.attach_stack(stack, alias="primary")
-        entity.detach_stack("primary")
+        entity.detach_stack("test-stack")
         assert entity.active_stack is None
-        assert "primary" not in entity.stacks
+        assert "test-stack" not in entity.stacks
         stack.on_detach.assert_called_once_with("test-core")
 
     def test_detach_nonexistent_stack_is_noop(self, entity):
@@ -348,9 +359,9 @@ class TestStackManagement:
         entity.attach_stack(stack, alias="primary")
         second = _make_mock_stack(stack_id="second-stack")
         entity.attach_stack(second, alias="secondary", set_active=False)
-        entity.detach_stack("primary")
+        entity.detach_stack("test-stack")
         assert entity.active_stack is None
-        assert "secondary" in entity.stacks
+        assert "second-stack" in entity.stacks
 
     def test_set_active_stack(self, entity):
         s1 = _make_mock_stack(stack_id="s1")
@@ -358,11 +369,11 @@ class TestStackManagement:
         entity.attach_stack(s1, alias="first")
         entity.attach_stack(s2, alias="second")
         assert entity.active_stack is s2  # Last attached is active
-        entity.set_active_stack("first")
+        entity.set_active_stack("s1")
         assert entity.active_stack is s1
 
-    def test_set_active_stack_invalid_alias_raises(self, entity):
-        with pytest.raises(ValueError, match="No stack with alias"):
+    def test_set_active_stack_invalid_raises(self, entity):
+        with pytest.raises(ValueError, match="No stack with stack_id"):
             entity.set_active_stack("nonexistent")
 
     def test_multiple_stacks(self, entity):
@@ -372,8 +383,8 @@ class TestStackManagement:
         entity.attach_stack(s2, alias="second", set_active=True)
         stacks = entity.stacks
         assert len(stacks) == 2
-        assert stacks["first"].is_active is False
-        assert stacks["second"].is_active is True
+        assert stacks["s1"].is_active is False
+        assert stacks["s2"].is_active is True
 
 
 # ---- Model Management ----
@@ -738,9 +749,10 @@ class TestStatus:
     def test_status_with_stack(self, entity, stack):
         entity.attach_stack(stack, alias="primary")
         result = entity.status()
-        assert "primary" in result["stacks"]
-        assert result["stacks"]["primary"]["stack_id"] == "test-stack"
-        assert result["stacks"]["primary"]["active"] is True
+        assert "test-stack" in result["stacks"]
+        assert result["stacks"]["test-stack"]["stack_id"] == "test-stack"
+        assert result["stacks"]["test-stack"]["alias"] == "primary"
+        assert result["stacks"]["test-stack"]["active"] is True
 
     def test_status_with_plugin(self, entity, plugin):
         entity.load_plugin(plugin)
@@ -767,28 +779,16 @@ class TestStatus:
 class TestBinding:
     def test_get_binding(self, entity, stack):
         entity.attach_stack(stack, alias="primary")
+        entity.set_model(_make_mock_model())
         entity.load_plugin(_make_mock_plugin())
         binding = entity.get_binding()
         assert isinstance(binding, Binding)
         assert binding.core_id == "test-core"
-        assert binding.stacks == {"primary": "test-stack"}
-        assert binding.active_stack_alias == "primary"
+        assert binding.stacks == {"test-stack": "primary"}
+        assert binding.active_stack_id == "test-stack"
         assert "test-plugin" in binding.plugins
-
-    def test_save_binding(self, entity, tmp_path, stack):
-        entity.attach_stack(stack)
-        path = entity.save_binding()
-        assert path.exists()
-        import json
-
-        data = json.loads(path.read_text())
-        assert data["core_id"] == "test-core"
-
-    def test_save_binding_custom_path(self, entity, tmp_path):
-        path = tmp_path / "custom.json"
-        result = entity.save_binding(path=path)
-        assert result == path
-        assert path.exists()
+        assert binding.model_config["provider"] == "anthropic"
+        assert binding.model_config["model_id"] == "test-model"
 
     def test_from_binding_object(self):
         binding = Binding(
@@ -798,12 +798,6 @@ class TestBinding:
         )
         restored = Entity.from_binding(binding)
         assert restored.core_id == "restored-core"
-
-    def test_from_binding_path(self, entity, tmp_path, stack):
-        entity.attach_stack(stack)
-        path = entity.save_binding()
-        restored = Entity.from_binding(path)
-        assert restored.core_id == "test-core"
 
 
 # ---- Checkpoint ----
@@ -825,6 +819,108 @@ class TestCheckpoint:
         second = entity.checkpoint("second")
         assert first != second
         assert first.startswith("test-core_")
+
+    def test_checkpoint_includes_schema_version(self, entity, stack):
+        import json
+
+        entity.attach_stack(stack)
+        entity.checkpoint("schema test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
+        data = json.loads(files[0].read_text())
+        assert data["schema_version"] == 1
+
+    def test_checkpoint_roundtrip(self, entity, stack):
+        entity.attach_stack(stack, alias="primary")
+        entity.checkpoint("roundtrip test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
+        assert len(files) == 1
+
+        restored = Entity.from_checkpoint(files[0])
+        assert restored.core_id == "test-core"
+
+    def test_checkpoint_retention_keeps_10(self, entity, stack):
+        entity.attach_stack(stack)
+        for i in range(15):
+            entity.checkpoint(f"checkpoint {i}")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
+        assert len(files) == 10
+
+    def test_from_checkpoint_missing_file(self, tmp_path):
+        missing = tmp_path / "nonexistent.json"
+        with pytest.raises(FileNotFoundError):
+            Entity.from_checkpoint(missing)
+
+    def test_from_checkpoint_invalid_json(self, tmp_path):
+        bad = tmp_path / "bad.json"
+        bad.write_text("not valid json {{{")
+        with pytest.raises(ValueError, match="Invalid JSON"):
+            Entity.from_checkpoint(bad)
+
+    def test_from_checkpoint_unsupported_schema_version(self, tmp_path):
+        import json
+
+        cp = tmp_path / "future.json"
+        cp.write_text(
+            json.dumps(
+                {
+                    "schema_version": 999,
+                    "binding": {"core_id": "test"},
+                }
+            )
+        )
+        with pytest.raises(ValueError, match="Unsupported checkpoint schema_version"):
+            Entity.from_checkpoint(cp)
+
+    def test_from_checkpoint_missing_binding(self, tmp_path):
+        import json
+
+        cp = tmp_path / "nobinding.json"
+        cp.write_text(json.dumps({"schema_version": 1}))
+        with pytest.raises(ValueError, match="missing 'binding' key"):
+            Entity.from_checkpoint(cp)
+
+    def test_from_checkpoint_no_schema_version_warns(self, entity, stack, tmp_path, caplog):
+        import json
+
+        entity.attach_stack(stack)
+        # Create a checkpoint and remove schema_version
+        entity.checkpoint("test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
+        data = json.loads(files[0].read_text())
+        del data["schema_version"]
+        files[0].write_text(json.dumps(data))
+
+        with caplog.at_level(logging.WARNING, logger="kernle.entity"):
+            restored = Entity.from_checkpoint(files[0])
+        assert restored.core_id == "test-core"
+        assert any("no schema_version" in msg for msg in caplog.messages)
+
+    def test_from_checkpoint_binding_not_dict(self, tmp_path):
+        import json
+
+        cp = tmp_path / "bad_binding.json"
+        cp.write_text(json.dumps({"schema_version": 1, "binding": "not-a-dict"}))
+        with pytest.raises(ValueError, match="must be a dict"):
+            Entity.from_checkpoint(cp)
+
+    def test_from_checkpoint_binding_missing_core_id(self, tmp_path):
+        import json
+
+        cp = tmp_path / "no_core_id.json"
+        cp.write_text(json.dumps({"schema_version": 1, "binding": {"stacks": {}}}))
+        with pytest.raises(ValueError, match="missing required 'core_id'"):
+            Entity.from_checkpoint(cp)
+
+    def test_model_config_includes_provider(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.set_model(_make_mock_model(model_id="test-model", provider="anthropic"))
+        binding = entity.get_binding()
+        assert binding.model_config["provider"] == "anthropic"
+        assert binding.model_config["model_id"] == "test-model"
 
 
 # ---- Sync ----
@@ -968,20 +1064,13 @@ class TestBindingMetadata:
         binding = Binding(
             core_id="meta-test",
             model_config={"model_id": "test-model"},
-            stacks={"main": {"stack_id": "s1"}},
+            stacks={"s1": "main"},
             plugins=["plugin-a"],
         )
         entity = Entity.from_binding(binding)
         assert entity._restored_binding is not None
         assert entity._restored_binding.core_id == "meta-test"
         assert entity._restored_binding.plugins == ["plugin-a"]
-
-    def test_from_binding_path_stores_metadata(self, entity, stack, tmp_path):
-        entity.attach_stack(stack)
-        path = entity.save_binding(path=tmp_path / "test_binding.json")
-        restored = Entity.from_binding(path)
-        assert restored._restored_binding is not None
-        assert restored._restored_binding.core_id == entity.core_id
 
 
 # ---- source_entity Attribution ----
@@ -1274,3 +1363,248 @@ class TestEntityEnrichmentParity:
         entity.relationship("alice")
         r = stack.save_relationship.call_args[0][0]
         assert r.last_interaction is not None
+
+
+# ---- source_type Parameter Coverage for Entity Writer Methods ----
+
+
+class TestEntitySourceType:
+    """Entity writer methods should handle source_type correctly."""
+
+    # -- episode --
+
+    def test_episode_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("obj", "out")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.source_type == "direct_experience"
+
+    def test_episode_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("obj", "out", source_type=SourceType.EXTERNAL)
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.source_type == "external"
+
+    def test_episode_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("obj", "out", source_type="external")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.source_type == "external"
+
+    def test_episode_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.episode("obj", "out", source_type="telepathy")
+
+    # -- belief --
+
+    def test_belief_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.belief("the sky is blue")
+        b = stack.save_belief.call_args[0][0]
+        assert b.source_type == "direct_experience"
+
+    def test_belief_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.belief("the sky is blue", source_type=SourceType.EXTERNAL)
+        b = stack.save_belief.call_args[0][0]
+        assert b.source_type == "external"
+
+    def test_belief_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.belief("the sky is blue", source_type="external")
+        b = stack.save_belief.call_args[0][0]
+        assert b.source_type == "external"
+
+    def test_belief_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.belief("the sky is blue", source_type="telepathy")
+
+    # -- value --
+
+    def test_value_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.value("honesty", "Be truthful")
+        v = stack.save_value.call_args[0][0]
+        assert v.source_type == "direct_experience"
+
+    def test_value_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.value("honesty", "Be truthful", source_type=SourceType.EXTERNAL)
+        v = stack.save_value.call_args[0][0]
+        assert v.source_type == "external"
+
+    def test_value_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.value("honesty", "Be truthful", source_type="external")
+        v = stack.save_value.call_args[0][0]
+        assert v.source_type == "external"
+
+    def test_value_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.value("honesty", "Be truthful", source_type="telepathy")
+
+    # -- goal --
+
+    def test_goal_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.goal("learn rust")
+        g = stack.save_goal.call_args[0][0]
+        assert g.source_type == "direct_experience"
+
+    def test_goal_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.goal("learn rust", source_type=SourceType.EXTERNAL)
+        g = stack.save_goal.call_args[0][0]
+        assert g.source_type == "external"
+
+    def test_goal_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.goal("learn rust", source_type="external")
+        g = stack.save_goal.call_args[0][0]
+        assert g.source_type == "external"
+
+    def test_goal_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.goal("learn rust", source_type="telepathy")
+
+    # -- note --
+
+    def test_note_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.note("important thought")
+        n = stack.save_note.call_args[0][0]
+        assert n.source_type == "direct_experience"
+
+    def test_note_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.note("important thought", source_type=SourceType.EXTERNAL)
+        n = stack.save_note.call_args[0][0]
+        assert n.source_type == "external"
+
+    def test_note_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.note("important thought", source_type="external")
+        n = stack.save_note.call_args[0][0]
+        assert n.source_type == "external"
+
+    def test_note_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.note("important thought", source_type="telepathy")
+
+    # -- drive --
+
+    def test_drive_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.drive("curiosity", intensity=0.8)
+        d = stack.save_drive.call_args[0][0]
+        assert d.source_type == "direct_experience"
+
+    def test_drive_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.drive("curiosity", intensity=0.8, source_type=SourceType.CONSOLIDATION)
+        d = stack.save_drive.call_args[0][0]
+        assert d.source_type == "consolidation"
+
+    def test_drive_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.drive("curiosity", intensity=0.8, source_type="consolidation")
+        d = stack.save_drive.call_args[0][0]
+        assert d.source_type == "consolidation"
+
+    def test_drive_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.drive("curiosity", source_type="telepathy")
+
+    # -- relationship --
+
+    def test_relationship_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.relationship("other-agent")
+        r = stack.save_relationship.call_args[0][0]
+        assert r.source_type == "direct_experience"
+
+    def test_relationship_enum_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.relationship("other-agent", source_type=SourceType.EXTERNAL)
+        r = stack.save_relationship.call_args[0][0]
+        assert r.source_type == "external"
+
+    def test_relationship_string_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.relationship("other-agent", source_type="external")
+        r = stack.save_relationship.call_args[0][0]
+        assert r.source_type == "external"
+
+    def test_relationship_invalid_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            entity.relationship("other-agent", source_type="telepathy")
+
+
+# ---- PluginContext source_type Passthrough ----
+
+
+class TestPluginContextSourceType:
+    """PluginContext should pass source_type through to Entity methods."""
+
+    def test_episode_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.episode("obj", "out", source_type="external")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.source_type == "external"
+
+    def test_episode_default_source_type(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.episode("obj", "out")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.source_type == "direct_experience"
+
+    def test_belief_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.belief("test statement", source_type="seed")
+        b = stack.save_belief.call_args[0][0]
+        assert b.source_type == "seed"
+
+    def test_relationship_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.relationship("other-agent", source_type="external")
+        r = stack.save_relationship.call_args[0][0]
+        assert r.source_type == "external"
+
+    def test_note_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.note("a note", source_type="inference")
+        n = stack.save_note.call_args[0][0]
+        assert n.source_type == "inference"
+
+    def test_goal_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.goal("learn rust", source_type="external")
+        g = stack.save_goal.call_args[0][0]
+        assert g.source_type == "external"
+
+    def test_drive_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.drive("curiosity", source_type="consolidation")
+        d = stack.save_drive.call_args[0][0]
+        assert d.source_type == "consolidation"
+
+    def test_value_source_type_passthrough(self, entity, stack):
+        entity.attach_stack(stack)
+        ctx = _PluginContextImpl(entity, "test-plugin")
+        ctx.value("honesty", "Be truthful", source_type="seed")
+        v = stack.save_value.call_args[0][0]
+        assert v.source_type == "seed"

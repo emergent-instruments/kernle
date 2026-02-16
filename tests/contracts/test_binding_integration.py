@@ -1,8 +1,8 @@
-"""Integration tests for the Binding save/restore system.
+"""Integration tests for the Binding and checkpoint save/restore system.
 
 Tests the full lifecycle of creating an Entity + SQLiteStack composition,
-saving the binding, and restoring it. Uses real SQLiteStack instances
-(not mocks) to verify the binding system works end-to-end.
+checkpointing, and restoring from checkpoint. Uses real SQLiteStack instances
+(not mocks) to verify the binding and checkpoint system works end-to-end.
 """
 
 import json
@@ -60,9 +60,12 @@ def _make_mock_plugin(name="test-plugin"):
     return plugin
 
 
-def _make_mock_model(model_id="test-model"):
+def _make_mock_model(model_id="test-model", provider="anthropic"):
     model = MagicMock()
     type(model).model_id = PropertyMock(return_value=model_id)
+    capabilities = MagicMock()
+    type(capabilities).provider = PropertyMock(return_value=provider)
+    type(model).capabilities = PropertyMock(return_value=capabilities)
     return model
 
 
@@ -72,36 +75,42 @@ def _make_mock_model(model_id="test-model"):
 
 
 class TestBindingRoundtrip:
-    def test_basic_roundtrip(self, entity, stack, tmp_path):
-        """Create Entity + Stack, save binding, restore, verify."""
+    def test_basic_roundtrip(self, entity, stack):
+        """Create Entity + Stack, checkpoint, restore, verify."""
         entity.attach_stack(stack, alias="primary")
         entity.episode("Test roundtrip", "It works")
 
-        # Save
-        binding_path = tmp_path / "binding.json"
-        path = entity.save_binding(path=binding_path)
-        assert path.exists()
+        # Save checkpoint
+        entity.checkpoint("roundtrip test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
+        assert len(files) == 1
 
         # Restore
-        restored = Entity.from_binding(path)
+        restored = Entity.from_checkpoint(files[0])
         assert restored.core_id == CORE_ID
 
-    def test_roundtrip_preserves_core_id(self, entity, stack, tmp_path):
+    def test_roundtrip_preserves_core_id(self, entity, stack):
         entity.attach_stack(stack)
-        path = entity.save_binding(path=tmp_path / "b.json")
+        entity.checkpoint("test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
 
-        restored = Entity.from_binding(path)
+        restored = Entity.from_checkpoint(files[0])
         assert restored.core_id == entity.core_id
 
-    def test_roundtrip_with_model(self, entity, stack, tmp_path):
+    def test_roundtrip_with_model(self, entity, stack):
         model = _make_mock_model("claude-test")
         entity.set_model(model)
         entity.attach_stack(stack, alias="main")
 
-        path = entity.save_binding(path=tmp_path / "b.json")
-        data = json.loads(path.read_text())
+        entity.checkpoint("model test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
+        data = json.loads(files[0].read_text())
 
-        assert data["model_config"]["model_id"] == "claude-test"
+        assert data["binding"]["model_config"]["model_id"] == "claude-test"
+        assert data["binding"]["model_config"]["provider"] == "anthropic"
 
     def test_roundtrip_with_multiple_stacks(self, entity, tmp_path):
         s1 = SQLiteStack(stack_id="s1", db_path=tmp_path / "s1.db", enforce_provenance=False)
@@ -110,42 +119,47 @@ class TestBindingRoundtrip:
         entity.attach_stack(s1, alias="alpha")
         entity.attach_stack(s2, alias="beta", set_active=False)
 
-        path = entity.save_binding(path=tmp_path / "multi.json")
-        data = json.loads(path.read_text())
+        entity.checkpoint("multi stack")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
+        data = json.loads(files[0].read_text())
 
-        assert data["stacks"]["alpha"] == "s1"
-        assert data["stacks"]["beta"] == "s2"
-        assert data["active_stack_alias"] == "alpha"
+        assert data["binding"]["stacks"]["s1"] == "alpha"
+        assert data["binding"]["stacks"]["s2"] == "beta"
+        assert data["binding"]["active_stack_id"] == "s1"
 
-    def test_roundtrip_with_plugins(self, entity, stack, tmp_path):
+    def test_roundtrip_with_plugins(self, entity, stack):
         entity.attach_stack(stack, alias="main")
         entity.load_plugin(_make_mock_plugin("plugin-a"))
         entity.load_plugin(_make_mock_plugin("plugin-b"))
 
-        path = entity.save_binding(path=tmp_path / "plugins.json")
-        data = json.loads(path.read_text())
+        entity.checkpoint("plugins test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
+        data = json.loads(files[0].read_text())
 
-        assert "plugin-a" in data["plugins"]
-        assert "plugin-b" in data["plugins"]
+        assert "plugin-a" in data["binding"]["plugins"]
+        assert "plugin-b" in data["binding"]["plugins"]
 
-    def test_roundtrip_restores_stack_aliases(self, entity, stack, tmp_path):
+    def test_roundtrip_restores_stack_aliases(self, entity, stack):
         entity.attach_stack(stack, alias="main")
-        entity.episode("Restore", "from binding")
-        path = entity.save_binding(path=tmp_path / "restore-stacks.json")
+        entity.episode("Restore", "from checkpoint")
+        entity.checkpoint("stack restore test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
 
-        restored = Entity.from_binding(path)
+        restored = Entity.from_checkpoint(files[0])
         assert restored.core_id == CORE_ID
-        assert "main" in restored.stacks
+        assert STACK_ID in restored.stacks
         assert restored.active_stack is not None
         assert restored.active_stack.stack_id == STACK_ID
 
-    def test_roundtrip_restores_plugins(self, entity, stack, tmp_path, monkeypatch):
+    def test_roundtrip_restores_plugins(self, entity, stack, monkeypatch):
         entity.attach_stack(stack, alias="main")
-        path = entity.save_binding(path=tmp_path / "restore-plugins.json")
-
-        restored_binding = json.loads(path.read_text())
-        restored_binding["plugins"] = ["restored-plugin"]
-        path.write_text(json.dumps(restored_binding))
+        entity.load_plugin(_make_mock_plugin("restored-plugin"))
+        entity.checkpoint("plugin restore test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
 
         class _RestoredPlugin:
             name = "restored-plugin"
@@ -193,68 +207,65 @@ class TestBindingRoundtrip:
             lambda _comp: _RestoredPlugin,
         )
 
-        restored = Entity.from_binding(path)
+        restored = Entity.from_checkpoint(files[0])
         assert "restored-plugin" in restored.plugins
 
 
 # ============================================================================
-# 2. Binding File Format
+# 2. Checkpoint File Format
 # ============================================================================
 
 
-class TestBindingFileFormat:
-    def test_binding_is_valid_json(self, entity, stack, tmp_path):
+class TestCheckpointFileFormat:
+    def test_checkpoint_is_valid_json(self, entity, stack):
         entity.attach_stack(stack, alias="main")
-        path = entity.save_binding(path=tmp_path / "format.json")
+        entity.checkpoint("format test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
 
-        content = path.read_text()
+        content = files[0].read_text()
         data = json.loads(content)
         assert isinstance(data, dict)
 
-    def test_binding_is_human_readable(self, entity, stack, tmp_path):
-        """Binding file should be indented / pretty-printed."""
+    def test_checkpoint_is_human_readable(self, entity, stack):
+        """Checkpoint file should be indented / pretty-printed."""
         entity.attach_stack(stack, alias="main")
-        path = entity.save_binding(path=tmp_path / "pretty.json")
+        entity.checkpoint("pretty test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
 
-        content = path.read_text()
-        # Pretty-printed JSON has newlines and indentation
+        content = files[0].read_text()
         assert "\n" in content
         assert "  " in content
 
-    def test_binding_has_required_fields(self, entity, stack, tmp_path):
+    def test_checkpoint_has_required_fields(self, entity, stack):
         entity.attach_stack(stack, alias="main")
-        path = entity.save_binding(path=tmp_path / "fields.json")
+        entity.checkpoint("fields test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
 
-        data = json.loads(path.read_text())
-        required = ["core_id", "model_config", "stacks", "active_stack_alias", "plugins"]
+        data = json.loads(files[0].read_text())
+        required = ["schema_version", "checkpoint_id", "message", "binding", "created_at"]
         for field in required:
             assert field in data, f"Missing required field: {field}"
 
-    def test_binding_has_created_at(self, entity, stack, tmp_path):
+    def test_checkpoint_has_schema_version(self, entity, stack):
         entity.attach_stack(stack, alias="main")
-        path = entity.save_binding(path=tmp_path / "ts.json")
+        entity.checkpoint("schema test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
 
-        data = json.loads(path.read_text())
-        assert "created_at" in data
-        assert data["created_at"] is not None
+        data = json.loads(files[0].read_text())
+        assert data["schema_version"] == 1
 
-    def test_binding_stacks_map_alias_to_id(self, entity, stack, tmp_path):
+    def test_checkpoint_binding_has_stacks(self, entity, stack):
         entity.attach_stack(stack, alias="memory")
-        path = entity.save_binding(path=tmp_path / "stacks.json")
+        entity.checkpoint("stacks test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
 
-        data = json.loads(path.read_text())
-        assert data["stacks"]["memory"] == STACK_ID
-
-    def test_empty_entity_binding(self, entity, tmp_path):
-        """Entity with no stacks, no model, no plugins."""
-        path = entity.save_binding(path=tmp_path / "empty.json")
-
-        data = json.loads(path.read_text())
-        assert data["core_id"] == CORE_ID
-        assert data["stacks"] == {}
-        assert data["plugins"] == []
-        assert data["model_config"] == {}
-        assert data["active_stack_alias"] is None
+        data = json.loads(files[0].read_text())
+        assert data["binding"]["stacks"][STACK_ID] == "memory"
 
 
 # ============================================================================
@@ -263,49 +274,42 @@ class TestBindingFileFormat:
 
 
 class TestMemoriesSurviveBinding:
-    """Save memories through Entity, save binding, verify stack still has them."""
+    """Save memories through Entity, checkpoint, verify stack still has them."""
 
-    def test_memories_persist_after_binding_save(self, entity, stack, tmp_path):
+    def test_memories_persist_after_checkpoint(self, entity, stack):
         entity.attach_stack(stack, alias="main")
 
-        # Write various memory types
         ep_id = entity.episode("Learn Rust", "Built CLI tool")
         b_id = entity.belief("Rust is safe")
         v_id = entity.value("Safety", "Memory safety matters")
         g_id = entity.goal("Ship v2")
         n_id = entity.note("Check performance")
 
-        # Save binding
-        entity.save_binding(path=tmp_path / "persist.json")
+        entity.checkpoint("persist test")
 
-        # Verify memories still in stack
         episodes = stack.get_episodes()
         assert any(e.id == ep_id for e in episodes)
-
         beliefs = stack.get_beliefs()
         assert any(b.id == b_id for b in beliefs)
-
         values = stack.get_values()
         assert any(v.id == v_id for v in values)
-
         goals = stack.get_goals()
         assert any(g.id == g_id for g in goals)
-
         notes = stack.get_notes()
         assert any(n.id == n_id for n in notes)
 
-    def test_stack_accessible_after_restore(self, entity, stack, db_path, tmp_path):
-        """After binding restore, stack data is still on disk and accessible."""
+    def test_stack_accessible_after_restore(self, entity, stack, db_path):
+        """After checkpoint restore, stack data is still on disk and accessible."""
         entity.attach_stack(stack, alias="main")
         ep_id = entity.episode("Persist test", "Memory survives")
 
-        path = entity.save_binding(path=tmp_path / "access.json")
+        entity.checkpoint("access test")
+        cp_dir = entity._data_dir / "checkpoints"
+        files = list(cp_dir.glob("*.json"))
 
-        # Restore creates a new Entity (no stacks yet, but same core_id)
-        restored = Entity.from_binding(path)
+        restored = Entity.from_checkpoint(files[0])
         assert restored.core_id == CORE_ID
 
-        # Re-open the same database to verify data persisted
         reopened_stack = SQLiteStack(stack_id=STACK_ID, db_path=db_path, enforce_provenance=False)
         episodes = reopened_stack.get_episodes()
         assert any(e.id == ep_id for e in episodes)
@@ -316,62 +320,32 @@ class TestMemoriesSurviveBinding:
 # ============================================================================
 
 
-class TestBindingEdgeCases:
-    def test_save_binding_default_path(self, entity, stack, data_dir):
-        entity.attach_stack(stack, alias="main")
-        path = entity.save_binding()
-
-        assert path.exists()
-        assert "bindings" in str(path)
-
-    def test_binding_overwrite(self, entity, stack, tmp_path):
-        entity.attach_stack(stack, alias="main")
-        path = tmp_path / "overwrite.json"
-
-        entity.save_binding(path=path)
-        data1 = json.loads(path.read_text())
-
-        # Load a plugin, save again
-        entity.load_plugin(_make_mock_plugin("new-plugin"))
-        entity.save_binding(path=path)
-        data2 = json.loads(path.read_text())
-
-        assert data1["plugins"] == []
-        assert "new-plugin" in data2["plugins"]
-
-    def test_from_binding_invalid_path(self, tmp_path):
+class TestCheckpointEdgeCases:
+    def test_from_checkpoint_invalid_path(self, tmp_path):
         bad_path = tmp_path / "nonexistent.json"
         with pytest.raises(FileNotFoundError):
-            Entity.from_binding(bad_path)
+            Entity.from_checkpoint(bad_path)
 
-    def test_from_binding_corrupted_json(self, tmp_path):
+    def test_from_checkpoint_corrupted_json(self, tmp_path):
         bad_path = tmp_path / "corrupt.json"
         bad_path.write_text("not valid json {{{")
-        with pytest.raises(json.JSONDecodeError):
-            Entity.from_binding(bad_path)
-
-    def test_from_binding_minimal_json(self, tmp_path):
-        """Binding with only core_id should still restore."""
-        minimal = tmp_path / "minimal.json"
-        minimal.write_text(json.dumps({"core_id": "minimal-core"}))
-
-        restored = Entity.from_binding(minimal)
-        assert restored.core_id == "minimal-core"
+        with pytest.raises(ValueError, match="Invalid JSON"):
+            Entity.from_checkpoint(bad_path)
 
     def test_get_binding_detached_entity(self, entity):
         """Entity with no stacks can still produce a binding."""
         binding = entity.get_binding()
         assert binding.core_id == CORE_ID
         assert binding.stacks == {}
-        assert binding.active_stack_alias is None
+        assert binding.active_stack_id is None
 
-    def test_binding_after_detach(self, entity, stack, tmp_path):
+    def test_binding_after_detach(self, entity, stack):
         entity.attach_stack(stack, alias="temp")
-        entity.detach_stack("temp")
+        entity.detach_stack(STACK_ID)
 
         binding = entity.get_binding()
         assert binding.stacks == {}
-        assert binding.active_stack_alias is None
+        assert binding.active_stack_id is None
 
 
 # ============================================================================
@@ -384,19 +358,46 @@ class TestBindingDataclass:
         b = Binding(
             core_id="test",
             model_config={"model_id": "m1"},
-            stacks={"main": "s1"},
-            active_stack_alias="main",
+            stacks={"s1": "main"},
+            active_stack_id="s1",
             plugins=["p1"],
         )
         assert b.core_id == "test"
         assert b.model_config == {"model_id": "m1"}
-        assert b.stacks == {"main": "s1"}
-        assert b.active_stack_alias == "main"
+        assert b.stacks == {"s1": "main"}
+        assert b.active_stack_id == "s1"
         assert b.plugins == ["p1"]
 
     def test_binding_defaults(self):
         b = Binding(core_id="test", model_config={}, stacks={})
-        assert b.active_stack_alias is None
+        assert b.active_stack_id is None
         assert b.plugins == []
         assert b.created_at is None
         assert b.metadata == {}
+
+
+# ============================================================================
+# 6. Binding Format (stack_id-keyed)
+# ============================================================================
+
+
+class TestBindingFormat:
+    """Verify stack_id-keyed binding format loads correctly."""
+
+    def test_stack_id_keyed_format_loads(self):
+        """Binding with {stack_id -> alias, active_stack_id} loads correctly."""
+        binding = Binding(
+            core_id="format-core",
+            model_config={},
+            stacks={"stack-1": "main", "stack-2": None},
+            active_stack_id="stack-1",
+            plugins=[],
+        )
+
+        restored = Entity.from_binding(binding)
+        assert restored.core_id == "format-core"
+        assert restored._restored_binding.stacks == {
+            "stack-1": "main",
+            "stack-2": None,
+        }
+        assert restored._restored_binding.active_stack_id == "stack-1"

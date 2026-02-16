@@ -576,6 +576,8 @@ def cmd_sync(args, k: "Kernle"):
                     outcome=data.get("outcome", data.get("outcome_description", "")),
                     lessons=data.get("lessons", data.get("lessons_learned", [])),
                     tags=data.get("tags", []),
+                    source_type="external",
+                    source_entity="kernle:sync",
                 )
                 k._storage.save_episode(ep)
                 # Mark as synced (don't queue for push)
@@ -597,6 +599,8 @@ def cmd_sync(args, k: "Kernle"):
                     content=data.get("content", ""),
                     note_type=data.get("note_type", "note"),
                     tags=data.get("tags", []),
+                    source_type="external",
+                    source_entity="kernle:sync",
                 )
                 k._storage.save_note(note)
                 with k._storage._connect() as conn:
