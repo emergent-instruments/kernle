@@ -697,24 +697,28 @@ class TestStorageAdminDeleteStackData:
         assert counts["episodes"] == 0
 
     def test_delete_stack_data_vec_like_escaping(self, tmp_path):
-        """Test deletion properly escapes % and _ in stack_id for LIKE queries."""
+        """Test deletion properly escapes % and _ in stack_id for LIKE queries.
+
+        Uses embedding_meta (a regular table) to test LIKE escaping, since
+        vec_embeddings may be a virtual table with vector validation when
+        sqlite-vec is installed.
+        """
         storage = SQLiteStorage("test-agent", db_path=tmp_path / "test.db")
 
         with storage._connect() as conn:
-            # Create vec_embeddings manually (not always created by schema if sqlite-vec absent)
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS vec_embeddings (id TEXT PRIMARY KEY, data BLOB)"
-            )
-
-            # Insert embeddings for a stack with special LIKE characters
-            conn.execute("INSERT INTO vec_embeddings VALUES ('special%_stack:episodes:ep1', X'00')")
-            conn.execute("INSERT INTO vec_embeddings VALUES ('special%_stack:notes:n1', X'00')")
-            # This should NOT be matched by the escaped pattern
-            conn.execute("INSERT INTO vec_embeddings VALUES ('specialXYstack:episodes:ep2', X'00')")
-            # embedding_meta already exists in real schema; use explicit column names
+            # embedding_meta is a regular table created by the schema
             conn.execute(
                 "INSERT INTO embedding_meta (id, table_name, record_id, content_hash, created_at) "
                 "VALUES ('special%_stack:episodes:ep1', 'episodes', 'ep1', 'abc', '2024-01-01')"
+            )
+            conn.execute(
+                "INSERT INTO embedding_meta (id, table_name, record_id, content_hash, created_at) "
+                "VALUES ('special%_stack:notes:n1', 'notes', 'n1', 'def', '2024-01-01')"
+            )
+            # This should NOT be matched by the escaped pattern
+            conn.execute(
+                "INSERT INTO embedding_meta (id, table_name, record_id, content_hash, created_at) "
+                "VALUES ('specialXYstack:episodes:ep2', 'episodes', 'ep2', 'ghi', '2024-01-01')"
             )
 
             # Also add a regular episode so delete_stack_data has something to work with
@@ -724,21 +728,16 @@ class TestStorageAdminDeleteStackData:
 
         with storage._connect() as conn:
             # The special%_stack entries should be deleted
-            vec_count = conn.execute(
-                "SELECT COUNT(*) FROM vec_embeddings WHERE id LIKE 'special\\%\\_stack:%' ESCAPE '\\'"
-            ).fetchone()[0]
-            assert vec_count == 0
-
-            # The specialXYstack entry should remain
-            other_count = conn.execute(
-                "SELECT COUNT(*) FROM vec_embeddings WHERE id LIKE 'specialXYstack:%'"
-            ).fetchone()[0]
-            assert other_count == 1
-
             meta_count = conn.execute(
                 "SELECT COUNT(*) FROM embedding_meta WHERE id LIKE 'special\\%\\_stack:%' ESCAPE '\\'"
             ).fetchone()[0]
             assert meta_count == 0
+
+            # The specialXYstack entry should remain
+            other_count = conn.execute(
+                "SELECT COUNT(*) FROM embedding_meta WHERE id LIKE 'specialXYstack:%'"
+            ).fetchone()[0]
+            assert other_count == 1
 
     def test_delete_stack_data_returns_only_nonzero(self, tmp_path):
         """Test that delete returns only tables with deleted rows."""
