@@ -2909,14 +2909,26 @@ class SQLiteStorage:
                 return []
 
     def get_stack_counts(self, stack_id: str) -> dict[str, int]:
-        """Get record counts per table for a stack."""
+        """Get record counts per table for a stack.
+
+        Covers all tables that delete_stack_data() touches so callers
+        get a complete picture before deletion.
+        """
+        # Only tables with a stack_id column. checkpoints and sync_queue
+        # are excluded because they lack stack_id.
         table_map = {
             "episodes": "episodes",
             "notes": "notes",
             "beliefs": "beliefs",
             "goals": "goals",
             "values": "agent_values",
+            "drives": "drives",
+            "relationships": "relationships",
+            "playbooks": "playbooks",
+            "raw_entries": "raw_entries",
         }
+        import sqlite3
+
         counts: dict[str, int] = {}
         with self._connect() as conn:
             for label, table in table_map.items():
@@ -2927,52 +2939,70 @@ class SQLiteStorage:
                         (stack_id,),
                     ).fetchone()
                     counts[label] = row[0] if row else 0
-                except Exception:
-                    counts[label] = 0
+                except sqlite3.OperationalError as e:
+                    if "no such table" in str(e):
+                        counts[label] = 0
+                    else:
+                        raise
         return counts
 
     def delete_stack_data(self, stack_id: str) -> dict[str, int]:
-        """Delete all data for a stack across all tables. Returns deleted counts."""
+        """Delete all data for a stack across all tables in a single transaction.
+
+        Tables that exist in the database are deleted atomically — if any
+        DELETE statement fails (other than "no such table"), the entire
+        transaction is rolled back and the error propagates.  Missing tables
+        are skipped silently since schema versions vary across deployments.
+
+        Returns:
+            Dict mapping table name to number of deleted rows (only non-zero entries).
+
+        Raises:
+            sqlite3.OperationalError: If a DELETE fails for reasons other than
+                a missing table.
+        """
+        import sqlite3
+
+        # Only tables with a stack_id column. checkpoints and sync_queue
+        # are excluded because they lack stack_id.
         tables = [
             "episodes",
             "notes",
             "beliefs",
             "goals",
             "agent_values",
-            "checkpoints",
             "drives",
             "relationships",
             "playbooks",
             "raw_entries",
-            "sync_queue",
         ]
         deleted: dict[str, int] = {}
         with self._connect() as conn:
             for table in tables:
+                validate_table_name(table)
                 try:
-                    validate_table_name(table)
                     cursor = conn.execute(f"DELETE FROM {table} WHERE stack_id = ?", (stack_id,))
                     if cursor.rowcount > 0:
                         deleted[table] = cursor.rowcount
-                except Exception as e:
-                    logger.debug(
-                        f"Failed to delete from table '{table}': {e}",
-                        exc_info=True,
-                    )
+                except sqlite3.OperationalError as e:
+                    if "no such table" in str(e):
+                        continue
+                    raise
 
-            # Delete from vec_embeddings and embedding_meta (id format: {stack_id}:...)
+            # Vec tables use LIKE pattern (id format: {stack_id}:...)
             escaped = escape_like_pattern(stack_id)
             like_pattern = f"{escaped}:%"
             for vec_table in ("vec_embeddings", "embedding_meta"):
                 try:
-                    conn.execute(
+                    cursor = conn.execute(
                         f"DELETE FROM {vec_table} WHERE id LIKE ? ESCAPE '\\'",
                         (like_pattern,),
                     )
-                except Exception as e:
-                    logger.debug(
-                        f"Failed to delete from {vec_table}: {e}",
-                        exc_info=True,
-                    )
+                    if cursor.rowcount > 0:
+                        deleted[vec_table] = cursor.rowcount
+                except sqlite3.OperationalError as e:
+                    if "no such table" in str(e):
+                        continue
+                    raise
 
         return deleted

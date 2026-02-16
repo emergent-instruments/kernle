@@ -593,7 +593,17 @@ class TestStorageAdminGetStackCounts:
         """Test counts for a stack with no data."""
         storage = SQLiteStorage("test-agent", db_path=tmp_path / "test.db")
         result = storage.get_stack_counts("nonexistent")
-        assert result == {"episodes": 0, "notes": 0, "beliefs": 0, "goals": 0, "values": 0}
+        # All 9 stack_id tables should be present with zero counts
+        assert result["episodes"] == 0
+        assert result["notes"] == 0
+        assert result["beliefs"] == 0
+        assert result["goals"] == 0
+        assert result["values"] == 0
+        assert result["drives"] == 0
+        assert result["relationships"] == 0
+        assert result["playbooks"] == 0
+        assert result["raw_entries"] == 0
+        assert len(result) == 9
 
     def test_get_stack_counts_populated(self, tmp_path):
         """Test counts for a stack with data."""

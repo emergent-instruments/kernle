@@ -119,7 +119,7 @@ def _delete_stack(args: "argparse.Namespace", k: "Kernle") -> None:
 
     try:
         counts = storage.get_stack_counts(stack_id)
-        has_db_data = counts.get("episodes", 0) > 0
+        has_db_data = sum(counts.values()) > 0
     except Exception as e:
         logger.debug(f"Failed to check agent in database: {e}", exc_info=True)
 
