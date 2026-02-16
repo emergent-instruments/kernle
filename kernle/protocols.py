@@ -322,8 +322,8 @@ class StackInfo:
     """Metadata about an attached stack."""
 
     stack_id: str
-    alias: str
-    schema_version: int
+    alias: Optional[str] = None
+    schema_version: int = 0
     stats: dict[str, int] = field(default_factory=dict)
     is_active: bool = False
 
@@ -344,13 +344,13 @@ class Binding:
     """A snapshot of the current composition.
 
     Captures which model, stacks, and plugins are bound to a core.
-    Can be saved to disk and restored to recreate the same composition.
+    Used by checkpoint() for persistence. Restore via from_checkpoint().
     """
 
     core_id: str
-    model_config: dict[str, Any]  # provider, model_id, params
-    stacks: dict[str, str]  # alias -> stack_id
-    active_stack_alias: Optional[str] = None
+    model_config: dict[str, Any]  # provider, model_id (both required for model restoration)
+    stacks: dict[str, Optional[str]]  # stack_id -> optional alias
+    active_stack_id: Optional[str] = None
     plugins: list[str] = field(default_factory=list)  # plugin names
     created_at: Optional[datetime] = None
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -1633,7 +1633,7 @@ class CoreProtocol(Protocol):
 
     @property
     def stacks(self) -> dict[str, StackInfo]:
-        """All attached stacks, keyed by alias."""
+        """All attached stacks, keyed by stack_id."""
         ...
 
     def attach_stack(
@@ -1647,15 +1647,18 @@ class CoreProtocol(Protocol):
 
         Args:
             stack: The stack to attach.
-            alias: Friendly name. Defaults to stack_id.
+            alias: Optional cosmetic display name. Stored as-is (None when omitted).
             set_active: Make this the active stack.
 
         Returns:
-            The alias assigned to this stack.
+            The stack_id of the attached stack.
+
+        Raises:
+            ValueError: If a stack with the same stack_id is already attached.
         """
         ...
 
-    def detach_stack(self, alias: str) -> None:
+    def detach_stack(self, stack_id: str) -> None:
         """Detach a stack.
 
         The stack continues to exist independently — it's just
@@ -1663,7 +1666,7 @@ class CoreProtocol(Protocol):
         """
         ...
 
-    def set_active_stack(self, alias: str) -> None:
+    def set_active_stack(self, stack_id: str) -> None:
         """Switch which attached stack is active.
 
         All routed memory operations go to the active stack.
@@ -1958,22 +1961,32 @@ class CoreProtocol(Protocol):
     def sync(self) -> SyncResult: ...
     def checkpoint(self, message: str = "") -> str: ...
 
+    @classmethod
+    def from_checkpoint(
+        cls,
+        checkpoint_path: Path,
+    ) -> "CoreProtocol":
+        """Restore a core from a checkpoint file.
+
+        Reads checkpoint JSON, validates schema version, extracts
+        binding, and delegates to from_binding(Binding) for rehydration.
+        """
+        ...
+
     # ---- Binding Management ----
 
     def get_binding(self) -> Binding:
         """Snapshot the current composition."""
         ...
 
-    def save_binding(self, path: Optional[Path] = None) -> Path:
-        """Save the binding to disk for later restoration."""
-        ...
-
     @classmethod
     def from_binding(
         cls,
-        binding: Binding | Path,
+        binding: Binding,
+        *,
+        data_dir: Optional[Path] = None,
     ) -> "CoreProtocol":
-        """Restore a core from a saved binding.
+        """Restore a core from a Binding object.
 
         Reconnects the model, attaches stacks, loads plugins.
         """
