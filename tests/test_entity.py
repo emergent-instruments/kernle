@@ -884,7 +884,6 @@ class TestCheckpoint:
 
     def test_from_checkpoint_no_schema_version_warns(self, entity, stack, tmp_path, caplog):
         import json
-        import logging
 
         entity.attach_stack(stack)
         # Create a checkpoint and remove schema_version
