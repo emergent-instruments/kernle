@@ -4,7 +4,7 @@ import logging
 import shutil
 from typing import TYPE_CHECKING
 
-from kernle.storage.sqlite import validate_table_name
+from kernle.storage.sqlite import SQLiteStorage
 from kernle.utils import get_kernle_home
 
 logger = logging.getLogger(__name__)
@@ -36,22 +36,10 @@ def _list_stacks(args: "argparse.Namespace", k: "Kernle") -> None:
     # Find agent directories (those with memory.db or raw/ subdirectory)
     agents = []
 
-    # Check for multi-agent SQLite structure
-    db_path = kernle_dir / "memories.db"
-    if db_path.exists():
-        # Query SQLite for distinct stack_ids
-        import sqlite3
-
+    # Check for multi-agent SQLite structure via storage layer
+    if isinstance(k._storage, SQLiteStorage):
         try:
-            conn = sqlite3.connect(str(db_path))
-            cursor = conn.execute(
-                "SELECT DISTINCT stack_id FROM episodes "
-                "UNION SELECT DISTINCT stack_id FROM notes "
-                "UNION SELECT DISTINCT stack_id FROM beliefs"
-            )
-            for row in cursor:
-                agents.append(row[0])
-            conn.close()
+            agents = list(k._storage.list_stack_ids())
         except Exception as e:
             logger.debug(f"Failed to query agents from database: {e}", exc_info=True)
 
@@ -83,23 +71,14 @@ def _list_stacks(args: "argparse.Namespace", k: "Kernle") -> None:
             if raw_dir.exists():
                 raw_count = sum(1 for f in raw_dir.glob("*.md"))
 
-        # Get episode/note counts from SQLite
+        # Get episode/note counts from storage layer
         episode_count = note_count = belief_count = 0
-        if db_path.exists():
-            import sqlite3
-
+        if isinstance(k._storage, SQLiteStorage):
             try:
-                conn = sqlite3.connect(str(db_path))
-                episode_count = conn.execute(
-                    "SELECT COUNT(*) FROM episodes WHERE stack_id = ?", (stack_id,)
-                ).fetchone()[0]
-                note_count = conn.execute(
-                    "SELECT COUNT(*) FROM notes WHERE stack_id = ?", (stack_id,)
-                ).fetchone()[0]
-                belief_count = conn.execute(
-                    "SELECT COUNT(*) FROM beliefs WHERE stack_id = ?", (stack_id,)
-                ).fetchone()[0]
-                conn.close()
+                counts = k._storage.get_stack_counts(stack_id)
+                episode_count = counts.get("episodes", 0)
+                note_count = counts.get("notes", 0)
+                belief_count = counts.get("beliefs", 0)
             except Exception as e:
                 logger.debug(f"Failed to get counts for agent '{stack_id}': {e}", exc_info=True)
 
@@ -125,66 +104,39 @@ def _delete_stack(args: "argparse.Namespace", k: "Kernle") -> None:
         print("   Switch to a different stack first with: kernle -s <other> ...")
         return
 
+    if not isinstance(k._storage, SQLiteStorage):
+        print("Stack management requires SQLite storage")
+        return
+
+    storage = k._storage
     kernle_dir = get_kernle_home()
-    db_path = kernle_dir / "memories.db"
     agent_dir = kernle_dir / stack_id
 
     # Check if agent exists
     has_db_data = False
     has_dir = agent_dir.exists()
+    counts: dict[str, int] = {}
 
-    if db_path.exists():
-        import sqlite3
-
-        try:
-            conn = sqlite3.connect(str(db_path))
-            count = conn.execute(
-                "SELECT COUNT(*) FROM episodes WHERE stack_id = ?", (stack_id,)
-            ).fetchone()[0]
-            has_db_data = count > 0
-            conn.close()
-        except Exception as e:
-            logger.debug(f"Failed to check agent in database: {e}", exc_info=True)
+    try:
+        counts = storage.get_stack_counts(stack_id)
+        has_db_data = sum(counts.values()) > 0
+    except Exception as e:
+        logger.debug(f"Failed to check agent in database: {e}", exc_info=True)
 
     if not has_db_data and not has_dir:
         print(f"❌ Stack '{stack_id}' not found")
         return
 
-    # Get counts for confirmation
-    episode_count = note_count = belief_count = goal_count = value_count = 0
-    if db_path.exists():
-        import sqlite3
-
-        try:
-            conn = sqlite3.connect(str(db_path))
-            episode_count = conn.execute(
-                "SELECT COUNT(*) FROM episodes WHERE stack_id = ?", (stack_id,)
-            ).fetchone()[0]
-            note_count = conn.execute(
-                "SELECT COUNT(*) FROM notes WHERE stack_id = ?", (stack_id,)
-            ).fetchone()[0]
-            belief_count = conn.execute(
-                "SELECT COUNT(*) FROM beliefs WHERE stack_id = ?", (stack_id,)
-            ).fetchone()[0]
-            goal_count = conn.execute(
-                "SELECT COUNT(*) FROM goals WHERE stack_id = ?", (stack_id,)
-            ).fetchone()[0]
-            value_count = conn.execute(
-                "SELECT COUNT(*) FROM agent_values WHERE stack_id = ?", (stack_id,)
-            ).fetchone()[0]
-            conn.close()
-        except Exception as e:
-            logger.debug(f"Failed to get deletion counts: {e}", exc_info=True)
-
-    total_records = episode_count + note_count + belief_count + goal_count + value_count
+    # Get counts for confirmation — show all tables from get_stack_counts
+    total_records = sum(counts.values())
 
     if not force:
         print(f"⚠️  About to delete agent '{stack_id}':")
-        print(f"   Episodes: {episode_count}")
-        print(f"   Notes: {note_count}")
-        print(f"   Beliefs: {belief_count}")
-        print(f"   Goals: {goal_count}")
-        print(f"   Values: {value_count}")
+        for label, count in counts.items():
+            if count > 0:
+                print(f"   {label.replace('_', ' ').title()}: {count}")
+        if total_records == 0:
+            print("   (no database records)")
         if has_dir:
             print(f"   Directory: {agent_dir}")
         print()
@@ -193,49 +145,13 @@ def _delete_stack(args: "argparse.Namespace", k: "Kernle") -> None:
             print("❌ Deletion cancelled")
             return
 
-    # Delete from SQLite
+    # Delete from SQLite via storage layer
     deleted_tables = []
-    if db_path.exists():
-        import sqlite3
-
-        try:
-            conn = sqlite3.connect(str(db_path))
-            tables = [
-                "episodes",
-                "notes",
-                "beliefs",
-                "goals",
-                "agent_values",
-                "checkpoints",
-                "drives",
-                "relationships",
-                "playbooks",
-                "raw_entries",
-                "sync_queue",
-            ]
-            for table in tables:
-                try:
-                    validate_table_name(table)  # Security: validate before SQL use
-                    cursor = conn.execute(f"DELETE FROM {table} WHERE stack_id = ?", (stack_id,))
-                    if cursor.rowcount > 0:
-                        deleted_tables.append(f"{table}: {cursor.rowcount}")
-                except Exception as e:
-                    logger.debug(f"Failed to delete from table '{table}': {e}", exc_info=True)
-
-            # Also delete from vec_embeddings and embedding_meta if they exist
-            for vec_table in ("vec_embeddings", "embedding_meta"):
-                try:
-                    conn.execute(
-                        f"DELETE FROM {vec_table} WHERE id LIKE ?",
-                        (f"{stack_id}:%",),
-                    )
-                except Exception as e:
-                    logger.debug(f"Failed to delete from {vec_table}: {e}", exc_info=True)
-
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            print(f"⚠️  Error cleaning database: {e}")
+    try:
+        deleted = storage.delete_stack_data(stack_id)
+        deleted_tables = [f"{table}: {count}" for table, count in deleted.items()]
+    except Exception as e:
+        print(f"⚠️  Error cleaning database: {e}")
 
     # Delete agent directory
     if has_dir:
