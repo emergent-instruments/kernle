@@ -3,12 +3,26 @@
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, get_args
+from typing import Any, Dict, List, Optional
 
+from kernle.core.enrichment import (
+    DRIVE_TYPES,
+    VALID_BELIEF_TYPES,
+    VALID_NOTE_TYPES,
+    build_derived_from,
+    clamp_confidence,
+    clamp_intensity,
+    format_note_content,
+    infer_outcome_type,
+    normalize_belief_type,
+    normalize_note_type,
+    normalize_source_type,
+    validate_drive_type,
+    validate_goal_type,
+)
 from kernle.logging_config import log_save
-from kernle.protocols import BeliefType, NoteType
 from kernle.storage import Belief, Drive, Episode, Goal, Note, Relationship, Value
-from kernle.types import VALID_SOURCE_TYPE_VALUES, SourceType
+from kernle.types import SourceType
 
 logger = logging.getLogger(__name__)
 
@@ -16,61 +30,15 @@ logger = logging.getLogger(__name__)
 class WritersMixin:
     """Memory write operations for Kernle."""
 
-    # Derived from the canonical Literal types in protocols.py — single source of truth.
-    _VALID_BELIEF_TYPES: frozenset[str] = frozenset(get_args(BeliefType))
-    _VALID_NOTE_TYPES: frozenset[str] = frozenset(get_args(NoteType))
+    # Backward-compatible class attributes — canonical source is enrichment module.
+    _VALID_BELIEF_TYPES: frozenset[str] = VALID_BELIEF_TYPES
+    _VALID_NOTE_TYPES: frozenset[str] = VALID_NOTE_TYPES
+    DRIVE_TYPES = DRIVE_TYPES
 
-    @staticmethod
-    def _normalize_source_type(source_type: Optional[str]) -> SourceType:
-        """Return a canonical ``SourceType`` and reject invalid values."""
-        if source_type is None:
-            return SourceType.DIRECT_EXPERIENCE
-        if isinstance(source_type, SourceType):
-            return source_type
-        if not isinstance(source_type, str):
-            raise ValueError("source_type must be a string or SourceType")
-
-        normalized = source_type.strip().lower()
-        if normalized in VALID_SOURCE_TYPE_VALUES:
-            return SourceType(normalized)
-        raise ValueError(
-            f"Invalid source_type: '{source_type}'. "
-            f"Valid values: {sorted(VALID_SOURCE_TYPE_VALUES)}"
-        )
-
-    @classmethod
-    def _normalize_belief_type(cls, belief_type: Optional[str]) -> str:
-        """Return a canonical belief type and reject invalid values."""
-        if belief_type is None:
-            return "fact"
-
-        if not isinstance(belief_type, str):
-            raise ValueError("belief_type must be a string")
-
-        normalized = belief_type.strip().lower()
-        if normalized in cls._VALID_BELIEF_TYPES:
-            return normalized
-
-        raise ValueError(
-            "Invalid belief type. Must be one of: " + ", ".join(sorted(cls._VALID_BELIEF_TYPES))
-        )
-
-    @classmethod
-    def _normalize_note_type(cls, note_type: Optional[str]) -> str:
-        """Return a canonical note type and reject invalid values."""
-        if note_type is None:
-            return "note"
-
-        if not isinstance(note_type, str):
-            raise ValueError("note_type must be a string")
-
-        normalized = note_type.strip().lower()
-        if normalized in cls._VALID_NOTE_TYPES:
-            return normalized
-
-        raise ValueError(
-            "Invalid note type. Must be one of: " + ", ".join(sorted(cls._VALID_NOTE_TYPES))
-        )
+    # Backward-compatible aliases — delegate to enrichment module.
+    _normalize_source_type = staticmethod(normalize_source_type)
+    _normalize_belief_type = staticmethod(normalize_belief_type)
+    _normalize_note_type = staticmethod(normalize_note_type)
 
     # =========================================================================
     # EPISODES
@@ -114,19 +82,7 @@ class WritersMixin:
 
         episode_id = str(uuid.uuid4())
 
-        # Determine outcome type using substring matching for flexibility
-        outcome_lower = outcome.lower().strip()
-        if any(
-            word in outcome_lower
-            for word in ("success", "done", "completed", "finished", "accomplished")
-        ):
-            outcome_type = "success"
-        elif any(
-            word in outcome_lower for word in ("fail", "error", "broke", "unable", "couldn't")
-        ):
-            outcome_type = "failure"
-        else:
-            outcome_type = "partial"
+        outcome_type = infer_outcome_type(outcome)
 
         # Determine source_type from explicit param or source context
         if source_type is None:
@@ -140,10 +96,7 @@ class WritersMixin:
         else:
             source_type_val = source_type
 
-        # Build derived_from: explicit lineage + source context marker
-        derived_from_value = list(derived_from) if derived_from else []
-        if source:
-            derived_from_value.append(f"context:{source}")
+        derived_from_value = build_derived_from(derived_from, source)
 
         episode = Episode(
             id=episode_id,
@@ -157,9 +110,9 @@ class WritersMixin:
             tags=tags or ["manual"],
             created_at=datetime.now(timezone.utc),
             confidence=0.8,
-            source_type=self._normalize_source_type(source_type_val),
+            source_type=normalize_source_type(source_type_val),
             source_episodes=None,  # Reserved for supporting evidence (episode IDs)
-            derived_from=derived_from_value if derived_from_value else None,
+            derived_from=derived_from_value,
             # Context/scope fields
             context=context,
             context_tags=context_tags,
@@ -197,20 +150,7 @@ class WritersMixin:
         if outcome is not None:
             outcome = self._validate_string_input(outcome, "outcome", 1000)
             existing.outcome = outcome
-            # Update outcome_type based on new outcome using substring matching
-            outcome_lower = outcome.lower().strip()
-            if any(
-                word in outcome_lower
-                for word in ("success", "done", "completed", "finished", "accomplished")
-            ):
-                outcome_type = "success"
-            elif any(
-                word in outcome_lower for word in ("fail", "error", "broke", "unable", "couldn't")
-            ):
-                outcome_type = "failure"
-            else:
-                outcome_type = "partial"
-            existing.outcome_type = outcome_type
+            existing.outcome_type = infer_outcome_type(outcome)
 
         if lessons:
             lessons = [self._validate_string_input(lesson, "lesson", 500) for lesson in lessons]
@@ -269,18 +209,7 @@ class WritersMixin:
 
         note_id = str(uuid.uuid4())
 
-        # Format content based on type
-        if type == "decision":
-            formatted = f"**Decision**: {content}"
-            if reason:
-                formatted += f"\n**Reason**: {reason}"
-        elif type == "quote":
-            speaker_name = speaker or "Unknown"
-            formatted = f'> "{content}"\n> — {speaker_name}'
-        elif type == "insight":
-            formatted = f"**Insight**: {content}"
-        else:
-            formatted = content
+        formatted = format_note_content(content, type, speaker=speaker, reason=reason)
 
         # Determine source_type from explicit param or source context
         if source_type is None:
@@ -296,10 +225,7 @@ class WritersMixin:
         else:
             source_type_val = source_type
 
-        # Build derived_from: explicit lineage + source context marker
-        derived_from_value = list(derived_from) if derived_from else []
-        if source:
-            derived_from_value.append(f"context:{source}")
+        derived_from_value = build_derived_from(derived_from, source)
 
         note = Note(
             id=note_id,
@@ -310,9 +236,9 @@ class WritersMixin:
             reason=reason,
             tags=tags or [],
             created_at=datetime.now(timezone.utc),
-            source_type=self._normalize_source_type(source_type_val),
+            source_type=normalize_source_type(source_type_val),
             source_episodes=None,  # Reserved for supporting evidence (episode IDs)
-            derived_from=derived_from_value if derived_from_value else None,
+            derived_from=derived_from_value,
             is_protected=protect,
             # Context/scope fields
             context=context,
@@ -613,17 +539,25 @@ class WritersMixin:
             objective = self._validate_string_input(ep_data.get("objective", ""), "objective", 1000)
             outcome = self._validate_string_input(ep_data.get("outcome", ""), "outcome", 1000)
 
+            # Infer outcome_type if not explicitly provided
+            outcome_type = ep_data.get("outcome_type") or infer_outcome_type(outcome)
+
+            derived_from_value = build_derived_from(
+                ep_data.get("derived_from"), ep_data.get("source")
+            )
+
             episode = Episode(
                 id=ep_data.get("id", str(uuid.uuid4())),
                 stack_id=self.stack_id,
                 objective=objective,
                 outcome=outcome,
-                outcome_type=ep_data.get("outcome_type", "partial"),
+                outcome_type=outcome_type,
                 lessons=ep_data.get("lessons"),
                 tags=ep_data.get("tags", ["batch"]),
                 created_at=datetime.now(timezone.utc),
                 confidence=ep_data.get("confidence", 0.8),
-                source_type=self._normalize_source_type(ep_data.get("source_type")),
+                source_type=normalize_source_type(ep_data.get("source_type")),
+                derived_from=derived_from_value,
             )
             episode_objects.append(episode)
 
@@ -659,8 +593,12 @@ class WritersMixin:
         belief_objects = []
         for b_data in beliefs:
             statement = self._validate_string_input(b_data.get("statement", ""), "statement", 1000)
-            belief_type = self._normalize_belief_type(
+            belief_type = normalize_belief_type(
                 b_data.get("type", b_data.get("belief_type", "fact"))
+            )
+
+            derived_from_value = build_derived_from(
+                b_data.get("derived_from"), b_data.get("source")
             )
 
             belief = Belief(
@@ -668,9 +606,10 @@ class WritersMixin:
                 stack_id=self.stack_id,
                 statement=statement,
                 belief_type=belief_type,
-                confidence=b_data.get("confidence", 0.8),
+                confidence=clamp_confidence(b_data.get("confidence", 0.8)),
                 created_at=datetime.now(timezone.utc),
-                source_type=self._normalize_source_type(b_data.get("source_type")),
+                source_type=normalize_source_type(b_data.get("source_type")),
+                derived_from=derived_from_value,
             )
             belief_objects.append(belief)
 
@@ -708,20 +647,30 @@ class WritersMixin:
         note_objects = []
         for n_data in notes:
             content = self._validate_string_input(n_data.get("content", ""), "content", 2000)
-            note_type = self._normalize_note_type(
-                n_data.get("type", n_data.get("note_type", "note"))
+            note_type = normalize_note_type(n_data.get("type", n_data.get("note_type", "note")))
+
+            formatted = format_note_content(
+                content,
+                note_type,
+                speaker=n_data.get("speaker"),
+                reason=n_data.get("reason"),
+            )
+
+            derived_from_value = build_derived_from(
+                n_data.get("derived_from"), n_data.get("source")
             )
 
             note = Note(
                 id=n_data.get("id", str(uuid.uuid4())),
                 stack_id=self.stack_id,
-                content=content,
+                content=formatted,
                 note_type=note_type,
                 speaker=n_data.get("speaker"),
                 reason=n_data.get("reason"),
                 tags=n_data.get("tags", []),
                 created_at=datetime.now(timezone.utc),
-                source_type=self._normalize_source_type(n_data.get("source_type")),
+                source_type=normalize_source_type(n_data.get("source_type")),
+                derived_from=derived_from_value,
             )
             note_objects.append(note)
 
@@ -757,7 +706,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: Explicit source type override (auto-derived from source if not set)
         """
-        confidence = max(0.0, min(1.0, confidence))  # Clamp to valid range
+        confidence = clamp_confidence(confidence)
         belief_id = str(uuid.uuid4())
 
         # Determine source_type from explicit param or source context
@@ -776,20 +725,17 @@ class WritersMixin:
         else:
             source_type_val = source_type
 
-        # Build derived_from: explicit lineage + source context marker
-        derived_from_value = list(derived_from) if derived_from else []
-        if source:
-            derived_from_value.append(f"context:{source}")
+        derived_from_value = build_derived_from(derived_from, source)
         derived_from_value = self._validate_derived_from(derived_from_value)
 
         belief = Belief(
             id=belief_id,
             stack_id=self.stack_id,
             statement=statement,
-            belief_type=self._normalize_belief_type(type),
+            belief_type=normalize_belief_type(type),
             confidence=confidence,
             created_at=datetime.now(timezone.utc),
-            source_type=self._normalize_source_type(source_type_val),
+            source_type=normalize_source_type(source_type_val),
             derived_from=derived_from_value,
             context=context,
             context_tags=context_tags,
@@ -838,10 +784,7 @@ class WritersMixin:
         else:
             source_type_val = source_type
 
-        # Build derived_from: explicit lineage + source context marker
-        derived_from_value = list(derived_from) if derived_from else []
-        if source:
-            derived_from_value.append(f"context:{source}")
+        derived_from_value = build_derived_from(derived_from, source)
         derived_from_value = self._validate_derived_from(derived_from_value)
 
         value = Value(
@@ -851,7 +794,7 @@ class WritersMixin:
             statement=statement,
             priority=priority,
             created_at=datetime.now(timezone.utc),
-            source_type=self._normalize_source_type(source_type_val),
+            source_type=normalize_source_type(source_type_val),
             derived_from=derived_from_value if derived_from_value else None,
             context=context,
             context_tags=context_tags,
@@ -882,9 +825,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: Explicit source type override (auto-derived from source if not set)
         """
-        valid_goal_types = ("task", "aspiration", "commitment", "exploration")
-        if goal_type not in valid_goal_types:
-            raise ValueError(f"Invalid goal_type. Must be one of: {', '.join(valid_goal_types)}")
+        validate_goal_type(goal_type)
 
         goal_id = str(uuid.uuid4())
 
@@ -907,10 +848,7 @@ class WritersMixin:
         else:
             source_type_val = source_type
 
-        # Build derived_from: explicit lineage + source context marker
-        derived_from_value = list(derived_from) if derived_from else []
-        if source:
-            derived_from_value.append(f"context:{source}")
+        derived_from_value = build_derived_from(derived_from, source)
         derived_from_value = self._validate_derived_from(derived_from_value)
 
         goal = Goal(
@@ -923,7 +861,7 @@ class WritersMixin:
             status="active",
             created_at=datetime.now(timezone.utc),
             is_protected=is_protected,
-            source_type=self._normalize_source_type(source_type_val),
+            source_type=normalize_source_type(source_type_val),
             derived_from=derived_from_value if derived_from_value else None,
             context=context,
             context_tags=context_tags,
@@ -980,8 +918,6 @@ class WritersMixin:
     # DRIVES (Motivation System)
     # =========================================================================
 
-    DRIVE_TYPES = ["existence", "growth", "curiosity", "connection", "reproduction"]
-
     def drive(
         self,
         drive_type: str,
@@ -1003,8 +939,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: Explicit source type override (auto-derived from source if not set)
         """
-        if drive_type not in self.DRIVE_TYPES:
-            raise ValueError(f"Invalid drive type. Must be one of: {self.DRIVE_TYPES}")
+        validate_drive_type(drive_type)
 
         # Determine source_type from explicit param or source context
         if source_type is None:
@@ -1022,10 +957,7 @@ class WritersMixin:
         else:
             source_type_val = source_type
 
-        # Build derived_from: explicit lineage + source context marker
-        derived_from_value = list(derived_from) if derived_from else []
-        if source:
-            derived_from_value.append(f"context:{source}")
+        derived_from_value = build_derived_from(derived_from, source)
         derived_from_value = self._validate_derived_from(derived_from_value)
 
         # Check if drive exists via _write_backend (respects strict mode)
@@ -1037,14 +969,14 @@ class WritersMixin:
         now = datetime.now(timezone.utc)
 
         if existing:
-            existing.intensity = max(0.0, min(1.0, intensity))
+            existing.intensity = clamp_intensity(intensity)
             existing.focus_areas = focus_areas or []
             existing.updated_at = now
             if context is not None:
                 existing.context = context
             if context_tags is not None:
                 existing.context_tags = context_tags
-            existing.source_type = self._normalize_source_type(source_type_val)
+            existing.source_type = normalize_source_type(source_type_val)
             if derived_from_value:
                 existing.derived_from = derived_from_value
             self._write_backend.update_drive_atomic(existing)
@@ -1055,11 +987,11 @@ class WritersMixin:
                 id=drive_id,
                 stack_id=self.stack_id,
                 drive_type=drive_type,
-                intensity=max(0.0, min(1.0, intensity)),
+                intensity=clamp_intensity(intensity),
                 focus_areas=focus_areas or [],
                 created_at=now,
                 updated_at=now,
-                source_type=self._normalize_source_type(source_type_val),
+                source_type=normalize_source_type(source_type_val),
                 derived_from=derived_from_value if derived_from_value else None,
                 context=context,
                 context_tags=context_tags,

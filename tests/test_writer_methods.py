@@ -640,3 +640,191 @@ class TestNormalizeNoteType:
         """Non-string types should raise ValueError."""
         with pytest.raises(ValueError, match="note_type must be a string"):
             WritersMixin._normalize_note_type(True)
+
+
+# =========================================================================
+# Batch method enrichment
+# =========================================================================
+
+
+class TestEpisodesBatchEnrichment:
+    """episodes_batch() should infer outcome_type and build derived_from."""
+
+    def test_infers_outcome_type_success(self, mocked_kernle):
+        """Batch episodes should infer outcome_type from outcome text."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.save_episodes_batch = MagicMock(return_value=["id1"])
+
+        k.episodes_batch(
+            [
+                {"objective": "Fix bug", "outcome": "Fixed successfully"},
+            ]
+        )
+
+        saved = mock_wb.save_episodes_batch.call_args[0][0]
+        assert saved[0].outcome_type == "success"
+
+    def test_infers_outcome_type_failure(self, mocked_kernle):
+        """Batch episodes should detect failure keywords."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.save_episodes_batch = MagicMock(return_value=["id1"])
+
+        k.episodes_batch(
+            [
+                {"objective": "Deploy", "outcome": "Build failed"},
+            ]
+        )
+
+        saved = mock_wb.save_episodes_batch.call_args[0][0]
+        assert saved[0].outcome_type == "failure"
+
+    def test_explicit_outcome_type_preserved(self, mocked_kernle):
+        """Explicit outcome_type should not be overridden by inference."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.save_episodes_batch = MagicMock(return_value=["id1"])
+
+        k.episodes_batch(
+            [
+                {
+                    "objective": "Fix bug",
+                    "outcome": "Fixed successfully",
+                    "outcome_type": "partial",
+                },
+            ]
+        )
+
+        saved = mock_wb.save_episodes_batch.call_args[0][0]
+        assert saved[0].outcome_type == "partial"
+
+    def test_builds_derived_from_with_source(self, mocked_kernle):
+        """Batch episodes should build derived_from with source context marker."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.save_episodes_batch = MagicMock(return_value=["id1"])
+
+        k.episodes_batch(
+            [
+                {
+                    "objective": "Fix bug",
+                    "outcome": "Done",
+                    "derived_from": ["episode:ep1"],
+                    "source": "code review",
+                },
+            ]
+        )
+
+        saved = mock_wb.save_episodes_batch.call_args[0][0]
+        assert saved[0].derived_from == ["episode:ep1", "context:code review"]
+
+
+class TestBeliefsBatchEnrichment:
+    """beliefs_batch() should clamp confidence and build derived_from."""
+
+    def test_clamps_confidence_above_one(self, mocked_kernle):
+        """Batch beliefs should clamp confidence > 1.0 to 1.0."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.save_beliefs_batch = MagicMock(return_value=["id1"])
+
+        k.beliefs_batch(
+            [
+                {"statement": "Python is great", "confidence": 1.5},
+            ]
+        )
+
+        saved = mock_wb.save_beliefs_batch.call_args[0][0]
+        assert saved[0].confidence == 1.0
+
+    def test_clamps_confidence_below_zero(self, mocked_kernle):
+        """Batch beliefs should clamp confidence < 0.0 to 0.0."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.save_beliefs_batch = MagicMock(return_value=["id1"])
+
+        k.beliefs_batch(
+            [
+                {"statement": "PHP is bad", "confidence": -0.5},
+            ]
+        )
+
+        saved = mock_wb.save_beliefs_batch.call_args[0][0]
+        assert saved[0].confidence == 0.0
+
+    def test_builds_derived_from_with_source(self, mocked_kernle):
+        """Batch beliefs should build derived_from with source context marker."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.save_beliefs_batch = MagicMock(return_value=["id1"])
+
+        k.beliefs_batch(
+            [
+                {
+                    "statement": "Tests matter",
+                    "derived_from": ["note:n1"],
+                    "source": "reading docs",
+                },
+            ]
+        )
+
+        saved = mock_wb.save_beliefs_batch.call_args[0][0]
+        assert saved[0].derived_from == ["note:n1", "context:reading docs"]
+
+
+class TestNotesBatchEnrichment:
+    """notes_batch() should format content and build derived_from."""
+
+    def test_formats_decision_content(self, mocked_kernle):
+        """Batch notes should format decision-type content."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.save_notes_batch = MagicMock(return_value=["id1"])
+
+        k.notes_batch(
+            [
+                {"content": "Use TypeScript", "type": "decision", "reason": "Type safety"},
+            ]
+        )
+
+        saved = mock_wb.save_notes_batch.call_args[0][0]
+        assert saved[0].content == "**Decision**: Use TypeScript\n**Reason**: Type safety"
+
+    def test_formats_quote_content(self, mocked_kernle):
+        """Batch notes should format quote-type content."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.save_notes_batch = MagicMock(return_value=["id1"])
+
+        k.notes_batch(
+            [
+                {"content": "Move fast", "type": "quote", "speaker": "Zuck"},
+            ]
+        )
+
+        saved = mock_wb.save_notes_batch.call_args[0][0]
+        assert saved[0].content == '> "Move fast"\n> — Zuck'
+
+    def test_formats_insight_content(self, mocked_kernle):
+        """Batch notes should format insight-type content."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.save_notes_batch = MagicMock(return_value=["id1"])
+
+        k.notes_batch(
+            [
+                {"content": "Users prefer dark mode", "type": "insight"},
+            ]
+        )
+
+        saved = mock_wb.save_notes_batch.call_args[0][0]
+        assert saved[0].content == "**Insight**: Users prefer dark mode"
+
+    def test_builds_derived_from_with_source(self, mocked_kernle):
+        """Batch notes should build derived_from with source context marker."""
+        k, mock_wb, _ = mocked_kernle
+        mock_wb.save_notes_batch = MagicMock(return_value=["id1"])
+
+        k.notes_batch(
+            [
+                {
+                    "content": "Important note",
+                    "derived_from": ["episode:ep1"],
+                    "source": "standup",
+                },
+            ]
+        )
+
+        saved = mock_wb.save_notes_batch.call_args[0][0]
+        assert saved[0].derived_from == ["episode:ep1", "context:standup"]

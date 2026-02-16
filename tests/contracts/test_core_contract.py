@@ -215,7 +215,7 @@ class TestRoutedOps:
         notes = stack.get_notes()
         found = [n for n in notes if n.id == n_id]
         assert len(found) == 1
-        assert found[0].content == "Important insight"
+        assert found[0].content == "**Insight**: Important insight"
 
     def test_drive_routed(self, entity_with_stack):
         entity, stack = entity_with_stack

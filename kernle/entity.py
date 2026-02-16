@@ -20,7 +20,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from kernle.core.enrichment import (
+    build_derived_from,
+    clamp_confidence,
+    clamp_intensity,
+    format_note_content,
+    infer_outcome_type,
+    normalize_belief_type,
+    normalize_note_type,
+    validate_drive_type,
+    validate_goal_type,
+)
 from kernle.discovery import discover_plugins
+from kernle.logging_config import log_save
 from kernle.protocols import (
     Binding,
     InferenceService,
@@ -669,18 +681,21 @@ class Entity:
         context_tags: Optional[list[str]] = None,
     ) -> str:
         stack = self._require_active_stack()
+        episode_id = _generate_id()
         ep = Episode(
-            id=_generate_id(),
+            id=episode_id,
             stack_id=stack.stack_id,
             objective=objective,
             outcome=outcome,
+            outcome_type=infer_outcome_type(outcome),
             lessons=lessons,
             repeat=repeat,
             avoid=avoid,
-            tags=tags,
+            tags=tags or ["manual"],
+            confidence=0.8,
             created_at=datetime.now(timezone.utc),
             source_type="direct_experience",
-            derived_from=derived_from,
+            derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
         )
@@ -688,7 +703,14 @@ class Entity:
             ep.source_entity = source
         else:
             ep.source_entity = f"core:{self._core_id}"
-        return stack.save_episode(ep)
+        stack.save_episode(ep)
+        log_save(
+            stack.stack_id,
+            memory_type="episode",
+            memory_id=episode_id,
+            summary=objective[:50],
+        )
+        return episode_id
 
     def belief(
         self,
@@ -707,12 +729,12 @@ class Entity:
             id=_generate_id(),
             stack_id=stack.stack_id,
             statement=statement,
-            belief_type=type,
-            confidence=confidence,
+            belief_type=normalize_belief_type(type),
+            confidence=clamp_confidence(confidence),
             created_at=datetime.now(timezone.utc),
             is_protected=foundational,
             source_type="direct_experience",
-            derived_from=derived_from,
+            derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
         )
@@ -745,7 +767,7 @@ class Entity:
             created_at=datetime.now(timezone.utc),
             is_protected=foundational,
             source_type="direct_experience",
-            derived_from=derived_from,
+            derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
         )
@@ -768,16 +790,21 @@ class Entity:
         context_tags: Optional[list[str]] = None,
     ) -> str:
         stack = self._require_active_stack()
+        validate_goal_type(goal_type)
+        is_protected = goal_type in ("aspiration", "commitment")
+        goal_id = _generate_id()
         g = Goal(
-            id=_generate_id(),
+            id=goal_id,
             stack_id=stack.stack_id,
             title=title,
-            description=description,
+            description=description or title,
             goal_type=goal_type,
             priority=priority,
+            status="active",
+            is_protected=is_protected,
             created_at=datetime.now(timezone.utc),
             source_type="direct_experience",
-            derived_from=derived_from,
+            derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
         )
@@ -785,7 +812,10 @@ class Entity:
             g.source_entity = source
         else:
             g.source_entity = f"core:{self._core_id}"
-        return stack.save_goal(g)
+        stack.save_goal(g)
+        if is_protected:
+            stack.protect_memory("goal", goal_id, protected=True)
+        return goal_id
 
     def note(
         self,
@@ -802,18 +832,20 @@ class Entity:
         context_tags: Optional[list[str]] = None,
     ) -> str:
         stack = self._require_active_stack()
+        note_type = normalize_note_type(type)
+        formatted = format_note_content(content, note_type, speaker=speaker, reason=reason)
         n = Note(
             id=_generate_id(),
             stack_id=stack.stack_id,
-            content=content,
-            note_type=type,
+            content=formatted,
+            note_type=note_type,
             speaker=speaker,
             reason=reason,
-            tags=tags,
+            tags=tags or [],
             created_at=datetime.now(timezone.utc),
             is_protected=protect,
             source_type="direct_experience",
-            derived_from=derived_from,
+            derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
         )
@@ -836,15 +868,18 @@ class Entity:
         context_tags: Optional[list[str]] = None,
     ) -> str:
         stack = self._require_active_stack()
+        validate_drive_type(drive_type)
+        now = datetime.now(timezone.utc)
         d = Drive(
             id=_generate_id(),
             stack_id=stack.stack_id,
             drive_type=drive_type,
-            intensity=intensity,
-            focus_areas=focus_areas,
-            created_at=datetime.now(timezone.utc),
+            intensity=clamp_intensity(intensity),
+            focus_areas=focus_areas or [],
+            created_at=now,
+            updated_at=now,
             source_type="direct_experience",
-            derived_from=derived_from,
+            derived_from=build_derived_from(derived_from, source),
             context=context,
             context_tags=context_tags,
         )
@@ -866,17 +901,23 @@ class Entity:
         source: Optional[str] = None,
     ) -> str:
         stack = self._require_active_stack()
+        now = datetime.now(timezone.utc)
+        # Convert trust_level (0-1) to sentiment (-1 to 1)
+        sentiment = ((trust_level * 2) - 1) if trust_level is not None else 0.0
+        sentiment = max(-1.0, min(1.0, sentiment))
         r = Relationship(
             id=_generate_id(),
             stack_id=stack.stack_id,
             entity_name=other_stack_id,
-            entity_type=entity_type or "unknown",
-            relationship_type=interaction_type or "known",
+            entity_type=entity_type or "person",
+            relationship_type=interaction_type or "interaction",
             notes=notes,
-            sentiment=trust_level if trust_level is not None else 0.0,
-            created_at=datetime.now(timezone.utc),
+            sentiment=sentiment,
+            interaction_count=1,
+            last_interaction=now,
+            created_at=now,
             source_type="direct_experience",
-            derived_from=derived_from,
+            derived_from=build_derived_from(derived_from, source),
         )
         if source:
             r.source_entity = source
