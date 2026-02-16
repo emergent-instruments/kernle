@@ -483,7 +483,8 @@ class TestRoutedOperations:
         assert isinstance(r, Relationship)
         assert r.entity_name == "other-entity"
         assert r.entity_type == "agent"
-        assert r.sentiment == 0.7
+        # trust_level (0-1) is converted to sentiment (-1 to 1): (0.7 * 2) - 1 = 0.4
+        assert r.sentiment == pytest.approx(0.4)
 
     def test_raw_routes_to_stack(self, entity, stack):
         entity.attach_stack(stack)
@@ -1113,4 +1114,163 @@ class TestPluginContextAttribution:
         ctx = _PluginContextImpl(entity, "test-plugin")
         ctx.belief("test statement", derived_from=["episode:ep1"])
         b = stack.save_belief.call_args[0][0]
-        assert b.derived_from == ["episode:ep1"]
+        # build_derived_from appends context marker for the plugin source
+        assert b.derived_from == ["episode:ep1", "context:plugin:test-plugin"]
+
+
+# ---- Entity Enrichment Parity Tests ----
+
+
+class TestEntityEnrichmentParity:
+    """Verify Entity methods apply the same enrichment as WritersMixin."""
+
+    def test_episode_infers_outcome_type_success(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("Fix bug", "Fixed successfully")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.outcome_type == "success"
+
+    def test_episode_infers_outcome_type_failure(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("Run tests", "Tests failed with errors")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.outcome_type == "failure"
+
+    def test_episode_infers_outcome_type_partial(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("Investigate", "Found some clues")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.outcome_type == "partial"
+
+    def test_episode_builds_derived_from_with_source(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("obj", "out", source="session with Sean", derived_from=["ep:1"])
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.derived_from == ["ep:1", "context:session with Sean"]
+
+    def test_episode_defaults_tags_to_manual(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("obj", "out")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.tags == ["manual"]
+
+    def test_episode_defaults_confidence_to_0_8(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.episode("obj", "out")
+        ep = stack.save_episode.call_args[0][0]
+        assert ep.confidence == 0.8
+
+    def test_note_formats_decision_content(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.note("Use TypeScript", type="decision", reason="Type safety")
+        n = stack.save_note.call_args[0][0]
+        assert n.content == "**Decision**: Use TypeScript\n**Reason**: Type safety"
+
+    def test_note_normalizes_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.note("test", type="insight")
+        n = stack.save_note.call_args[0][0]
+        assert n.note_type == "insight"
+        assert n.content.startswith("**Insight**:")
+
+    def test_note_defaults_tags_to_empty(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.note("test")
+        n = stack.save_note.call_args[0][0]
+        assert n.tags == []
+
+    def test_belief_clamps_confidence(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.belief("test", confidence=1.5)
+        b = stack.save_belief.call_args[0][0]
+        assert b.confidence == 1.0
+
+    def test_belief_clamps_confidence_min(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.belief("test", confidence=-0.3)
+        b = stack.save_belief.call_args[0][0]
+        assert b.confidence == 0.0
+
+    def test_belief_normalizes_type(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.belief("test", type="hypothesis")
+        b = stack.save_belief.call_args[0][0]
+        assert b.belief_type == "hypothesis"
+
+    def test_goal_validates_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid goal_type"):
+            entity.goal("learn", goal_type="fantasy")
+
+    def test_goal_auto_protects_aspiration(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.goal("learn rust", goal_type="aspiration")
+        g = stack.save_goal.call_args[0][0]
+        assert g.is_protected is True
+        stack.protect_memory.assert_called_once()
+
+    def test_goal_defaults_description_to_title(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.goal("learn rust")
+        g = stack.save_goal.call_args[0][0]
+        assert g.description == "learn rust"
+
+    def test_goal_defaults_status_to_active(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.goal("learn rust")
+        g = stack.save_goal.call_args[0][0]
+        assert g.status == "active"
+
+    def test_drive_validates_type(self, entity, stack):
+        entity.attach_stack(stack)
+        with pytest.raises(ValueError, match="Invalid drive type"):
+            entity.drive("hunger")
+
+    def test_drive_clamps_intensity(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.drive("curiosity", intensity=1.5)
+        d = stack.save_drive.call_args[0][0]
+        assert d.intensity == 1.0
+
+    def test_drive_defaults_focus_areas_to_empty(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.drive("curiosity")
+        d = stack.save_drive.call_args[0][0]
+        assert d.focus_areas == []
+
+    def test_drive_sets_updated_at(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.drive("curiosity")
+        d = stack.save_drive.call_args[0][0]
+        assert d.updated_at is not None
+
+    def test_relationship_converts_trust_to_sentiment(self, entity, stack):
+        entity.attach_stack(stack)
+        # trust_level 0.0 -> sentiment -1.0
+        entity.relationship("alice", trust_level=0.0)
+        r = stack.save_relationship.call_args[0][0]
+        assert r.sentiment == pytest.approx(-1.0)
+
+    def test_relationship_defaults_entity_type_to_person(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.relationship("alice")
+        r = stack.save_relationship.call_args[0][0]
+        assert r.entity_type == "person"
+
+    def test_relationship_defaults_type_to_interaction(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.relationship("alice")
+        r = stack.save_relationship.call_args[0][0]
+        assert r.relationship_type == "interaction"
+
+    def test_relationship_sets_interaction_count(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.relationship("alice")
+        r = stack.save_relationship.call_args[0][0]
+        assert r.interaction_count == 1
+
+    def test_relationship_sets_last_interaction(self, entity, stack):
+        entity.attach_stack(stack)
+        entity.relationship("alice")
+        r = stack.save_relationship.call_args[0][0]
+        assert r.last_interaction is not None
