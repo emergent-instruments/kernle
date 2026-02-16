@@ -342,7 +342,7 @@ class TestDeleteAgent:
         assert "Stack 'other-agent' deleted" in captured.out
 
     def test_delete_shows_counts_in_confirmation(self, capsys, tmp_path, monkeypatch):
-        """Test that confirmation message shows record counts."""
+        """Test that confirmation message shows non-zero record counts."""
         k = self._make_kernle_mock()
         k._storage.get_stack_counts.return_value = {
             "episodes": 2,
@@ -350,6 +350,10 @@ class TestDeleteAgent:
             "beliefs": 3,
             "goals": 1,
             "values": 1,
+            "drives": 0,
+            "relationships": 0,
+            "playbooks": 0,
+            "raw_entries": 0,
         }
 
         args = Namespace(name="other-agent", force=False)
@@ -368,6 +372,9 @@ class TestDeleteAgent:
         assert "Beliefs: 3" in captured.out
         assert "Goals: 1" in captured.out
         assert "Values: 1" in captured.out
+        # Zero-count tables should not appear
+        assert "Drives" not in captured.out
+        assert "Relationships" not in captured.out
 
     def test_delete_db_only_agent(self, capsys, tmp_path):
         """Test deleting agent that only exists in database (no directory)."""

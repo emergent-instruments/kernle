@@ -127,22 +127,16 @@ def _delete_stack(args: "argparse.Namespace", k: "Kernle") -> None:
         print(f"❌ Stack '{stack_id}' not found")
         return
 
-    # Get counts for confirmation
-    episode_count = counts.get("episodes", 0)
-    note_count = counts.get("notes", 0)
-    belief_count = counts.get("beliefs", 0)
-    goal_count = counts.get("goals", 0)
-    value_count = counts.get("values", 0)
-
-    total_records = episode_count + note_count + belief_count + goal_count + value_count
+    # Get counts for confirmation — show all tables from get_stack_counts
+    total_records = sum(counts.values())
 
     if not force:
         print(f"⚠️  About to delete agent '{stack_id}':")
-        print(f"   Episodes: {episode_count}")
-        print(f"   Notes: {note_count}")
-        print(f"   Beliefs: {belief_count}")
-        print(f"   Goals: {goal_count}")
-        print(f"   Values: {value_count}")
+        for label, count in counts.items():
+            if count > 0:
+                print(f"   {label.replace('_', ' ').title()}: {count}")
+        if total_records == 0:
+            print("   (no database records)")
         if has_dir:
             print(f"   Directory: {agent_dir}")
         print()
