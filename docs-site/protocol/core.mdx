@@ -58,9 +58,18 @@ The default implementation is `kernle.entity.Entity`.
 | `value()` | `name, statement, *, priority, type, foundational` |
 | `goal()` | `title, *, description, goal_type, priority` |
 | `note()` | `content, *, type, speaker, tags, protect, source` |
-| `drive()` | `drive_type, *, intensity, focus_areas, decay_hours` |
-| `relationship()` | `other_stack_id, *, trust_level, notes, entity_type` |
+| `drive()` | `drive_type, *, intensity, focus_areas` — upsert by `drive_type` *(v0.13.12)* |
+| `relationship()` | `other_stack_id, *, trust_level, notes, entity_type` — upsert by `entity_name` *(v0.13.12)* |
 | `raw()` | `blob, *, source` |
+
+### Upsert Semantics *(v0.13.12)*
+
+`drive()` and `relationship()` use get-then-atomic-update-or-create:
+
+- **`drive()`** — Looks up an existing drive by `drive_type`. If found, updates `intensity`, `focus_areas`, and other fields in place. The original `id`, `created_at`, and version chain are preserved. Only explicitly provided optional fields are overwritten.
+- **`relationship()`** — Looks up an existing relationship by `entity_name` (`other_stack_id`). If found, updates fields in place and increments `interaction_count`. If not found, creates a new relationship.
+
+Both methods use atomic updates with optimistic locking. `VersionConflictError` propagates if the record was modified between read and write.
 
 ### Routed Search, Load, and Status
 

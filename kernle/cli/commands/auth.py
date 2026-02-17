@@ -190,7 +190,9 @@ def cmd_auth(args, k: "Kernle" = None):
                     print()
                     print(f"  User ID:     {user_id}")
                     print(f"  Stack ID:    {stack_id}")
-                    print(f"  Secret:      {_mask_secret(secret)}")
+                    print(
+                        f"  Secret:      {_mask_secret(secret)}"
+                    )  # masked: shows only first/last 4 chars
                     print(f"  Backend:     {backend_url}")
                     print()
                     print(f"Credentials saved to {get_credentials_path()}")
@@ -352,7 +354,7 @@ def cmd_auth(args, k: "Kernle" = None):
                     else:
                         expires_in = f"{int(delta.total_seconds() / 86400)} days"
             except (ValueError, TypeError):
-                pass
+                pass  # Time formatting failed — omit expiry display
 
         if args.json:
             print(
@@ -383,7 +385,9 @@ def cmd_auth(args, k: "Kernle" = None):
             if backend_url:
                 print(f"  Backend:     {backend_url}")
             if api_key:
-                print(f"  API Key:     {_mask_secret(api_key)}")
+                print(
+                    f"  API Key:     {_mask_secret(api_key)}"
+                )  # masked: shows only first/last 4 chars
 
             if token:
                 if token_valid:

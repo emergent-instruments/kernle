@@ -861,7 +861,6 @@ class WritersMixin:
         drive_type: str,
         intensity: float = 0.5,
         focus_areas: Optional[List[str]] = None,
-        decay_hours: int = 24,
         context: Optional[str] = None,
         context_tags: Optional[List[str]] = None,
         source: Optional[str] = None,

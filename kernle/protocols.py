@@ -1814,7 +1814,6 @@ class CoreProtocol(Protocol):
         *,
         intensity: float = 0.5,
         focus_areas: Optional[list[str]] = None,
-        decay_hours: int = 24,
         derived_from: Optional[list[str]] = None,
         source: Optional[str] = None,
         context: Optional[str] = None,

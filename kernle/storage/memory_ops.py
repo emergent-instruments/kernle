@@ -511,7 +511,7 @@ class MemoryOps:
                     try:
                         derived_from = json.loads(derived_from_raw)
                     except (json.JSONDecodeError, TypeError):
-                        continue
+                        continue  # Malformed derived_from JSON — skip entry
                     if not isinstance(derived_from, list) or not derived_from:
                         continue
 
@@ -592,7 +592,7 @@ class MemoryOps:
                     try:
                         derived_from = json.loads(derived_from_raw)
                     except (json.JSONDecodeError, TypeError):
-                        continue
+                        continue  # Malformed derived_from JSON — skip entry
                     if not isinstance(derived_from, list):
                         continue
 

@@ -462,7 +462,7 @@ class SQLiteStorage:
                         var_folders
                     ) or resolved_path.is_relative_to(private_var_folders)
                 except (OSError, ValueError):
-                    pass
+                    pass  # macOS realpath resolution failed — skip check
 
             if not is_safe:
                 raise ValueError("Database path must be within user home or temp directory")
@@ -742,12 +742,6 @@ class SQLiteStorage:
 
         if existing and existing["content_hash"] == content_hash:
             return  # Already up to date
-
-        # Track provider state before embedding (for observability)
-        is_fallback = (
-            self._embedder is self._embedder_fallback and self._embedder_fallback is not None
-        )
-        provider_name = type(self._embedder).__name__
 
         embedding = self._embed_text(content, context=f"vector-save:{table}:{record_id}")
         if not embedding:
@@ -2907,16 +2901,16 @@ class SQLiteStorage:
             for table in tables:
                 try:
                     parts.append(f"SELECT DISTINCT stack_id FROM {validate_table_name(table)}")
-                except Exception:
-                    continue
+                except ValueError:
+                    continue  # Invalid table name — skip
             if not parts:
                 return []
             query = " UNION ".join(parts)
             try:
                 rows = conn.execute(query).fetchall()
                 return sorted(row[0] for row in rows)
-            except Exception:
-                return []
+            except sqlite3.Error:
+                return []  # Query failed — degrade to empty list
 
     def get_stack_counts(self, stack_id: str) -> dict[str, int]:
         """Get record counts per table for a stack.

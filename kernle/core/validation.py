@@ -250,7 +250,7 @@ class ValidationMixin:
                         var_folders
                     ) or resolved_path.is_relative_to(private_var_folders)
                 except (OSError, ValueError):
-                    pass
+                    pass  # macOS realpath resolution failed — skip check
 
             if not is_safe:
                 raise ValueError("Checkpoint directory must be within user home or temp directory")

@@ -7,7 +7,7 @@ This roadmap outlines planned features that extend Kernle's cognitive infrastruc
 
 ## What's Been Built
 
-The core cognitive infrastructure is in place, built across nine versioned milestones:
+The core cognitive infrastructure is in place, built across thirteen versioned milestones:
 
 <CardGroup cols={3}>
   <Card title="Protocol System" icon="diagram-project">
@@ -136,54 +136,113 @@ See [Claude Code Integration](/integration/claude-code) for full details.
 - **v0.11.07** — Tests for all extracted CLI command modules
 - **v0.11.08** — Fragmented `storage/sqlite.py` and `core.py` into focused modules with 80%+ test coverage
 
+#### v0.12.x — Pipeline Integrity
+
+Established pipeline safety invariants, promotion governance, corpus seeding, and observability tooling across 4 patch releases.
+
+**v0.12.00 — Pipeline Safety**
+
+Critical fixes from the memory pipeline audit. These prevent identity corruption when inference is unavailable and establish the suggestions-first governance model.
+
+- **No-inference safe-mode** — prevent identity-layer writes when `inference_available=false`; allow only raw capture, basic notes, and suggestions
+- **`source_type` taxonomy** — resolve `"processed"` mismatch; establish canonical SourceType enum aligned with docs
+- **Suggestions-first promotion** — make suggestions the default output of processing; require explicit opt-in for auto-promotion into beliefs/values
+- **Memory lint pass** — reject malformed or low-signal beliefs/values before commit; store failures as suggestions instead
+- **Transition idempotency** — deduplicate by provenance hash and content hash; reprocessing the same batch produces zero duplicates
+
+**v0.12.01 — Pipeline Robustness**
+
+With the safety invariants in place, the pipeline became smarter about *when* and *whether* to promote.
+
+- **Time/valence triggers** — wire aging, emotional arousal, and consolidation debt into `check_triggers()` alongside quantity thresholds
+- **Promotion gates** — require minimum evidence count, confidence floor, and trust floor before creating beliefs/values; build on existing strength-tier mechanism
+- **Suggestion resolution workflow** — full lifecycle: list, accept, dismiss, expire; CLI commands, MCP tools, and audit events
+- **Golden snapshot test** — end-to-end pipeline regression test with fixed inputs; covers inference-on/off variants
+
+**v0.12.02 — Corpus Seeding & Cognitive Testing**
+
+Seeded agents from a corpus (repo, docs), processed the full pipeline until exhaustion, and validated cognitive quality. Serves as both a product feature (instant topic expertise) and the definitive integration test for the memory pipeline.
+
+- **Corpus ingestion pipeline** — chunk repos/docs into semantically meaningful raw entries; respect function/class/section boundaries; tag with source metadata
+- **Process-until-exhaustion runner** — iterative pipeline with intensity scaling (light->medium->heavy across cycles) and convergence detection; stops when no new promotions emerge
+- **Cognitive quality assertions** — test framework for provenance integrity, contradiction detection, duplicate detection, content quality, and pipeline health metrics
+- **Golden corpus integration test** — end-to-end test: seed from known corpus -> process to exhaustion -> assert on cognitive quality; extends golden snapshot test with holistic validation
+- **Dev dashboard** — self-contained local memory stack inspector (`dev/dashboard.py`); stdlib HTTP server serving an embedded dark-theme HTML/CSS/JS dashboard with 16 API endpoints, 6 tabs (Overview, Raw Entries, Memories, Suggestions, Audit Log, Settings), anxiety visualization, strength bars, and provenance chain display
+
+**v0.12.03 — Governance & Observability**
+
+Auditability and belief management tooling for long-running SIs.
+
+- **Promotion explanations** — store rationale on every promoted memory: trigger condition, evidence list, confidence inputs, trust gate result
+- **Belief revision** — contradiction detection (lexical + embedding), supersession workflow with lineage preservation, downstream impact flagging
+- **JSONL audit events** — standardized, versioned audit event schema with correlation IDs for pipeline runs
+- **Terminology docs** — canonical pipeline diagram, glossary (transition, promotion, suggestion, maintenance, consolidation), end-to-end reference page
+- **Component ordering DAG** — formalize component execution order with declared dependencies; validate at init
+
+#### v0.13.x — Security Hardening, Architecture, and Sync Unification
+
+Comprehensive security hardening, architectural decomposition, and sync system improvements across 13 patch releases.
+
+**v0.13.00 — Anxiety Unification & Architecture**
+
+- Unified anxiety computation across CLI, features, and stack components — single AnxietyCore engine
+- Removed legacy feature mixins from SQLiteStack (replaced by StackComponentProtocol)
+- Delegated `load()` assembly to StackProtocol instead of Entity
+
+**v0.13.01 — Suggestion Lifecycle & Security**
+
+- Added suggestion lifecycle APIs to StackProtocol (get, list, accept, dismiss)
+- Blocked plaintext HTTP credential submission in auth CLI
+- Fixed PreToolUse hook fail-closed behavior
+- Credential URL validation hardened against hostname bypass
+
+**v0.13.03–v0.13.04 — Test Hardening & Audit Remediation**
+
+- Hardened test suite and optimized CI pipeline
+- Complete audit remediation across all critical/high findings
+- CSV importer coverage raised to 92%, knowledge component to 97%
+
+**v0.13.06 — Validation & Architecture Cleanup**
+
+- Hardened input validation and model error handling
+- Architecture cleanup and CI hardening
+- Raised overall test coverage targets
+
+**v0.13.07–v0.13.09 — Runtime Safety & Observability**
+
+- Runtime safety improvements: score clamping, file permissions, sync guards
+- Sync integrity hardening with guard clauses
+- Observability improvements for debugging production issues
+- Audit critical/high findings — security, logic, and observability fixes
+
+**v0.13.10 — Architectural Decomposition**
+
+- Decomposed protocols, storage, components, and imports into focused modules
+- Separated StackWriterProtocol, StackReaderProtocol, and other protocol fragments
+- Storage CRUD operations extracted to per-table modules (beliefs_crud, episodes_crud, etc.)
+
+**v0.13.11–v0.13.12 — Write Path Unification & Sync**
+
+- Unified memory write paths with enrichment extraction and entity/batch parity
+- CLI moved off raw SQLite — storage admin methods replace direct sqlite3.connect
+- Consolidated entity persistence — removed redundant binding, wired checkpoint restore
+- Unified sync CLI pull with SyncEngine for all 8 table types
+- Added upsert methods to StackProtocol for drives and relationships
+- Entity.drive() and Entity.relationship() now use get-then-atomic-update-or-save pattern
+- Deduplicated sync credential discovery into shared kernle.credentials module
+- Fixed source_entity persistence in Relationship CRUD
+
 ---
 
 ## Planned Milestones
 
-Development is organized into versioned milestones. Each minor version (e.g., v0.12.x) is a milestone, with patch versions (e.g., v0.12.00, v0.12.01) as parent issues within. The v0.12.x series addresses pipeline integrity, v0.13.x abstracts the remote sync protocol (git/GitHub pattern), v0.14.x introduces pending memory and pondering, and v0.15.x adds skills as a memory type.
+Development is organized into versioned milestones. Each minor version (e.g., v0.14.x) is a milestone, with patch versions (e.g., v0.14.00, v0.14.01) as parent issues within. The v0.14.x series introduces pending memory and pondering, and v0.15.x adds skills as a memory type.
 
-### v0.12.00 — Pipeline Safety
+### Deferred: Remote Protocol Abstraction
 
-<Warning>Critical fixes from the 2026-02-09 memory pipeline audit. These prevent identity corruption when inference is unavailable and establish the suggestions-first governance model.</Warning>
+<Note>These features were originally planned for v0.13.x but deferred in favor of security hardening, architectural decomposition, and sync unification work. They remain planned for a future milestone.</Note>
 
-The pipeline audit revealed that `force processing` with `inference_available=false` promoted malformed beliefs and values — identity corruption, not identity continuity. This milestone introduces the invariants that prevent it.
-
-- **No-inference safe-mode** — prevent identity-layer writes when `inference_available=false`; allow only raw capture, basic notes, and suggestions ([#399](https://github.com/emergent-instruments/kernle/issues/399))
-- **`source_type` taxonomy** — resolve `"processed"` mismatch; establish canonical SourceType enum aligned with docs ([#400](https://github.com/emergent-instruments/kernle/issues/400))
-- **Suggestions-first promotion** — make suggestions the default output of processing; require explicit opt-in for auto-promotion into beliefs/values ([#401](https://github.com/emergent-instruments/kernle/issues/401))
-- **Memory lint pass** — reject malformed or low-signal beliefs/values before commit; store failures as suggestions instead ([#402](https://github.com/emergent-instruments/kernle/issues/402))
-- **Transition idempotency** — deduplicate by provenance hash and content hash; reprocessing the same batch produces zero duplicates ([#403](https://github.com/emergent-instruments/kernle/issues/403))
-
-### v0.12.01 — Pipeline Robustness
-
-With the safety invariants in place, this milestone makes the pipeline smarter about *when* and *whether* to promote.
-
-- **Time/valence triggers** — wire aging, emotional arousal, and consolidation debt into `check_triggers()` alongside quantity thresholds ([#404](https://github.com/emergent-instruments/kernle/issues/404))
-- **Promotion gates** — require minimum evidence count, confidence floor, and trust floor before creating beliefs/values; build on existing strength-tier mechanism ([#405](https://github.com/emergent-instruments/kernle/issues/405))
-- **Suggestion resolution workflow** — full lifecycle: list, accept, dismiss, expire; CLI commands, MCP tools, and audit events ([#406](https://github.com/emergent-instruments/kernle/issues/406))
-- **Golden snapshot test** — end-to-end pipeline regression test with fixed inputs; covers inference-on/off variants ([#407](https://github.com/emergent-instruments/kernle/issues/407))
-
-### v0.12.02 — Corpus Seeding & Cognitive Testing
-
-Seed an agent from a corpus (repo, docs), process the full pipeline until exhaustion, and validate cognitive quality. Serves as both a product feature (instant topic expertise) and the definitive integration test for the memory pipeline.
-
-- **Corpus ingestion pipeline** — chunk repos/docs into semantically meaningful raw entries; respect function/class/section boundaries; tag with source metadata ([#485](https://github.com/emergent-instruments/kernle/issues/485))
-- **Process-until-exhaustion runner** — iterative pipeline with intensity scaling (light→medium→heavy across cycles) and convergence detection; stops when no new promotions emerge ([#486](https://github.com/emergent-instruments/kernle/issues/486))
-- **Cognitive quality assertions** — test framework for provenance integrity, contradiction detection, duplicate detection, content quality, and pipeline health metrics ([#487](https://github.com/emergent-instruments/kernle/issues/487))
-- **Golden corpus integration test** — end-to-end test: seed from known corpus → process to exhaustion → assert on cognitive quality; extends golden snapshot test #407 with holistic validation ([#488](https://github.com/emergent-instruments/kernle/issues/488))
-- **Dev dashboard** — self-contained local memory stack inspector (`dev/dashboard.py`); stdlib HTTP server serving an embedded dark-theme HTML/CSS/JS dashboard with 16 API endpoints, 6 tabs (Overview, Raw Entries, Memories, Suggestions, Audit Log, Settings), anxiety visualization, strength bars, and provenance chain display ([#544](https://github.com/emergent-instruments/kernle/issues/544))
-
-### v0.12.03 — Governance & Observability
-
-Auditability and belief management tooling for long-running SIs.
-
-- **Promotion explanations** — store rationale on every promoted memory: trigger condition, evidence list, confidence inputs, trust gate result ([#408](https://github.com/emergent-instruments/kernle/issues/408))
-- **Belief revision** — contradiction detection (lexical + embedding), supersession workflow with lineage preservation, downstream impact flagging ([#409](https://github.com/emergent-instruments/kernle/issues/409))
-- **JSONL audit events** — standardized, versioned audit event schema with correlation IDs for pipeline runs ([#410](https://github.com/emergent-instruments/kernle/issues/410))
-- **Terminology docs** — canonical pipeline diagram, glossary (transition, promotion, suggestion, maintenance, consolidation), end-to-end reference page ([#411](https://github.com/emergent-instruments/kernle/issues/411))
-- **Component ordering DAG** — formalize component execution order with declared dependencies; validate at init ([#423](https://github.com/emergent-instruments/kernle/issues/423))
-
-### v0.13.00 — Remote Protocol & Generic Sync Client
+#### Remote Protocol & Generic Sync Client
 
 <Note>kernle-core is to kernle-cloud what git is to GitHub. kernle-core is the open-source protocol that works fully offline with SQLite. kernle-cloud is Ei's hosted offering — one of many possible remotes. Switching remotes is a config change, not a migration.</Note>
 
@@ -193,21 +252,21 @@ Define the `RemoteProtocol` — the interface any remote memory service must imp
 - **Generic sync client** — replaces CloudClient; lazily initialized, works with any RemoteProtocol implementation; SQLiteStorage decoupled from cloud imports ([#491](https://github.com/emergent-instruments/kernle/issues/491))
 - **Remote configuration CLI** — `kernle remote add/list/use/remove` following the git remote pattern; multiple remotes, switchable active remote ([#492](https://github.com/emergent-instruments/kernle/issues/492))
 
-### v0.13.01 — Auth Abstraction & Pluggable Schemes
+#### Auth Abstraction & Pluggable Schemes
 
 Replace hardcoded Supabase OAuth with pluggable auth. kernle-core ships simple schemes (API key, bearer token); kernle-cloud provides OAuth as a plugin via entry points.
 
 - **Pluggable auth abstraction** — `AuthScheme` protocol with discover via `kernle.auth` entry points; built-in API key and bearer token schemes ([#493](https://github.com/emergent-instruments/kernle/issues/493))
 - **Supabase/OAuth extraction** — move Supabase dependency and OAuth flow to kernle-cloud package; remove `cloud` optional dependency from kernle-core ([#494](https://github.com/emergent-instruments/kernle/issues/494))
 
-### v0.13.02 — Bidirectional Communication
+#### Bidirectional Communication
 
 Enable remotes to push updates to kernle-core via an opt-in inbound listener. Define the formal API specification.
 
 - **Inbound listener** — `kernle serve` exposes webhook endpoints for remote-initiated sync, notifications, and conflict detection; authenticated via shared secret ([#495](https://github.com/emergent-instruments/kernle/issues/495))
 - **Remote API specification + conformance tests** — formal HTTP API spec for RemoteProtocol; `kernle remote test` validates any implementation ([#496](https://github.com/emergent-instruments/kernle/issues/496))
 
-### v0.13.03 — Migration & Cleanup
+#### Migration & Cleanup
 
 Remove stale Supabase/Postgres coupling and provide a reference self-hosted remote.
 
