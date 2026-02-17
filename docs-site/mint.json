@@ -64,6 +64,7 @@
         "concepts/identity",
         "concepts/provenance",
         "concepts/stacks",
+        "concepts/pipeline-glossary",
         "concepts/privacy",
         "concepts/security"
       ]
