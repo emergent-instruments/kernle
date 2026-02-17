@@ -88,3 +88,52 @@ def resolve_credentials() -> Dict[str, Optional[str]]:
         "auth_token": auth_token,
         "user_id": user_id,
     }
+
+
+def resolve_sync_display_config() -> Dict[str, Optional[str]]:
+    """Resolve non-sensitive sync configuration for CLI display.
+
+    Returns backend_url and user_id only — safe for print/log output.
+    Does not include auth_token.
+    """
+    home = get_kernle_home()
+    backend_url: Optional[str] = None
+    user_id: Optional[str] = None
+
+    # Tier 1: credentials.json
+    credentials_path = home / "credentials.json"
+    if credentials_path.exists():
+        try:
+            with open(credentials_path) as f:
+                creds = json.load(f)
+                backend_url = creds.get("backend_url") or None
+                user_id = creds.get("user_id") or None
+        except (json.JSONDecodeError, OSError, KeyError, ValueError):
+            pass
+
+    # Tier 2: Environment variables
+    if not backend_url:
+        backend_url = os.environ.get("KERNLE_BACKEND_URL") or None
+    if not user_id:
+        user_id = os.environ.get("KERNLE_USER_ID") or None
+
+    # Tier 3: Legacy config.json
+    if not backend_url:
+        config_path = home / "config.json"
+        if config_path.exists():
+            try:
+                with open(config_path) as f:
+                    config = json.load(f)
+                    if not backend_url:
+                        backend_url = config.get("backend_url") or None
+            except (json.JSONDecodeError, OSError, KeyError, ValueError):
+                pass
+
+    if backend_url:
+        validated = validate_backend_url(backend_url)
+        if validated:
+            backend_url = validated.rstrip("/")
+        else:
+            backend_url = None
+
+    return {"backend_url": backend_url, "user_id": user_id}

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from kernle.credentials import resolve_credentials
+from kernle.credentials import resolve_credentials, resolve_sync_display_config
 
 if TYPE_CHECKING:
     from kernle import Kernle
@@ -21,10 +21,12 @@ PULL_POISON_META_KEY = "pull_poison_operations"
 
 def cmd_sync(args, k: "Kernle"):
     """Handle sync subcommands for local-to-cloud synchronization."""
-    creds = resolve_credentials()
-    backend_url = creds["backend_url"]
-    auth_token = creds["auth_token"]
-    user_id = creds["user_id"]
+    # Separate sensitive (auth_token) from display-safe (backend_url, user_id)
+    # to avoid CodeQL tainting CLI output through the credential dict.
+    auth_token = resolve_credentials()["auth_token"]
+    display_config = resolve_sync_display_config()
+    backend_url = display_config["backend_url"]
+    user_id = display_config["user_id"]
 
     def get_local_project_name():
         """Extract the local project name from stack_id (without namespace)."""
