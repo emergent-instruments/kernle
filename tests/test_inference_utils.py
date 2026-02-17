@@ -231,3 +231,43 @@ class TestLegacyHeuristicsFlag:
         assert row is not None
         assert row[0] == "true"
         conn.close()
+
+    def test_existing_stack_with_notes_only_gets_legacy_true(self, tmp_path):
+        """Stack with notes but no episodes should default to legacy=true."""
+        import sqlite3
+
+        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.types import Note
+
+        # Create a stack and add a note
+        stack = SQLiteStack(
+            stack_id="notes-only",
+            db_path=tmp_path / "notes.db",
+            components=[],
+        )
+        note = Note(
+            id="n-1",
+            stack_id="notes-only",
+            content="an important note",
+            note_type="observation",
+        )
+        stack._backend.save_note(note)
+        stack._backend.close()
+
+        # Clear the setting via raw sqlite to simulate missing migration
+        conn = sqlite3.connect(str(tmp_path / "notes.db"))
+        conn.execute("DELETE FROM stack_settings WHERE key = 'use_legacy_heuristics'")
+        conn.commit()
+        conn.close()
+
+        # Re-open — init should detect existing data and set "true"
+        stack2 = SQLiteStack(
+            stack_id="notes-only",
+            db_path=tmp_path / "notes.db",
+            components=[],
+        )
+        try:
+            setting = stack2._backend.get_stack_setting("use_legacy_heuristics")
+            assert setting == "true"
+        finally:
+            stack2._backend.close()

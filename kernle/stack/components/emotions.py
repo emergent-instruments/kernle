@@ -284,10 +284,7 @@ class EmotionalTaggingComponent:
             return dict(self._NEUTRAL_EMOTION)
 
         if self._use_legacy_heuristics():
-            # Legacy: try inference first, fall back to keywords
-            inference_result = self._detect_emotion_via_inference(text)
-            if inference_result is not None:
-                return inference_result
+            # Legacy: keyword-only detection (unchanged behavior)
             return self._detect_emotion_keywords(text)
 
         # Non-legacy: inference or neutral defaults (no keyword fallback)

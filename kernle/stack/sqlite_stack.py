@@ -285,7 +285,16 @@ class SQLiteStack(
         # Existing stacks (with data) get "true" to preserve behavior.
         # Truly new stacks (empty) get "false" for inference-or-nothing.
         if self._backend.get_stack_setting("use_legacy_heuristics") is None:
-            has_data = bool(self._backend.get_episodes(limit=1))
+            # Check multiple tables — an existing stack may have notes,
+            # beliefs, values, etc. without any episodes.
+            has_data = (
+                bool(self._backend.get_episodes(limit=1))
+                or bool(self._backend.get_notes(limit=1))
+                or bool(self._backend.get_beliefs(limit=1))
+                or bool(self._backend.get_values(limit=1))
+                or bool(self._backend.get_goals(limit=1))
+                or bool(self._backend.list_raw(limit=1))
+            )
             default = "true" if has_data else "false"
             self._backend.set_stack_setting("use_legacy_heuristics", default)
 
