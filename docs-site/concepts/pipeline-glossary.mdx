@@ -131,7 +131,7 @@ The full processing pipeline from raw capture to identity layer:
        │
        ▼
 ┌─────────────────┐
-│   Suggestions   │  ← SI reviews via accept/reject/modify
+│   Suggestions   │  ← SI resolves via accept/dismiss (or expire)
 │   (or direct    │
 │    promotion)   │
 └──────┬──────────┘
@@ -159,7 +159,18 @@ The full processing pipeline from raw capture to identity layer:
 
 All memory operations are logged in the `memory_audit` table with:
 - **operation**: Dotted format for new events (e.g., `belief.revised`, `suggestion.created`)
-- **correlation_id**: Groups all audit entries from a single `process()` run
+- **correlation_id**: Groups all audit entries from a single `process()` run, allowing you to trace every write back to the invocation that produced it
 - **details**: Structured JSON with operation-specific data
+
+### Key Audit Events
+
+| Event | Emitted When |
+|-------|-------------|
+| `raw.ingested` | A raw entry is captured (via CLI, API, or MCP) |
+| `suggestion.created` | Processing creates a suggestion for SI review |
+| `suggestion.resolved` | A suggestion is accepted, dismissed, or expired. The `details.resolution` field records which: `"accepted"`, `"dismissed"`, or `"expired"`. This is the single canonical operation for all suggestion outcomes. |
+| `memory.promoted` | A memory is directly written (auto-promote path) |
+| `belief.revised` | A new belief replaces an old one via revision |
+| `belief.deactivated` | An old belief is marked inactive during revision |
 
 Use `kernle audit export --format jsonl` to export the audit log for analysis.

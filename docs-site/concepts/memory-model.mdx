@@ -101,6 +101,14 @@ Every memory type has these meta-fields:
 | `verification_count` | Times verified |
 | `confidence_history` | JSON array of confidence changes with timestamps |
 
+### Belief Revision Tracking
+
+<Info>
+**v0.14+ deprecation**: The `supersedes` and `superseded_by` fields on beliefs are retained for backward compatibility with pre-v0.14 data but are written as `NULL` on all new writes. Revision history is now tracked via audit log entries (`belief.revised` and `belief.deactivated`). Use `kernle audit export` or `get_audit_log()` to reconstruct revision chains. These fields will be removed in v0.15.
+</Info>
+
+The `is_active` field on beliefs indicates whether a belief is current (`true`) or has been revised/archived (`false`). To find revision history for a belief, query the audit log rather than following supersession chain fields.
+
 ### Key Operations
 
 ```bash

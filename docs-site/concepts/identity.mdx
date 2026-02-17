@@ -154,10 +154,22 @@ kernle identity drift --days 30
 ```
 
 This analyzes:
-- Belief revisions over the period
-- New vs superseded beliefs
+- Belief revisions over the period (traced via `belief.revised` / `belief.deactivated` audit entries)
+- New vs inactive beliefs (checked via `is_active` flag)
 - Value priority changes
 - Goal completions and additions
+
+<Info>
+**v0.14+ change**: Revision history is now tracked via audit log entries rather than supersession chain fields (`supersedes`/`superseded_by`). Drift analysis reads audit events to reconstruct the revision timeline.
+</Info>
+
+### Contradiction Detection and the `use_legacy_heuristics` Flag
+
+The `use_legacy_heuristics` flag (see [Pipeline Glossary](/concepts/pipeline-glossary#the-use_legacy_heuristics-flag)) controls how contradiction detection works during belief revision:
+
+- **`use_legacy_heuristics=true`**: Word overlap and opposition-pair heuristics identify potential contradictions. This is the default for stacks migrated from pre-v0.14.
+- **`use_legacy_heuristics=false` with a bound model**: Inference-based contradiction detection evaluates semantic relationships using embeddings and LLM analysis.
+- **`use_legacy_heuristics=false` without a model**: Identity operations return safe defaults -- contradiction detection returns an empty list, and belief revision analysis returns `{reinforced: [], contradicted: [], suggested_new: []}`. No unreliable heuristic results are produced.
 
 ## Philosophy
 
