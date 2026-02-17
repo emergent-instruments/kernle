@@ -1342,7 +1342,7 @@ class SyncEngine:
                 **provenance,
                 entity_name=entity_name,
                 entity_type=data.get("entity_type", "unknown"),
-                relationship_type=data.get("relationship_type", "unknown"),
+                relationship_type=data.get("relationship_type", "interaction"),
                 sentiment=data.get("sentiment", 0.0),
                 interaction_count=data.get("interaction_count", 0),
             )
