@@ -180,7 +180,7 @@ class AnxietyComponent:
                             if age.total_seconds() / 3600 > 24:
                                 aging_count += 1
                     except (ValueError, TypeError, AttributeError):
-                        continue
+                        continue  # Skip entries with unparseable timestamps
                 if total_unprocessed == 0:
                     raw_aging_detail = "No unprocessed raw entries"
                 elif aging_count == 0:

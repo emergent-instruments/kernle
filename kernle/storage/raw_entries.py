@@ -191,7 +191,7 @@ def should_sync_raw() -> bool:
                 config = json.load(f)
                 return config.get("sync", {}).get("raw", False)
         except (json.JSONDecodeError, OSError):
-            pass
+            pass  # Sync config missing or malformed — use defaults
 
     # Default: OFF for security
     return False

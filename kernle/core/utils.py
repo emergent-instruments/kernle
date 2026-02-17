@@ -327,7 +327,7 @@ def compute_priority_score(
                 delta = now - created_at
                 days_since = max(0.0, delta.total_seconds() / 86400.0)
             except (ValueError, TypeError):
-                pass
+                pass  # Unparseable date — caller uses fallback
         emotional_salience = abs(valence) * arousal * (half_life / (days_since + half_life))
 
     # Weighted combination: 55% type weight, 35% record factors, 10% emotional salience

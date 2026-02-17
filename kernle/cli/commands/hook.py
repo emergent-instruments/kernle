@@ -102,7 +102,7 @@ def _read_last_messages(
             try:
                 entry = json.loads(line)
             except json.JSONDecodeError:
-                continue
+                continue  # Malformed JSON line — skip
 
             role = entry.get("role", "")
             content = _extract_text(entry)

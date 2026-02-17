@@ -45,6 +45,15 @@ Low-level storage methods. The intended write path is through the core's routed 
 
 All `save_*` methods return the memory ID of the saved record.
 
+### Atomic Updates *(v0.13.12)*
+
+| Method | Signature |
+|--------|-----------|
+| `update_drive_atomic` | `(drive: Drive, expected_version: Optional[int] = None) -> bool` |
+| `update_relationship_atomic` | `(relationship: Relationship, expected_version: Optional[int] = None) -> bool` |
+
+These methods use version-based optimistic locking. They return `True` on success, `False` if the record disappeared between read and write. When `expected_version` is provided, they also raise `VersionConflictError` if the version has changed.
+
 ### Suggestion Lifecycle *(v0.13.01)*
 
 Methods for reviewing and resolving auto-generated memory suggestions.
@@ -75,7 +84,9 @@ Methods for reviewing and resolving auto-generated memory suggestions.
 | `get_values` | `*, limit=50, context=None, include_weak=False, include_forgotten=False` |
 | `get_goals` | `*, limit=50, status=None, context=None, include_weak=False, include_forgotten=False` |
 | `get_notes` | `*, limit=50, note_type=None, context=None, include_weak=False, include_forgotten=False` |
+| `get_drive` | `(drive_type: str) -> Optional[Drive]` |
 | `get_drives` | `*, include_expired=False` |
+| `get_relationship` | `(entity_name: str) -> Optional[Relationship]` |
 | `get_relationships` | `*, entity_id=None, entity_type=None, min_trust=None` |
 | `get_raw` | `*, limit=50, tags=None` |
 | `get_memory` | `(memory_type: str, memory_id: str) -> Optional[Any]` |

@@ -124,7 +124,7 @@ class AnxietyMixin:
                     if entry_hours > oldest_age_hours:
                         oldest_age_hours = entry_hours
             except (ValueError, TypeError, AttributeError):
-                continue
+                continue  # Skip entries with unparseable timestamps
 
         return len(raw_entries), aging_count, oldest_age_hours, raw_entries
 

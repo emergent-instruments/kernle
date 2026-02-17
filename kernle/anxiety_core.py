@@ -162,7 +162,7 @@ def compute_raw_aging_score_weighted(entries: List[Any], age_threshold_hours: in
                 if entry_hours > oldest_hours:
                     oldest_hours = entry_hours
             except (ValueError, TypeError, AttributeError):
-                continue
+                continue  # Skip entries with unparseable age/weight fields
 
     # Convert weighted counts to integer-like values for the existing scorer
     effective_total = total_weight

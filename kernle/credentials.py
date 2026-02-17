@@ -109,7 +109,7 @@ def resolve_sync_display_config() -> Dict[str, Optional[str]]:
                 backend_url = creds.get("backend_url") or None
                 user_id = creds.get("user_id") or None
         except (json.JSONDecodeError, OSError, KeyError, ValueError):
-            pass
+            pass  # Credential file missing or malformed — try next source
 
     # Tier 2: Environment variables
     if not backend_url:
@@ -127,7 +127,7 @@ def resolve_sync_display_config() -> Dict[str, Optional[str]]:
                     if not backend_url:
                         backend_url = config.get("backend_url") or None
             except (json.JSONDecodeError, OSError, KeyError, ValueError):
-                pass
+                pass  # Config file missing or malformed — try next source
 
     if backend_url:
         validated = validate_backend_url(backend_url)

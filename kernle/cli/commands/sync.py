@@ -226,7 +226,7 @@ def cmd_sync(args, k: "Kernle"):
                     try:
                         record_dict = json.loads(change.payload)
                     except (json.JSONDecodeError, TypeError):
-                        pass
+                        pass  # Malformed JSON payload — use raw text fallback
 
                 if not record_dict:
                     record = k._storage._get_record_for_push(change.table_name, change.record_id)

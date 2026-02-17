@@ -1428,7 +1428,7 @@ def _edit_item(item: Dict[str, Any]) -> Dict[str, Any]:
                         float(new.replace("%", "")) / 100 if "%" in new else float(new)
                     )
                 except ValueError:
-                    pass
+                    pass  # Non-numeric value — keep existing
         elif t == "value":
             new = input(f"  Name [{item.get('name', '')[:50]}]: ").strip()
             if new:
@@ -1448,7 +1448,7 @@ def _edit_item(item: Dict[str, Any]) -> Dict[str, Any]:
             if new:
                 item["content"] = new
     except (EOFError, KeyboardInterrupt):
-        pass
+        pass  # User cancelled input — exit gracefully
 
     return item
 

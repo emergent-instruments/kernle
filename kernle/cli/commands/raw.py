@@ -301,7 +301,7 @@ def cmd_raw(args, k: "Kernle"):
                         if entry_time < cutoff:
                             stale_entries.append(entry)
                 except (ValueError, TypeError):
-                    continue
+                    continue  # Unparseable timestamp — skip entry
 
         target_entries = junk_entries if junk_mode else stale_entries
         label = "junk" if junk_mode else f"older than {age_days} days"
