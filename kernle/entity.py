@@ -883,24 +883,50 @@ class Entity:
         stack = self._require_active_stack()
         validate_drive_type(drive_type)
         now = datetime.now(timezone.utc)
-        d = Drive(
-            id=_generate_id(),
-            stack_id=stack.stack_id,
-            drive_type=drive_type,
-            intensity=clamp_intensity(intensity),
-            focus_areas=focus_areas or [],
-            created_at=now,
-            updated_at=now,
-            source_type=_normalize_source_type(source_type).value,
-            derived_from=build_derived_from(derived_from, source),
-            context=context,
-            context_tags=context_tags,
-        )
-        if source:
-            d.source_entity = source
+
+        existing = stack.get_drive(drive_type)
+        if existing:
+            # Update in place — preserves ID, version chain, created_at
+            existing.intensity = clamp_intensity(intensity)
+            existing.updated_at = now
+            if focus_areas is not None:
+                existing.focus_areas = focus_areas
+            if context is not None:
+                existing.context = context
+            if context_tags is not None:
+                existing.context_tags = context_tags
+            # Provenance: only overwrite when caller explicitly provides
+            if source_type is not None:
+                existing.source_type = _normalize_source_type(source_type).value
+            if derived_from is not None:
+                existing.derived_from = build_derived_from(derived_from, source)
+            elif source is not None:
+                existing.derived_from = build_derived_from(existing.derived_from, source)
+            if source is not None:
+                existing.source_entity = source
+            if not stack.update_drive_atomic(existing):
+                raise RuntimeError(f"Drive {existing.id} disappeared between get and update")
+            return existing.id
         else:
-            d.source_entity = f"core:{self._core_id}"
-        return stack.save_drive(d)
+            # Create new
+            source_entity = source or f"core:{self._core_id}"
+            st = _normalize_source_type(source_type).value
+            df = build_derived_from(derived_from, source)
+            d = Drive(
+                id=_generate_id(),
+                stack_id=stack.stack_id,
+                drive_type=drive_type,
+                intensity=clamp_intensity(intensity),
+                focus_areas=focus_areas or [],
+                created_at=now,
+                updated_at=now,
+                source_type=st,
+                derived_from=df,
+                context=context,
+                context_tags=context_tags,
+            )
+            d.source_entity = source_entity
+            return stack.save_drive(d)
 
     def relationship(
         self,
@@ -916,28 +942,56 @@ class Entity:
     ) -> str:
         stack = self._require_active_stack()
         now = datetime.now(timezone.utc)
-        # Convert trust_level (0-1) to sentiment (-1 to 1)
-        sentiment = ((trust_level * 2) - 1) if trust_level is not None else 0.0
-        sentiment = max(-1.0, min(1.0, sentiment))
-        r = Relationship(
-            id=_generate_id(),
-            stack_id=stack.stack_id,
-            entity_name=other_stack_id,
-            entity_type=entity_type or "person",
-            relationship_type=interaction_type or "interaction",
-            notes=notes,
-            sentiment=sentiment,
-            interaction_count=1,
-            last_interaction=now,
-            created_at=now,
-            source_type=_normalize_source_type(source_type).value,
-            derived_from=build_derived_from(derived_from, source),
-        )
-        if source:
-            r.source_entity = source
+
+        existing = stack.get_relationship(other_stack_id)
+        if existing:
+            # Update in place — preserves ID, version chain, history
+            if trust_level is not None:
+                sentiment = max(-1.0, min(1.0, (trust_level * 2) - 1))
+                existing.sentiment = sentiment
+            if notes is not None:
+                existing.notes = notes
+            if interaction_type is not None:
+                existing.relationship_type = interaction_type
+            if entity_type is not None:
+                existing.entity_type = entity_type
+            existing.interaction_count = (existing.interaction_count or 0) + 1
+            existing.last_interaction = now
+            # Provenance: only overwrite when caller explicitly provides
+            if source_type is not None:
+                existing.source_type = _normalize_source_type(source_type).value
+            if derived_from is not None:
+                existing.derived_from = build_derived_from(derived_from, source)
+            elif source is not None:
+                existing.derived_from = build_derived_from(existing.derived_from, source)
+            if source is not None:
+                existing.source_entity = source
+            if not stack.update_relationship_atomic(existing):
+                raise RuntimeError(f"Relationship {existing.id} disappeared between get and update")
+            return existing.id
         else:
-            r.source_entity = f"core:{self._core_id}"
-        return stack.save_relationship(r)
+            # Create new
+            source_entity = source or f"core:{self._core_id}"
+            st = _normalize_source_type(source_type).value
+            df = build_derived_from(derived_from, source)
+            sentiment = ((trust_level * 2) - 1) if trust_level is not None else 0.0
+            sentiment = max(-1.0, min(1.0, sentiment))
+            r = Relationship(
+                id=_generate_id(),
+                stack_id=stack.stack_id,
+                entity_name=other_stack_id,
+                entity_type=entity_type or "person",
+                relationship_type=interaction_type or "interaction",
+                notes=notes,
+                sentiment=sentiment,
+                interaction_count=1,
+                last_interaction=now,
+                created_at=now,
+                source_type=st,
+                derived_from=df,
+            )
+            r.source_entity = source_entity
+            return stack.save_relationship(r)
 
     def raw(
         self,

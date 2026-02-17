@@ -866,25 +866,35 @@ class SQLiteStack(
         self._backend.update_goal_atomic(goal)
         self._dispatch_on_save("goal", goal.id, goal)
 
-    def update_drive_atomic(self, drive: Drive):
+    def update_drive_atomic(self, drive: Drive, expected_version: Optional[int] = None) -> bool:
         self._validate_provenance(
             "drive", drive.derived_from, getattr(drive, "source_entity", None)
         )
         self._validate_source_type("drive", drive.source_type)
-        self._backend.update_drive_atomic(drive)
+        result = self._backend.update_drive_atomic(drive, expected_version=expected_version)
         self._dispatch_on_save("drive", drive.id, drive)
+        return result
+
+    def get_drive(self, drive_type: str):
+        """Delegate read to backend for consistent strict-mode path."""
+        return self._backend.get_drive(drive_type)
 
     def get_relationship(self, entity_name: str):
         """Delegate read to backend for consistent strict-mode path."""
         return self._backend.get_relationship(entity_name)
 
-    def update_relationship_atomic(self, relationship: Relationship):
+    def update_relationship_atomic(
+        self, relationship: Relationship, expected_version: Optional[int] = None
+    ) -> bool:
         self._validate_provenance(
             "relationship", relationship.derived_from, getattr(relationship, "source_entity", None)
         )
         self._validate_source_type("relationship", relationship.source_type)
-        self._backend.update_relationship_atomic(relationship)
+        result = self._backend.update_relationship_atomic(
+            relationship, expected_version=expected_version
+        )
         self._dispatch_on_save("relationship", relationship.id, relationship)
+        return result
 
     def save_raw(self, raw: RawEntry) -> str:
         self._validate_provenance("raw", None)  # Raw entries need no provenance

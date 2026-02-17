@@ -27,6 +27,7 @@ from kernle.types import (
     SourceType,
     TrustAssessment,
     Value,
+    VersionConflictError,
 )
 
 
@@ -232,6 +233,11 @@ def _make_mock_stack(stack_id="test-stack", schema_version=22):
     stack.save_trust_assessment.side_effect = lambda a: a.id
     stack.get_relationships.return_value = []
     stack.get_goals.return_value = []
+    # Upsert support: default to "not found" so create path is taken
+    stack.get_drive.return_value = None
+    stack.get_relationship.return_value = None
+    stack.update_drive_atomic.return_value = True
+    stack.update_relationship_atomic.return_value = True
     return stack
 
 
@@ -1608,3 +1614,340 @@ class TestPluginContextSourceType:
         ctx.value("honesty", "Be truthful", source_type="seed")
         v = stack.save_value.call_args[0][0]
         assert v.source_type == "seed"
+
+
+# ---- Drive Upsert Tests ----
+
+
+class TestDriveUpsert:
+    """Tests for Entity.drive() get-then-upsert behavior."""
+
+    def test_drive_creates_when_not_exists(self, entity, stack):
+        """get_drive returns None → save_drive called, returns new ID."""
+        entity.attach_stack(stack)
+        stack.get_drive.return_value = None
+        mem_id = entity.drive("curiosity", intensity=0.8)
+        assert mem_id is not None
+        stack.save_drive.assert_called_once()
+        stack.update_drive_atomic.assert_not_called()
+
+    def test_drive_updates_when_exists(self, entity, stack):
+        """get_drive returns existing → update_drive_atomic called, returns same ID."""
+        entity.attach_stack(stack)
+        existing = Drive(
+            id="existing-drive-id",
+            stack_id="test-stack",
+            drive_type="curiosity",
+            intensity=0.5,
+            focus_areas=["AI"],
+            created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            updated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            source_type="direct_experience",
+            derived_from=["episode:ep1"],
+            context="project:foo",
+            context_tags=["research"],
+        )
+        existing.source_entity = "core:test-core"
+        stack.get_drive.return_value = existing
+        mem_id = entity.drive("curiosity", intensity=0.9)
+        assert mem_id == "existing-drive-id"
+        stack.update_drive_atomic.assert_called_once_with(existing)
+        stack.save_drive.assert_not_called()
+        assert existing.intensity == 0.9
+
+    def test_drive_preserves_optional_fields(self, entity, stack):
+        """Update with only intensity → existing context/focus_areas preserved."""
+        entity.attach_stack(stack)
+        existing = Drive(
+            id="d1",
+            stack_id="test-stack",
+            drive_type="curiosity",
+            intensity=0.5,
+            focus_areas=["AI", "ML"],
+            context="project:foo",
+            context_tags=["research"],
+            source_type="consolidation",
+            derived_from=["episode:ep1"],
+        )
+        existing.source_entity = "plugin:analytics"
+        stack.get_drive.return_value = existing
+        entity.drive("curiosity", intensity=0.7)
+        # Optional fields not passed → preserved
+        assert existing.focus_areas == ["AI", "ML"]
+        assert existing.context == "project:foo"
+        assert existing.context_tags == ["research"]
+
+    def test_drive_overwrites_optional_fields_when_provided(self, entity, stack):
+        """Update with focus_areas=["new"] → overwrites existing."""
+        entity.attach_stack(stack)
+        existing = Drive(
+            id="d1",
+            stack_id="test-stack",
+            drive_type="curiosity",
+            intensity=0.5,
+            focus_areas=["old"],
+            context="old-context",
+            context_tags=["old-tag"],
+        )
+        stack.get_drive.return_value = existing
+        entity.drive(
+            "curiosity",
+            intensity=0.6,
+            focus_areas=["new"],
+            context="new-context",
+            context_tags=["new-tag"],
+        )
+        assert existing.focus_areas == ["new"]
+        assert existing.context == "new-context"
+        assert existing.context_tags == ["new-tag"]
+
+    def test_drive_no_duplicates(self, entity, stack):
+        """Two calls: first creates (save_drive), second updates (update_drive_atomic)."""
+        entity.attach_stack(stack)
+        # First call: no existing drive
+        stack.get_drive.return_value = None
+        first_id = entity.drive("curiosity", intensity=0.5)
+        assert stack.save_drive.call_count == 1
+
+        # Second call: existing drive found
+        saved_drive = stack.save_drive.call_args[0][0]
+        stack.get_drive.return_value = saved_drive
+        second_id = entity.drive("curiosity", intensity=0.9)
+        assert second_id == first_id
+        assert stack.update_drive_atomic.call_count == 1
+        assert stack.save_drive.call_count == 1  # Still 1 — no second save
+
+    def test_drive_update_preserves_provenance(self, entity, stack):
+        """Update without source_type/derived_from/source → all three preserved."""
+        entity.attach_stack(stack)
+        existing = Drive(
+            id="d1",
+            stack_id="test-stack",
+            drive_type="curiosity",
+            intensity=0.5,
+            source_type="consolidation",
+            derived_from=["episode:ep1", "belief:b1"],
+        )
+        existing.source_entity = "plugin:analytics"
+        stack.get_drive.return_value = existing
+        # Update with only intensity — no source_type, derived_from, or source
+        entity.drive("curiosity", intensity=0.8)
+        assert existing.source_type == "consolidation"
+        assert existing.derived_from == ["episode:ep1", "belief:b1"]
+        assert existing.source_entity == "plugin:analytics"
+
+    def test_drive_update_appends_source_context(self, entity, stack):
+        """Update with source but no derived_from → appends context marker."""
+        entity.attach_stack(stack)
+        existing = Drive(
+            id="d1",
+            stack_id="test-stack",
+            drive_type="curiosity",
+            intensity=0.5,
+            derived_from=["episode:ep1"],
+        )
+        existing.source_entity = "core:test-core"
+        stack.get_drive.return_value = existing
+        entity.drive("curiosity", intensity=0.9, source="plugin:foo")
+        assert existing.derived_from == ["episode:ep1", "context:plugin:foo"]
+        assert existing.source_entity == "plugin:foo"
+
+
+# ---- Relationship Upsert Tests ----
+
+
+class TestRelationshipUpsert:
+    """Tests for Entity.relationship() get-then-upsert behavior."""
+
+    def test_relationship_creates_when_not_exists(self, entity, stack):
+        """get_relationship returns None → save_relationship called."""
+        entity.attach_stack(stack)
+        stack.get_relationship.return_value = None
+        mem_id = entity.relationship("alice", trust_level=0.7)
+        assert mem_id is not None
+        stack.save_relationship.assert_called_once()
+        stack.update_relationship_atomic.assert_not_called()
+
+    def test_relationship_updates_when_exists(self, entity, stack):
+        """get_relationship returns existing → update_relationship_atomic called, same ID."""
+        entity.attach_stack(stack)
+        existing = Relationship(
+            id="existing-rel-id",
+            stack_id="test-stack",
+            entity_name="alice",
+            entity_type="person",
+            relationship_type="interaction",
+            notes="met at conference",
+            sentiment=0.4,
+            interaction_count=3,
+            last_interaction=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            source_type="direct_experience",
+            derived_from=["episode:ep1"],
+        )
+        existing.source_entity = "core:test-core"
+        stack.get_relationship.return_value = existing
+        mem_id = entity.relationship("alice", trust_level=0.9)
+        assert mem_id == "existing-rel-id"
+        stack.update_relationship_atomic.assert_called_once_with(existing)
+        stack.save_relationship.assert_not_called()
+
+    def test_relationship_increments_interaction_count(self, entity, stack):
+        """existing.interaction_count=3 → 4 on update."""
+        entity.attach_stack(stack)
+        existing = Relationship(
+            id="r1",
+            stack_id="test-stack",
+            entity_name="alice",
+            entity_type="person",
+            relationship_type="interaction",
+            interaction_count=3,
+        )
+        stack.get_relationship.return_value = existing
+        entity.relationship("alice")
+        assert existing.interaction_count == 4
+
+    def test_relationship_preserves_optional_fields(self, entity, stack):
+        """Update with only trust_level → notes, entity_type preserved."""
+        entity.attach_stack(stack)
+        existing = Relationship(
+            id="r1",
+            stack_id="test-stack",
+            entity_name="alice",
+            entity_type="agent",
+            relationship_type="collaboration",
+            notes="works on project X",
+            sentiment=0.0,
+            interaction_count=1,
+        )
+        stack.get_relationship.return_value = existing
+        entity.relationship("alice", trust_level=0.8)
+        assert existing.notes == "works on project X"
+        assert existing.entity_type == "agent"
+        assert existing.relationship_type == "collaboration"
+
+    def test_relationship_overwrites_optional_fields_when_provided(self, entity, stack):
+        """Update with notes="new" → overwrites existing."""
+        entity.attach_stack(stack)
+        existing = Relationship(
+            id="r1",
+            stack_id="test-stack",
+            entity_name="alice",
+            entity_type="person",
+            relationship_type="interaction",
+            notes="old notes",
+            interaction_count=1,
+        )
+        stack.get_relationship.return_value = existing
+        entity.relationship(
+            "alice",
+            notes="new notes",
+            interaction_type="collaboration",
+            entity_type="agent",
+        )
+        assert existing.notes == "new notes"
+        assert existing.relationship_type == "collaboration"
+        assert existing.entity_type == "agent"
+
+    def test_relationship_no_duplicates(self, entity, stack):
+        """Two calls: first creates, second updates."""
+        entity.attach_stack(stack)
+        stack.get_relationship.return_value = None
+        first_id = entity.relationship("alice", trust_level=0.5)
+        assert stack.save_relationship.call_count == 1
+
+        saved_rel = stack.save_relationship.call_args[0][0]
+        stack.get_relationship.return_value = saved_rel
+        second_id = entity.relationship("alice", trust_level=0.9)
+        assert second_id == first_id
+        assert stack.update_relationship_atomic.call_count == 1
+        assert stack.save_relationship.call_count == 1
+
+    def test_relationship_update_preserves_provenance(self, entity, stack):
+        """Update without source_type/derived_from/source → all three preserved."""
+        entity.attach_stack(stack)
+        existing = Relationship(
+            id="r1",
+            stack_id="test-stack",
+            entity_name="alice",
+            entity_type="person",
+            relationship_type="interaction",
+            interaction_count=2,
+            source_type="external",
+            derived_from=["episode:ep1"],
+        )
+        existing.source_entity = "plugin:analytics"
+        stack.get_relationship.return_value = existing
+        entity.relationship("alice", trust_level=0.8)
+        assert existing.source_type == "external"
+        assert existing.derived_from == ["episode:ep1"]
+        assert existing.source_entity == "plugin:analytics"
+
+
+# ---- Upsert Error Handling Tests ----
+
+
+class TestUpsertErrorHandling:
+    """Tests for error propagation in the upsert path."""
+
+    def test_drive_update_version_conflict_propagates(self, entity, stack):
+        """update_drive_atomic raises VersionConflictError → propagates to caller."""
+        entity.attach_stack(stack)
+        existing = Drive(
+            id="d1",
+            stack_id="test-stack",
+            drive_type="curiosity",
+            intensity=0.5,
+        )
+        stack.get_drive.return_value = existing
+        stack.update_drive_atomic.side_effect = VersionConflictError("drives", "d1", 1, 2)
+        with pytest.raises(VersionConflictError):
+            entity.drive("curiosity", intensity=0.9)
+
+    def test_relationship_update_version_conflict_propagates(self, entity, stack):
+        """update_relationship_atomic raises VersionConflictError → propagates."""
+        entity.attach_stack(stack)
+        existing = Relationship(
+            id="r1",
+            stack_id="test-stack",
+            entity_name="alice",
+            entity_type="person",
+            relationship_type="interaction",
+            interaction_count=1,
+        )
+        stack.get_relationship.return_value = existing
+        stack.update_relationship_atomic.side_effect = VersionConflictError(
+            "relationships", "r1", 1, 2
+        )
+        with pytest.raises(VersionConflictError):
+            entity.relationship("alice", trust_level=0.9)
+
+    def test_drive_update_false_raises_runtime_error(self, entity, stack):
+        """update_drive_atomic returns False → RuntimeError raised."""
+        entity.attach_stack(stack)
+        existing = Drive(
+            id="d1",
+            stack_id="test-stack",
+            drive_type="curiosity",
+            intensity=0.5,
+        )
+        stack.get_drive.return_value = existing
+        stack.update_drive_atomic.return_value = False
+        with pytest.raises(RuntimeError, match="disappeared between get and update"):
+            entity.drive("curiosity", intensity=0.9)
+
+    def test_relationship_update_false_raises_runtime_error(self, entity, stack):
+        """update_relationship_atomic returns False → RuntimeError raised."""
+        entity.attach_stack(stack)
+        existing = Relationship(
+            id="r1",
+            stack_id="test-stack",
+            entity_name="alice",
+            entity_type="person",
+            relationship_type="interaction",
+            interaction_count=1,
+        )
+        stack.get_relationship.return_value = existing
+        stack.update_relationship_atomic.return_value = False
+        with pytest.raises(RuntimeError, match="disappeared between get and update"):
+            entity.relationship("alice", trust_level=0.9)
