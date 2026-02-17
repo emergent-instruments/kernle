@@ -732,10 +732,11 @@ class TestEmotionalMemory:
 
         result = kernle.detect_emotion("I'm so happy and excited about this!")
 
-        assert result["valence"] > 0  # Positive
-        assert result["arousal"] > 0  # Some arousal
-        assert len(result["tags"]) > 0
-        assert result["confidence"] > 0
+        # Without inference, returns neutral defaults
+        assert result["valence"] == 0.0
+        assert result["arousal"] == 0.0
+        assert result["tags"] == []
+        assert result["confidence"] == 0.0
 
     def test_episode_with_emotion(self, kernle_instance):
         """Test creating episode with emotional tagging."""

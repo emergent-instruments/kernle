@@ -4,10 +4,8 @@ This module provides auto-extraction of memory suggestions from raw entries,
 enabling the system to suggest structured memories while keeping the agent
 in control of what gets promoted.
 
-Pattern-based extraction (no LLM calls) detects:
-- Episodes: Action words, outcome indicators, completion phrases
-- Beliefs: Opinion patterns, generalizations, assertions
-- Notes: Quotes, decisions, insights, observations
+Uses inference for classification when available; returns empty results
+otherwise.
 """
 
 import logging
@@ -22,51 +20,6 @@ if TYPE_CHECKING:
     from kernle.core import Kernle
 
 logger = logging.getLogger(__name__)
-
-
-# Episode detection patterns
-EPISODE_PATTERNS = [
-    # Action completion
-    (r"\b(completed|finished|shipped|deployed|released|launched)\b", 0.7),
-    (r"\b(did|made|built|created|implemented|fixed|resolved)\b", 0.6),
-    (r"\b(worked on|working on|tackled|handled)\b", 0.5),
-    # Outcome words
-    (r"\b(succeeded|success|failed|failure|partial|blocked)\b", 0.7),
-    (r"\b(achieved|accomplished|delivered)\b", 0.7),
-    # Learning indicators
-    (r"\b(learned|discovered|realized|figured out|understood)\b", 0.6),
-    (r"\b(lesson|takeaway|insight from)\b", 0.7),
-]
-
-# Belief detection patterns
-BELIEF_PATTERNS = [
-    # Opinion phrases
-    (r"\b(i think|i believe|i feel that|in my opinion)\b", 0.8),
-    (r"\b(seems like|appears that|looks like)\b", 0.6),
-    # Generalizations
-    (r"\b(always|never|usually|typically|generally)\b", 0.6),
-    (r"\b(should|must|need to|have to)\b", 0.5),
-    # Assertions
-    (r"\b(is better than|is worse than|prefer|favorite)\b", 0.7),
-    (r"\b(the best way|the right way|the wrong way)\b", 0.8),
-    # Pattern recognition
-    (r"\b(pattern|principle|rule|guideline)\b", 0.7),
-]
-
-# Note detection patterns
-NOTE_PATTERNS = [
-    # Quotes
-    (r'["\'].*["\']', 0.6),  # Quoted text
-    (r"\b(said|told me|mentioned|asked)\b", 0.5),
-    # Decisions
-    (r"\b(decided|decision|chose|choose|will)\b", 0.7),
-    (r"\b(going to|plan to|planning)\b", 0.6),
-    # Insights/observations
-    (r"\b(noticed|observed|saw that|found that)\b", 0.6),
-    (r"\b(interesting|important|noteworthy|key)\b", 0.5),
-    # Information
-    (r"\b(remember that|note that|don\'t forget)\b", 0.7),
-]
 
 
 def _normalize_suggestion_provenance_refs(source_refs: Optional[List[str]]) -> List[str]:
@@ -113,10 +66,7 @@ class SuggestionsMixin:
     ) -> List[MemorySuggestion]:
         """Extract memory suggestions from a raw entry.
 
-        Gating:
-        - ``use_legacy_heuristics=true``: pattern-based extraction (unchanged)
-        - ``use_legacy_heuristics=false`` + no model: empty list
-        - ``use_legacy_heuristics=false`` + model: inference-based classification
+        Uses inference when available; returns empty list otherwise.
 
         Args:
             raw_entry: The raw entry to analyze
@@ -125,55 +75,11 @@ class SuggestionsMixin:
         Returns:
             List of extracted suggestions
         """
-        # Gate: legacy heuristics mode
-        if self._use_legacy_heuristics():
-            return self._extract_suggestions_keywords(raw_entry, auto_save)
-
-        # Gate: inference availability
         inference = self._get_inference()
         if inference is None:
             return []
 
-        # Inference path
         return self._extract_suggestions_inference(raw_entry, inference, auto_save)
-
-    def _extract_suggestions_keywords(
-        self: "Kernle",
-        raw_entry: RawEntry,
-        auto_save: bool = True,
-    ) -> List[MemorySuggestion]:
-        """Extract suggestions using keyword patterns (legacy)."""
-        content = (raw_entry.blob or raw_entry.content or "").lower()
-        suggestions = []
-
-        # Score each memory type
-        episode_score = self._score_patterns(content, EPISODE_PATTERNS)
-        belief_score = self._score_patterns(content, BELIEF_PATTERNS)
-        note_score = self._score_patterns(content, NOTE_PATTERNS)
-
-        # Only create suggestions above threshold
-        threshold = 0.4
-
-        if episode_score >= threshold:
-            suggestion = self._create_episode_suggestion(raw_entry, episode_score)
-            if suggestion:
-                suggestions.append(suggestion)
-
-        if belief_score >= threshold:
-            suggestion = self._create_belief_suggestion(raw_entry, belief_score)
-            if suggestion:
-                suggestions.append(suggestion)
-
-        if note_score >= threshold and episode_score < threshold and belief_score < threshold:
-            suggestion = self._create_note_suggestion(raw_entry, note_score)
-            if suggestion:
-                suggestions.append(suggestion)
-
-        if auto_save:
-            for suggestion in suggestions:
-                self._storage.save_suggestion(suggestion)
-
-        return suggestions
 
     def _extract_suggestions_inference(
         self: "Kernle",
@@ -238,34 +144,6 @@ class SuggestionsMixin:
                 self._storage.save_suggestion(suggestion)
 
         return suggestions
-
-    def _score_patterns(
-        self: "Kernle",
-        content: str,
-        patterns: List[tuple],
-    ) -> float:
-        """Score content against a set of patterns.
-
-        Args:
-            content: Text to analyze (lowercase)
-            patterns: List of (regex, weight) tuples
-
-        Returns:
-            Combined score (0.0 to 1.0)
-        """
-        total_weight = 0.0
-        matched_weight = 0.0
-
-        for pattern, weight in patterns:
-            total_weight += weight
-            if re.search(pattern, content, re.IGNORECASE):
-                matched_weight += weight
-
-        if total_weight == 0:
-            return 0.0
-
-        # Normalize and cap at 1.0
-        return min(1.0, matched_weight / (total_weight * 0.5))
 
     def _create_episode_suggestion(
         self: "Kernle",

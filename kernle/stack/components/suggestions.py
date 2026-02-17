@@ -1,7 +1,7 @@
 """Suggestion extraction stack component.
 
-Provides pattern-based extraction of memory suggestions from raw entries.
-Detects potential episodes, beliefs, and notes using regex patterns.
+Extracts memory suggestions from raw entries using inference.
+Returns empty results when inference is unavailable.
 """
 
 from __future__ import annotations
@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -19,46 +18,13 @@ from kernle.types import MemorySuggestion
 
 logger = logging.getLogger(__name__)
 
-# Episode detection patterns
-EPISODE_PATTERNS = [
-    (r"\b(completed|finished|shipped|deployed|released|launched)\b", 0.7),
-    (r"\b(did|made|built|created|implemented|fixed|resolved)\b", 0.6),
-    (r"\b(worked on|working on|tackled|handled)\b", 0.5),
-    (r"\b(succeeded|success|failed|failure|partial|blocked)\b", 0.7),
-    (r"\b(achieved|accomplished|delivered)\b", 0.7),
-    (r"\b(learned|discovered|realized|figured out|understood)\b", 0.6),
-    (r"\b(lesson|takeaway|insight from)\b", 0.7),
-]
-
-# Belief detection patterns
-BELIEF_PATTERNS = [
-    (r"\b(i think|i believe|i feel that|in my opinion)\b", 0.8),
-    (r"\b(seems like|appears that|looks like)\b", 0.6),
-    (r"\b(always|never|usually|typically|generally)\b", 0.6),
-    (r"\b(should|must|need to|have to)\b", 0.5),
-    (r"\b(is better than|is worse than|prefer|favorite)\b", 0.7),
-    (r"\b(the best way|the right way|the wrong way)\b", 0.8),
-    (r"\b(pattern|principle|rule|guideline)\b", 0.7),
-]
-
-# Note detection patterns
-NOTE_PATTERNS = [
-    (r'["\'].*["\']', 0.6),
-    (r"\b(said|told me|mentioned|asked)\b", 0.5),
-    (r"\b(decided|decision|chose|choose|will)\b", 0.7),
-    (r"\b(going to|plan to|planning)\b", 0.6),
-    (r"\b(noticed|observed|saw that|found that)\b", 0.6),
-    (r"\b(interesting|important|noteworthy|key)\b", 0.5),
-    (r"\b(remember that|note that|don\'t forget)\b", 0.7),
-]
-
 
 class SuggestionComponent:
     """Suggestion extraction component.
 
-    Extracts memory suggestions from raw entries during maintenance
-    using pattern-based detection. When inference is available, can
-    use the model for richer extraction.
+    Extracts memory suggestions from raw entries during maintenance.
+    Uses inference for classification; returns empty results when
+    inference is unavailable.
     """
 
     name = "suggestions"
@@ -201,58 +167,14 @@ class SuggestionComponent:
 
     # ---- Core Logic ----
 
-    def _use_legacy_heuristics(self) -> bool:
-        """Check if legacy heuristics mode is enabled."""
-        if self._storage is None:
-            return True  # Default to legacy if no storage
-        setting = self._storage.get_stack_setting("use_legacy_heuristics")
-        if setting is None:
-            return True
-        return setting.lower() == "true"
-
     def _extract_suggestions(self, raw_entry: Any) -> List[MemorySuggestion]:
         """Extract memory suggestions from a raw entry.
 
-        Gating:
-        - ``use_legacy_heuristics=true``: pattern-based extraction (unchanged)
-        - ``use_legacy_heuristics=false`` + no inference: empty list
-        - ``use_legacy_heuristics=false`` + inference: inference-based extraction
+        Uses inference when available; returns empty list otherwise.
         """
-        if not self._use_legacy_heuristics():
-            if self._inference is None:
-                return []
-            return self._extract_suggestions_inference(raw_entry)
-
-        return self._extract_suggestions_keywords(raw_entry)
-
-    def _extract_suggestions_keywords(self, raw_entry: Any) -> List[MemorySuggestion]:
-        """Extract suggestions using keyword patterns (legacy)."""
-        content = (
-            getattr(raw_entry, "blob", None) or getattr(raw_entry, "content", None) or ""
-        ).lower()
-        suggestions = []
-        threshold = 0.4
-
-        episode_score = self._score_patterns(content, EPISODE_PATTERNS)
-        belief_score = self._score_patterns(content, BELIEF_PATTERNS)
-        note_score = self._score_patterns(content, NOTE_PATTERNS)
-
-        if episode_score >= threshold:
-            suggestion = self._make_suggestion(raw_entry, "episode", episode_score)
-            if suggestion:
-                suggestions.append(suggestion)
-
-        if belief_score >= threshold:
-            suggestion = self._make_suggestion(raw_entry, "belief", belief_score)
-            if suggestion:
-                suggestions.append(suggestion)
-
-        if note_score >= threshold and episode_score < threshold and belief_score < threshold:
-            suggestion = self._make_suggestion(raw_entry, "note", note_score)
-            if suggestion:
-                suggestions.append(suggestion)
-
-        return suggestions
+        if self._inference is None:
+            return []
+        return self._extract_suggestions_inference(raw_entry)
 
     def _extract_suggestions_inference(self, raw_entry: Any) -> List[MemorySuggestion]:
         """Extract suggestions using inference (non-legacy path)."""
@@ -301,20 +223,6 @@ class SuggestionComponent:
                 suggestions.append(suggestion)
 
         return suggestions
-
-    def _score_patterns(self, content: str, patterns: List[tuple]) -> float:
-        """Score content against a set of patterns."""
-        total_weight = 0.0
-        matched_weight = 0.0
-
-        for pattern, weight in patterns:
-            total_weight += weight
-            if re.search(pattern, content, re.IGNORECASE):
-                matched_weight += weight
-
-        if total_weight == 0:
-            return 0.0
-        return min(1.0, matched_weight / (total_weight * 0.5))
 
     def _make_suggestion(
         self, raw_entry: Any, memory_type: str, confidence: float

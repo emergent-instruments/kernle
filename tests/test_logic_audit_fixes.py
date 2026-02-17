@@ -202,12 +202,12 @@ class TestNullHandlingInEmotionDetection:
         assert result["confidence"] == 0.0
 
     def test_detect_emotion_with_valid_text(self, kernle_fresh):
-        """Should work normally with valid text."""
+        """Without inference, returns neutral defaults for valid text."""
         k = kernle_fresh
 
         result = k.detect_emotion("I'm really happy and excited!")
 
-        # Should detect something
         assert result is not None
-        # Happy text should have positive valence
-        assert result["valence"] > 0 or len(result["tags"]) > 0
+        # Without inference, returns neutral defaults
+        assert result["valence"] == 0.0
+        assert result["tags"] == []

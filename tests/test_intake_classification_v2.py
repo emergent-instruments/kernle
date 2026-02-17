@@ -1,11 +1,9 @@
 """Tests for Phase 5: Replace Heuristic Intake Classification (#842).
 
 TDD tests for:
-- extract_suggestions() gated by use_legacy_heuristics
-- detect_significance() gated by use_legacy_heuristics
-- infer_outcome_type() gated by use_legacy_heuristics
-- No-model path returns empty/neutral
-- Legacy mode uses patterns (unchanged)
+- extract_suggestions() — no-model returns empty, inference path
+- detect_significance() — no-model returns not significant, inference path
+- infer_outcome_type() keyword matching
 """
 
 import json
@@ -22,72 +20,16 @@ from kernle.storage import SQLiteStorage
 
 
 @pytest.fixture
-def k_legacy(tmp_path):
-    """Kernle with use_legacy_heuristics=true."""
-    db_path = tmp_path / "test_classify_legacy.db"
-    storage = SQLiteStorage(stack_id="test-stack", db_path=db_path)
-    storage.set_stack_setting("use_legacy_heuristics", "true")
-    return Kernle(stack_id="test-stack", storage=storage, strict=False)
-
-
-@pytest.fixture
 def k_inference(tmp_path):
-    """Kernle with use_legacy_heuristics=false."""
+    """Kernle without a bound model (safe defaults path)."""
     db_path = tmp_path / "test_classify_inference.db"
     storage = SQLiteStorage(stack_id="test-stack", db_path=db_path)
-    storage.set_stack_setting("use_legacy_heuristics", "false")
     return Kernle(stack_id="test-stack", storage=storage, strict=False)
 
 
 # ---------------------------------------------------------------------------
 # extract_suggestions() tests
 # ---------------------------------------------------------------------------
-
-
-class TestExtractSuggestionsLegacy:
-    def test_legacy_mode_uses_patterns(self, k_legacy):
-        """With legacy=true, pattern-based extraction works as before."""
-        from kernle.types import RawEntry
-
-        raw = RawEntry(
-            id="raw-1",
-            stack_id="test-stack",
-            blob="I completed the task and learned that testing is essential",
-            source="cli",
-        )
-        suggestions = k_legacy.extract_suggestions(raw, auto_save=False)
-        # Pattern-based: "completed" and "learned" should trigger suggestions
-        assert len(suggestions) >= 1
-
-    def test_completed_task_is_episode(self, k_legacy):
-        """Legacy mode: episode keywords trigger episode suggestion."""
-        from kernle.types import RawEntry
-
-        # Need multiple pattern groups to exceed 0.4 threshold:
-        # "completed" (0.7) + "success" (0.7) + "learned" (0.6) = strong signal
-        raw = RawEntry(
-            id="raw-2",
-            stack_id="test-stack",
-            blob="I completed the migration, it was a success, and learned a lot",
-            source="cli",
-        )
-        suggestions = k_legacy.extract_suggestions(raw, auto_save=False)
-        episode_suggestions = [s for s in suggestions if s.memory_type == "episode"]
-        assert len(episode_suggestions) >= 1
-
-    def test_believe_statement_is_belief(self, k_legacy):
-        """Legacy mode: 'I believe' triggers belief suggestion."""
-        from kernle.types import RawEntry
-
-        raw = RawEntry(
-            id="raw-3",
-            stack_id="test-stack",
-            blob="I believe that automated testing is the best way to ensure quality",
-            source="cli",
-        )
-        suggestions = k_legacy.extract_suggestions(raw, auto_save=False)
-        belief_suggestions = [s for s in suggestions if s.memory_type == "belief"]
-        assert len(belief_suggestions) >= 1
 
 
 class TestExtractSuggestionsNoModel:
@@ -101,7 +43,7 @@ class TestExtractSuggestionsNoModel:
             blob="I completed a major task, it was a success, and I learned valuable lessons",
             source="cli",
         )
-        # In legacy mode this would produce suggestions, but with legacy=false + no model → empty
+        # No model bound → empty
         suggestions = k_inference.extract_suggestions(raw, auto_save=False)
         assert suggestions == []
 
@@ -157,19 +99,6 @@ class TestExtractSuggestionsInference:
 # ---------------------------------------------------------------------------
 
 
-class TestDetectSignificanceLegacy:
-    def test_legacy_mode_uses_keywords(self, k_legacy):
-        """Legacy mode: keyword-based significance detection."""
-        result = k_legacy.detect_significance("I completed the migration successfully")
-        assert result["significant"] is True
-        assert result["score"] > 0
-
-    def test_legacy_neutral_text_not_significant(self, k_legacy):
-        """Legacy mode: neutral text is not significant."""
-        result = k_legacy.detect_significance("The meeting is at 3pm")
-        assert result["significant"] is False
-
-
 class TestDetectSignificanceNoModel:
     def test_no_model_returns_not_significant(self, k_inference):
         """Without a model, detect_significance returns not significant."""
@@ -200,13 +129,13 @@ class TestDetectSignificanceInference:
 
 
 # ---------------------------------------------------------------------------
-# infer_outcome_type() gating tests
+# infer_outcome_type() tests
 # ---------------------------------------------------------------------------
 
 
 class TestInferOutcomeType:
-    def test_legacy_outcome_type_keywords(self, k_legacy):
-        """Legacy mode: outcome_type uses keyword inference."""
+    def test_outcome_type_keywords(self):
+        """outcome_type uses keyword matching."""
         from kernle.core.enrichment import infer_outcome_type
 
         assert infer_outcome_type("The deployment was a success") == "success"

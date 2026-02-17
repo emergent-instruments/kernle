@@ -40,97 +40,24 @@ def kernle_fresh(tmp_path):
 
 
 class TestFindContradictions:
-    """Tests for find_contradictions method."""
+    """Tests for find_contradictions method.
 
-    def test_finds_direct_negation(self, kernle_with_beliefs):
-        """Should find beliefs with direct negation patterns."""
+    Without inference bound, find_contradictions returns [] (safe default).
+    """
+
+    def test_no_inference_returns_empty(self, kernle_with_beliefs):
+        """Without inference, returns empty list as safe default."""
         k = kernle_with_beliefs
-
-        # Add a contradicting belief
         k.belief("I should never validate user input", type="principle", confidence=0.5)
 
-        # Find contradictions
         contradictions = k.find_contradictions("I should always validate user input")
+        assert contradictions == []
 
-        # Should find the contradiction
-        assert len(contradictions) >= 1
-        contra = next((c for c in contradictions if "never" in c["statement"].lower()), None)
-        assert contra is not None
-        assert contra["contradiction_type"] == "direct_negation"
-
-    def test_finds_preference_conflict(self, kernle_with_beliefs):
-        """Should find beliefs with preference conflicts."""
+    def test_unrelated_returns_empty(self, kernle_with_beliefs):
+        """Should return empty for unrelated statements (no inference)."""
         k = kernle_with_beliefs
-
-        # Add a conflicting preference
-        k.belief("I like working with legacy code", type="preference", confidence=0.5)
-
-        # Find contradictions
-        contradictions = k.find_contradictions("I like working with legacy code")
-
-        # Should find the dislike contradiction
-        assert len(contradictions) >= 1
-        # Look for the dislike belief
-        contra = next((c for c in contradictions if "dislike" in c["statement"].lower()), None)
-        assert contra is not None
-        # Can be either direct_negation or preference_conflict (like/dislike matches both patterns)
-        assert contra["contradiction_type"] in ("preference_conflict", "direct_negation")
-
-    def test_finds_comparative_opposition(self, kernle_with_beliefs):
-        """Should find beliefs with comparative opposition (more/less, better/worse)."""
-        k = kernle_with_beliefs
-
-        # Add a belief with comparative
-        k.belief(
-            "Local-first memory is more reliable than cloud-dependent", type="fact", confidence=0.8
-        )
-
-        # Find contradictions with opposite comparative
-        contradictions = k.find_contradictions(
-            "Local-first memory is less reliable than cloud-dependent"
-        )
-
-        # Should find the contradiction
-        assert len(contradictions) >= 1
-        contra = next(
-            (c for c in contradictions if "more reliable" in c["statement"].lower()), None
-        )
-        assert contra is not None
-        assert contra["contradiction_type"] == "comparative_opposition"
-
-    def test_finds_comparative_opposition_better_worse(self, kernle_with_beliefs):
-        """Should find comparative contradictions with better/worse."""
-        k = kernle_with_beliefs
-
-        k.belief("Python is better than JavaScript for data science", type="fact", confidence=0.7)
-
-        contradictions = k.find_contradictions("Python is worse than JavaScript for data science")
-
-        assert len(contradictions) >= 1
-        contra = next((c for c in contradictions if "better" in c["statement"].lower()), None)
-        assert contra is not None
-        assert contra["contradiction_type"] == "comparative_opposition"
-
-    def test_no_contradictions_for_unrelated(self, kernle_with_beliefs):
-        """Should not find contradictions for unrelated statements."""
-        k = kernle_with_beliefs
-
-        # Search for something unrelated
         contradictions = k.find_contradictions("The sky is blue")
-
-        # Should find no contradictions
         assert len(contradictions) == 0
-
-    def test_respects_limit(self, kernle_with_beliefs):
-        """Should respect the limit parameter."""
-        k = kernle_with_beliefs
-
-        # Add many potential contradictions
-        for i in range(10):
-            k.belief(f"I should never use method {i}", type="principle", confidence=0.5)
-
-        contradictions = k.find_contradictions("I should always use method 5", limit=3)
-        assert len(contradictions) <= 3
 
 
 class TestReinforceBeliefs:
@@ -301,69 +228,26 @@ class TestSupersedeBelief:
 
 
 class TestReviseFromEpisode:
-    """Tests for revise_beliefs_from_episode method."""
+    """Tests for revise_beliefs_from_episode method.
 
-    def test_reinforces_relevant_beliefs(self, kernle_fresh):
-        """Should reinforce beliefs supported by successful episode."""
+    Without inference, returns safe default (empty reinforced/contradicted/suggested_new).
+    """
+
+    def test_no_inference_returns_safe_default(self, kernle_fresh):
+        """Without inference, returns empty result with correct structure."""
         k = kernle_fresh
-
-        # Add beliefs
         k.belief("I should write tests first", confidence=0.6)
 
-        # Create a successful episode related to testing
         episode_id = k.episode(
             objective="Implement feature using TDD",
             outcome="success",
             lessons=["Writing tests first helped catch bugs early"],
         )
 
-        # Revise beliefs
         result = k.revise_beliefs_from_episode(episode_id)
-
-        # Should have reinforced the testing belief
-        # Note: matching depends on word overlap, so this may or may not match
-        # depending on implementation details
-        assert "reinforced" in result
-        assert "contradicted" in result
-        assert "suggested_new" in result
-
-    def test_identifies_contradicted_beliefs(self, kernle_fresh):
-        """Should identify beliefs contradicted by failed episode."""
-        k = kernle_fresh
-
-        # Add a belief
-        k.belief("Manual testing is always sufficient", confidence=0.7)
-
-        # Create a failed episode
-        episode_id = k.episode(
-            objective="Ship without automated tests",
-            outcome="failure",
-            lessons=["Manual testing missed critical bugs"],
-        )
-
-        result = k.revise_beliefs_from_episode(episode_id)
-
-        # Check structure
-        assert isinstance(result["contradicted"], list)
-
-    def test_suggests_new_beliefs_from_lessons(self, kernle_fresh):
-        """Should suggest new beliefs from episode lessons."""
-        k = kernle_fresh
-
-        # Create episode with unique lessons
-        episode_id = k.episode(
-            objective="Learn about quantum computing",
-            outcome="success",
-            lessons=["Quantum superposition enables parallel computation"],
-        )
-
-        result = k.revise_beliefs_from_episode(episode_id)
-
-        # Should suggest the lesson as a new belief
-        assert isinstance(result["suggested_new"], list)
-        # The lesson should be suggested if no similar belief exists
-        if result["suggested_new"]:
-            assert any("quantum" in s["statement"].lower() for s in result["suggested_new"])
+        assert result["reinforced"] == []
+        assert result["contradicted"] == []
+        assert result["suggested_new"] == []
 
     def test_returns_error_for_nonexistent_episode(self, kernle_fresh):
         """Should return error for nonexistent episode."""
@@ -599,110 +483,25 @@ class TestUpdateBeliefDeactivation:
 
 
 class TestFindContradictionsPreferenceConflict:
-    """Tests for preference conflict detection in find_contradictions (lines 404-428)."""
+    """Tests for find_contradictions without inference (safe defaults)."""
 
-    def test_favor_vs_oppose_detects_preference_conflict(self, kernle_fresh):
-        """'favor' vs 'oppose' hits preference_conflict (not negation_pairs or comparatives)."""
+    def test_no_inference_returns_empty(self, kernle_fresh):
+        """Without inference, find_contradictions returns empty list."""
         k = kernle_fresh
-        # favor/oppose is only in preference_pairs, not in negation_pairs
         k.belief(
             "I oppose using microservices for small projects", type="preference", confidence=0.6
         )
 
         contradictions = k.find_contradictions("I favor using microservices for small projects")
-
-        assert len(contradictions) >= 1
-        contra = next((c for c in contradictions if "oppose" in c["statement"].lower()), None)
-        assert contra is not None
-        assert contra["contradiction_type"] == "preference_conflict"
-        assert contra["contradiction_confidence"] > 0.0
-        assert contra["contradiction_confidence"] <= 0.85  # preference_conflict cap
-
-    def test_preference_conflict_low_overlap_no_detection(self, kernle_fresh):
-        """With < 2 non-stop-word overlapping words, preference conflict is not detected."""
-        k = kernle_fresh
-        k.belief("I oppose cycling on weekends", type="preference", confidence=0.6)
-
-        contradictions = k.find_contradictions("I favor swimming at night")
-
-        pref_conflicts = [
-            c for c in contradictions if c["contradiction_type"] == "preference_conflict"
-        ]
-        assert len(pref_conflicts) == 0
-
-    def test_preference_conflict_confidence_scales_with_overlap(self, kernle_fresh):
-        """Preference conflict confidence should scale with overlapping term count."""
-        k = kernle_fresh
-        k.belief(
-            "I oppose writing complex Python integration tests",
-            type="preference",
-            confidence=0.6,
-        )
-
-        contradictions = k.find_contradictions("I favor writing complex Python integration tests")
-
-        assert len(contradictions) >= 1
-        contra = contradictions[0]
-        assert contra["contradiction_type"] == "preference_conflict"
-        # Formula: min(0.4 + overlap * 0.1 + score * 0.2, 0.85)
-        # overlap is at least 4 (writing, complex, python, integration, tests)
-        assert contra["contradiction_confidence"] >= 0.4
-
-
-class TestCheckNegationPatternSubstringGuard:
-    """Tests for _check_negation_pattern substring guard (lines 672-674)."""
-
-    def test_not_recommended_vs_recommended(self, kernle_fresh):
-        """'not recommended' vs 'recommended' should detect negation."""
-        k = kernle_fresh
-        result = k._check_negation_pattern(
-            "using eval is not recommended for production",
-            "using eval is recommended for prototyping",
-        )
-        assert result is True
-
-    def test_not_important_vs_important(self, kernle_fresh):
-        """'not important' vs 'important' should detect negation."""
-        k = kernle_fresh
-        result = k._check_negation_pattern(
-            "documentation is not important for small scripts",
-            "documentation is important for maintainability",
-        )
-        assert result is True
-
-    def test_substring_guard_same_position(self, kernle_fresh):
-        """When 'is' first appears at the same position as 'is not', guard prevents false match.
-
-        The guard (line 673) checks: pattern_b not in stmt1 OR stmt1.index(pattern_a) != stmt1.find(pattern_b)
-        When 'is not' starts at position 7 and 'is' also first appears at position 7 (as part of 'is not'),
-        the guard correctly prevents the match.
-        """
-        k = kernle_fresh
-        # "python is not good" — 'is' first found at 7, 'is not' also at 7 → same position → guard blocks
-        result = k._check_negation_pattern(
-            "python is not good for real-time",
-            "python is good for scripting",
-        )
-        assert result is False
-
-    def test_is_not_vs_is_with_earlier_is(self, kernle_fresh):
-        """When 'is' appears before 'is not' in stmt1, the guard allows detection."""
-        k = kernle_fresh
-        # "coding is fun but deployment is not easy" — 'is' at 7, 'is not' at 30 → different → match
-        result = k._check_negation_pattern(
-            "coding is fun but deployment is not easy for teams",
-            "deployment is easy for teams",
-        )
-        assert result is True
+        assert contradictions == []
 
 
 class TestReviseFromEpisodeEdgeCases:
-    """Tests for edge cases in revise_beliefs_from_episode."""
+    """Tests for revise_beliefs_from_episode without inference (safe defaults)."""
 
-    def test_low_overlap_belief_skipped(self, kernle_fresh):
-        """Beliefs with < 2 overlapping words should be skipped (line 1065)."""
+    def test_no_inference_returns_empty_result(self, kernle_fresh):
+        """Without inference, revise_beliefs_from_episode returns empty result."""
         k = kernle_fresh
-        # Add a belief with unique words that won't overlap with the episode
         k.belief("Quantum entanglement is fascinating", confidence=0.7)
 
         episode_id = k.episode(
@@ -712,148 +511,16 @@ class TestReviseFromEpisodeEdgeCases:
         )
 
         result = k.revise_beliefs_from_episode(episode_id)
-        # The quantum belief has no word overlap with the deployment episode
-        assert not any("quantum" in r.get("statement", "").lower() for r in result["reinforced"])
-        assert not any("quantum" in r.get("statement", "").lower() for r in result["contradicted"])
-
-    def test_success_contradicts_avoid_belief(self, kernle_fresh):
-        """Success episode should contradict 'avoid' beliefs about what worked (lines 1079-1080).
-
-        The belief must NOT contain 'should'/'prefer'/'good'/'important'/'effective'
-        because those are checked first in the if/elif chain.
-        """
-        k = kernle_fresh
-        bid = k.belief(
-            "Avoid deploying code to production on Friday",
-            confidence=0.7,
-        )
-
-        episode_id = k.episode(
-            objective="Deploying code to production on Friday",
-            outcome="success",
-            lessons=["Friday deploy went smoothly"],
-        )
-
-        result = k.revise_beliefs_from_episode(episode_id)
-        contradicted_ids = [c["belief_id"] for c in result["contradicted"]]
-        assert bid in contradicted_ids
-
-    def test_failure_contradicts_should_belief(self, kernle_fresh):
-        """Failure episode should contradict 'should' beliefs about what failed (line 1088)."""
-        k = kernle_fresh
-        bid = k.belief(
-            "I should deploy rapidly to production servers",
-            confidence=0.8,
-        )
-
-        episode_id = k.episode(
-            objective="Deploying rapidly to production servers",
-            outcome="failure",
-            lessons=["Rapid deploy caused outage"],
-        )
-
-        result = k.revise_beliefs_from_episode(episode_id)
-        contradicted_ids = [c["belief_id"] for c in result["contradicted"]]
-        assert bid in contradicted_ids
-
-    def test_failure_supports_avoid_belief(self, kernle_fresh):
-        """Failure episode should support 'avoid' beliefs (line 1091).
-
-        The belief must NOT contain 'should'/'prefer'/'good'/'important'/'effective'
-        because those are checked first in the if/elif chain.
-        """
-        k = kernle_fresh
-        bid = k.belief(
-            "Avoid deploying untested code to production",
-            confidence=0.6,
-        )
-
-        episode_id = k.episode(
-            objective="Deploying untested code to production",
-            outcome="failure",
-            lessons=["Untested code crashed in production"],
-        )
-
-        result = k.revise_beliefs_from_episode(episode_id)
-        reinforced_ids = [r["belief_id"] for r in result["reinforced"]]
-        assert bid in reinforced_ids
-
-
-class TestDetectOppositionEdgeCases:
-    """Tests for _detect_opposition edge cases."""
-
-    def test_no_topic_overlap_returns_zero(self, kernle_fresh):
-        """Statements with < 1 content word overlap return score 0."""
-        k = kernle_fresh
-        result = k._detect_opposition(
-            "cats are wonderful pets",
-            "programming challenges developers constantly",
-        )
-        assert result["score"] == 0.0
-        assert result["type"] == "none"
-
-    def test_opposition_words_detected(self, kernle_fresh):
-        """Direct opposition word pairs with word-level verification (lines 585-592)."""
-        k = kernle_fresh
-        result = k._detect_opposition(
-            "automated testing is good for software quality",
-            "automated testing is bad for software velocity",
-        )
-        assert result["score"] > 0.0
-        assert result["type"] == "opposition_words"
-        assert "good" in result["explanation"] or "bad" in result["explanation"]
-
-    def test_negation_detected_in_detect_opposition(self, kernle_fresh):
-        """Negation pattern detection path in _detect_opposition (lines 601-602)."""
-        k = kernle_fresh
-        # "isn't"/"is" is a negation pattern but NOT in opposition_pairs
-        result = k._detect_opposition(
-            "this framework isn't handling concurrency well",
-            "this framework is handling concurrency well",
-        )
-        assert result["score"] > 0.0
-        assert result["type"] == "negation"
-
-    def test_sentiment_opposition_positive_then_negative(self, kernle_fresh):
-        """Positive words in stmt1 and negative words in stmt2 (lines 809-814)."""
-        k = kernle_fresh
-        # Use words that are only in sentiment lists, not opposition_pairs
-        # "excellent" is positive, "terrible" is negative
-        result = k._detect_opposition(
-            "the deployment pipeline is excellent for releases",
-            "the deployment pipeline is terrible for releases",
-        )
-        assert result["score"] > 0.0
-        # Could match as opposition_words if a pair matches first, or sentiment
-        assert result["type"] in ("opposition_words", "sentiment_opposition")
-
-    def test_sentiment_opposition_negative_then_positive(self, kernle_fresh):
-        """Negative words in stmt1 and positive words in stmt2 (lines 815-822)."""
-        k = kernle_fresh
-        # Avoid words that are in opposition pairs to ensure sentiment path is reached
-        # "disaster" is negative only, "amazing" is positive only
-        result = k._detect_opposition(
-            "this migration was disaster for database performance",
-            "this migration was amazing for database performance",
-        )
-        assert result["score"] > 0.0
-
-    def test_no_opposition_returns_zero(self, kernle_fresh):
-        """Statements with overlap but no opposition should return score 0 (line 618)."""
-        k = kernle_fresh
-        result = k._detect_opposition(
-            "python runs scripts quickly",
-            "python runs functions quickly",
-        )
-        assert result["score"] == 0.0
-        assert result["type"] == "none"
+        assert result["reinforced"] == []
+        assert result["contradicted"] == []
+        assert result["suggested_new"] == []
 
 
 class TestFindSemanticContradictions:
-    """Tests for find_semantic_contradictions method (lines 488-541)."""
+    """Tests for find_semantic_contradictions without inference (safe defaults)."""
 
-    def test_finds_opposition_in_similar_beliefs(self, kernle_fresh):
-        """Should detect opposition between semantically similar beliefs."""
+    def test_no_inference_returns_empty(self, kernle_fresh):
+        """Without inference, returns empty list as safe default."""
         k = kernle_fresh
         k.belief("Testing is good for code quality", confidence=0.8)
 
@@ -861,51 +528,4 @@ class TestFindSemanticContradictions:
             "Testing is bad for code quality",
             similarity_threshold=0.5,
         )
-
-        assert len(contradictions) >= 1
-        contra = contradictions[0]
-        assert "opposition_score" in contra
-        assert contra["opposition_score"] > 0.0
-        assert contra["opposition_type"] in ("opposition_words", "negation", "sentiment_opposition")
-
-    def test_skips_inactive_beliefs(self, kernle_fresh):
-        """Should skip inactive beliefs by default."""
-        k = kernle_fresh
-        old_id = k.belief("Old approach is good for projects", confidence=0.8)
-        k.supersede_belief(old_id, "New approach is better for projects")
-
-        contradictions = k.find_semantic_contradictions(
-            "Old approach is bad for projects",
-            similarity_threshold=0.3,
-        )
-
-        # Should not include the superseded belief
-        contra_ids = [c["belief_id"] for c in contradictions]
-        assert old_id not in contra_ids
-
-    def test_no_contradictions_for_agreeing_beliefs(self, kernle_fresh):
-        """Should not find contradictions when beliefs agree."""
-        k = kernle_fresh
-        k.belief("Python handles data analysis well", confidence=0.8)
-
-        contradictions = k.find_semantic_contradictions(
-            "Python handles data analysis well",
-            similarity_threshold=0.5,
-        )
-
-        # Exact match is skipped, and no opposition with itself
-        assert len(contradictions) == 0
-
-
-class TestCheckNegationPatternSecondDirection:
-    """Tests for the second direction check in _check_negation_pattern (line 675-677)."""
-
-    def test_reversed_pattern_direction(self, kernle_fresh):
-        """Test pattern_b in stmt1 and pattern_a in stmt2 (lines 675-677)."""
-        k = kernle_fresh
-        # Reversed: stmt1 has "recommended", stmt2 has "not recommended"
-        result = k._check_negation_pattern(
-            "using type hints is recommended for python projects",
-            "using type hints is not recommended for python projects",
-        )
-        assert result is True
+        assert contradictions == []

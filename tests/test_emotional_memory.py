@@ -256,17 +256,13 @@ class TestEmotionDetection:
         )
         return k
 
-    def test_detect_positive_emotion(self, kernle_instance):
+    def test_detect_emotion_returns_neutral_without_inference(self, kernle_instance):
+        """Without inference, detect_emotion returns neutral defaults."""
         result = kernle_instance.detect_emotion("I'm so happy and excited about this!")
-        assert result["valence"] > 0
-        assert "joy" in result["tags"] or "excitement" in result["tags"]
-        assert result["confidence"] > 0
-
-    def test_detect_negative_emotion(self, kernle_instance):
-        result = kernle_instance.detect_emotion("This is really frustrating, doesn't work!")
-        assert result["valence"] < 0
-        assert "frustration" in result["tags"]
-        assert result["confidence"] > 0
+        assert result["valence"] == 0.0
+        assert result["arousal"] == 0.0
+        assert result["tags"] == []
+        assert result["confidence"] == 0.0
 
     def test_detect_neutral_text(self, kernle_instance):
         result = kernle_instance.detect_emotion("The system processes data.")
@@ -274,20 +270,6 @@ class TestEmotionDetection:
         assert result["arousal"] == 0.0
         assert result["tags"] == []
         assert result["confidence"] == 0.0
-
-    def test_detect_multiple_emotions(self, kernle_instance):
-        result = kernle_instance.detect_emotion("I'm curious but also a bit worried about this")
-        assert len(result["tags"]) >= 2
-        assert result["confidence"] > 0.3  # Multiple matches increase confidence
-
-    def test_detect_high_arousal(self, kernle_instance):
-        result = kernle_instance.detect_emotion("This is incredible! I'm absolutely thrilled!")
-        assert result["arousal"] > 0.5
-
-    def test_detect_low_arousal(self, kernle_instance):
-        result = kernle_instance.detect_emotion("I feel content and satisfied with the result.")
-        # Satisfaction has low arousal
-        assert result["arousal"] < 0.5
 
 
 class TestMoodCongruentRetrieval:

@@ -281,25 +281,6 @@ class SQLiteStack(
         # Bootstrap self-trust if missing (e.g. after migration creates the table)
         self._ensure_self_trust()
 
-        # Set use_legacy_heuristics for stacks that don't have the setting yet.
-        # Existing stacks (with data) get "true" to preserve behavior.
-        # Truly new stacks (empty) get "false" for inference-or-nothing.
-        if self._backend.get_stack_setting("use_legacy_heuristics") is None:
-            # Check multiple tables — an existing stack may have notes,
-            # beliefs, values, etc. without any episodes.
-            has_data = (
-                bool(self._backend.get_episodes(limit=1))
-                or bool(self._backend.get_notes(limit=1))
-                or bool(self._backend.get_beliefs(limit=1))
-                or bool(self._backend.get_values(limit=1))
-                or bool(self._backend.get_goals(limit=1))
-                or bool(self._backend.get_drives())
-                or bool(self._backend.get_relationships())
-                or bool(self._backend.list_raw(limit=1))
-            )
-            default = "true" if has_data else "false"
-            self._backend.set_stack_setting("use_legacy_heuristics", default)
-
     def _ensure_self_trust(self) -> None:
         """Bootstrap self-trust assessment if missing after migration."""
         existing = self._backend.get_trust_assessment("identity")

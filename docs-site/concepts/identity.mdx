@@ -165,11 +165,7 @@ This analyzes:
 
 ### Contradiction Detection
 
-Contradiction detection during belief revision is controlled by the `use_legacy_heuristics` flag (see [Pipeline Glossary](/concepts/pipeline-glossary#the-use_legacy_heuristics-flag)):
-
-- **Legacy mode** (`use_legacy_heuristics=true`, the default for pre-v0.14 stacks): Uses word overlap and opposition-pair heuristics.
-- **Inference mode** (`use_legacy_heuristics=false` with a bound model): Uses your model to evaluate semantic relationships between beliefs.
-- **No model** (`use_legacy_heuristics=false` without a model): Returns safe defaults (empty contradiction list, empty revision results) rather than unreliable heuristic guesses.
+Contradiction detection uses inference when a model is bound. Without a model, it returns safe defaults (empty contradiction list, empty revision results).
 
 ## Philosophy
 

@@ -30,106 +30,9 @@ class EmotionsMixin:
     - Emotional pattern analysis over time
     """
 
-    # Emotional signal patterns for automatic tagging
-    EMOTION_PATTERNS = {
-        # Positive emotions (high valence)
-        "joy": {
-            "keywords": [
-                "happy",
-                "joy",
-                "delighted",
-                "wonderful",
-                "amazing",
-                "fantastic",
-                "love it",
-                "excited",
-            ],
-            "valence": 0.8,
-            "arousal": 0.6,
-        },
-        "satisfaction": {
-            "keywords": ["satisfied", "pleased", "content", "glad", "good", "nice", "well done"],
-            "valence": 0.6,
-            "arousal": 0.3,
-        },
-        "excitement": {
-            "keywords": ["excited", "thrilled", "pumped", "can't wait", "awesome", "incredible"],
-            "valence": 0.7,
-            "arousal": 0.9,
-        },
-        "curiosity": {
-            "keywords": [
-                "curious",
-                "interesting",
-                "fascinating",
-                "wonder",
-                "intriguing",
-                "want to know",
-            ],
-            "valence": 0.3,
-            "arousal": 0.5,
-        },
-        "pride": {
-            "keywords": ["proud", "accomplished", "achieved", "nailed it", "crushed it"],
-            "valence": 0.7,
-            "arousal": 0.5,
-        },
-        "gratitude": {
-            "keywords": ["grateful", "thankful", "appreciate", "thanks so much", "means a lot"],
-            "valence": 0.7,
-            "arousal": 0.3,
-        },
-        # Negative emotions (low valence)
-        "frustration": {
-            "keywords": [
-                "frustrated",
-                "annoying",
-                "irritated",
-                "ugh",
-                "argh",
-                "why won't",
-                "doesn't work",
-            ],
-            "valence": -0.6,
-            "arousal": 0.7,
-        },
-        "disappointment": {
-            "keywords": ["disappointed", "let down", "expected better", "unfortunate", "bummer"],
-            "valence": -0.5,
-            "arousal": 0.3,
-        },
-        "anxiety": {
-            "keywords": ["worried", "anxious", "nervous", "concerned", "stressed", "overwhelmed"],
-            "valence": -0.4,
-            "arousal": 0.7,
-        },
-        "confusion": {
-            "keywords": ["confused", "don't understand", "unclear", "lost", "what do you mean"],
-            "valence": -0.2,
-            "arousal": 0.4,
-        },
-        "sadness": {
-            "keywords": ["sad", "unhappy", "depressed", "down", "terrible", "awful"],
-            "valence": -0.7,
-            "arousal": 0.2,
-        },
-        "anger": {
-            "keywords": ["angry", "furious", "mad", "hate", "outraged", "unacceptable"],
-            "valence": -0.8,
-            "arousal": 0.9,
-        },
-    }
-
     # ----- Gating helpers -----
 
     _NEUTRAL_EMOTION = {"valence": 0.0, "arousal": 0.0, "tags": [], "confidence": 0.0}
-
-    def _use_legacy_heuristics(self: "Kernle") -> bool:
-        """Check if this stack uses legacy keyword heuristics."""
-        setting = self._storage.get_stack_setting("use_legacy_heuristics")
-        if setting is None:
-            return True  # default: legacy mode for safety
-        return setting.lower() == "true"
 
     def _has_inference(self: "Kernle"):
         """Check if an inference service is bound."""
@@ -148,10 +51,7 @@ class EmotionsMixin:
     def detect_emotion(self: "Kernle", text: str) -> Dict[str, Any]:
         """Detect emotional signals in text.
 
-        Gating:
-        - ``use_legacy_heuristics=true``: keyword-based detection (unchanged)
-        - ``use_legacy_heuristics=false`` + no model: neutral defaults
-        - ``use_legacy_heuristics=false`` + model: inference-based detection
+        Uses inference when available; returns neutral defaults otherwise.
 
         Args:
             text: Text to analyze for emotional content
@@ -162,17 +62,10 @@ class EmotionsMixin:
         if not text:
             return dict(self._NEUTRAL_EMOTION)
 
-        # Gate: legacy heuristics mode
-        if self._use_legacy_heuristics():
-            return self._detect_emotion_keywords(text)
-
-        # Gate: inference availability
-        inference = self._get_inference()
-        if inference is None:
+        if not self._has_inference():
             return dict(self._NEUTRAL_EMOTION)
 
-        # Inference path
-        return self._detect_emotion_inference(text, inference)
+        return self._detect_emotion_inference(text, self._get_inference())
 
     def _detect_emotion_inference(self: "Kernle", text: str, inference) -> Dict[str, Any]:
         """Detect emotion via inference service."""
@@ -217,38 +110,6 @@ class EmotionsMixin:
             "arousal": arousal,
             "tags": tags,
             "confidence": 0.9,
-        }
-
-    def _detect_emotion_keywords(self: "Kernle", text: str) -> Dict[str, Any]:
-        """Detect emotional signals using keyword patterns (legacy)."""
-        text_lower = text.lower()
-        detected_emotions = []
-        valence_sum = 0.0
-        arousal_sum = 0.0
-
-        for emotion_name, pattern in self.EMOTION_PATTERNS.items():
-            for keyword in pattern["keywords"]:
-                if keyword in text_lower:
-                    detected_emotions.append(emotion_name)
-                    valence_sum += pattern["valence"]
-                    arousal_sum += pattern["arousal"]
-                    break  # One match per emotion is enough
-
-        if detected_emotions:
-            count = len(detected_emotions)
-            avg_valence = max(-1.0, min(1.0, valence_sum / count))
-            avg_arousal = max(0.0, min(1.0, arousal_sum / count))
-            confidence = min(1.0, 0.3 + (count * 0.2))
-        else:
-            avg_valence = 0.0
-            avg_arousal = 0.0
-            confidence = 0.0
-
-        return {
-            "valence": avg_valence,
-            "arousal": avg_arousal,
-            "tags": detected_emotions,
-            "confidence": confidence,
         }
 
     def add_emotional_association(

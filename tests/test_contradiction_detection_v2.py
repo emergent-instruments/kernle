@@ -1,11 +1,9 @@
 """Tests for Phase 6: Replace Heuristic Contradiction Detection (#840 Part 2).
 
 TDD tests for:
-- find_contradictions() gated by use_legacy_heuristics
-- find_semantic_contradictions() gated by use_legacy_heuristics
-- revise_beliefs_from_episode() gated by use_legacy_heuristics
-- No-model path returns empty/neutral
-- Legacy mode uses heuristics (unchanged)
+- find_contradictions() — no-model returns empty, inference path
+- find_semantic_contradictions() — no-model returns empty
+- revise_beliefs_from_episode() — no-model returns empty, inference path
 - Confidence threshold filtering
 """
 
@@ -24,20 +22,10 @@ from kernle.types import Belief, SearchResult
 
 
 @pytest.fixture
-def k_legacy(tmp_path):
-    """Kernle with use_legacy_heuristics=true."""
-    db_path = tmp_path / "test_contradiction_legacy.db"
-    storage = SQLiteStorage(stack_id="test-stack", db_path=db_path)
-    storage.set_stack_setting("use_legacy_heuristics", "true")
-    return Kernle(stack_id="test-stack", storage=storage, strict=False)
-
-
-@pytest.fixture
 def k_inference(tmp_path):
-    """Kernle with use_legacy_heuristics=false."""
+    """Kernle without a bound model (safe defaults path)."""
     db_path = tmp_path / "test_contradiction_inference.db"
     storage = SQLiteStorage(stack_id="test-stack", db_path=db_path)
-    storage.set_stack_setting("use_legacy_heuristics", "false")
     return Kernle(stack_id="test-stack", storage=storage, strict=False)
 
 
@@ -62,24 +50,6 @@ def _make_search_result(belief_id, statement, score=0.8, confidence=0.8):
 # ---------------------------------------------------------------------------
 # find_contradictions() tests
 # ---------------------------------------------------------------------------
-
-
-class TestFindContradictionsLegacy:
-    def test_legacy_mode_uses_heuristics(self, k_legacy):
-        """With legacy=true, heuristic pattern matching is used."""
-        k_legacy.belief("I always prefer Python for backend work", confidence=0.8)
-        k_legacy.belief("I never prefer Python for backend work", confidence=0.7)
-
-        results = k_legacy.find_contradictions("I always prefer Python for backend work")
-        assert isinstance(results, list)
-
-    def test_legacy_direct_negation_detected(self, k_legacy):
-        """Legacy mode: direct negation (always/never) is detected."""
-        k_legacy.belief("I should always write tests first", confidence=0.8)
-        k_legacy.belief("I should never write tests first", confidence=0.7)
-
-        results = k_legacy.find_contradictions("I should always write tests first")
-        assert isinstance(results, list)
 
 
 class TestFindContradictionsNoModel:
@@ -187,21 +157,6 @@ class TestFindContradictionsInference:
 # ---------------------------------------------------------------------------
 
 
-class TestReviseBeliefsFromEpisodeLegacy:
-    def test_legacy_mode_uses_word_overlap(self, k_legacy):
-        """With legacy=true, word-overlap heuristic is used."""
-        k_legacy.belief("Testing prevents regressions", confidence=0.7)
-        episode_id = k_legacy.episode(
-            objective="Write tests for the auth module",
-            outcome="Tests caught a regression bug",
-        )
-
-        result = k_legacy.revise_beliefs_from_episode(episode_id)
-        assert "reinforced" in result
-        assert "contradicted" in result
-        assert "suggested_new" in result
-
-
 class TestReviseBeliefsNoModel:
     def test_no_model_returns_empty(self, k_inference):
         """Without a model, revise_beliefs_from_episode returns empty result."""
@@ -254,20 +209,3 @@ class TestReviseBeliefsInference:
         assert "contradicted" in result
         assert "suggested_new" in result
         assert mock_inference.infer.called
-
-
-# ---------------------------------------------------------------------------
-# Regression parity tests
-# ---------------------------------------------------------------------------
-
-
-class TestRegressionParity:
-    """Tests for known heuristic false positives/negatives."""
-
-    def test_different_domains_not_contradicted_legacy(self, k_legacy):
-        """Legacy: unrelated beliefs from different domains should not be flagged."""
-        k_legacy.belief("Fast feedback loops improve development speed", confidence=0.8)
-        k_legacy.belief("Deliberate decision-making leads to better architecture", confidence=0.8)
-
-        results = k_legacy.find_contradictions("Fast feedback loops improve development speed")
-        assert isinstance(results, list)
