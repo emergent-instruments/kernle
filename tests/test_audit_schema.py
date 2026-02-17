@@ -607,3 +607,31 @@ class TestCliAuditExport:
         lines = output.split("\n")
         assert len(lines) == 1
         assert json.loads(lines[0])["memory_type"] == "belief"
+
+
+# ---------------------------------------------------------------------------
+# raw.ingested event emission
+# ---------------------------------------------------------------------------
+
+
+class TestRawIngestedEvent:
+    def test_save_raw_emits_raw_ingested(self, tmp_path):
+        """save_raw() on SQLiteStorage should emit a raw.ingested audit event."""
+        from kernle.storage.sqlite import SQLiteStorage
+
+        db_path = tmp_path / "test.db"
+        storage = SQLiteStorage(stack_id="test-stack", db_path=db_path)
+        try:
+            raw_id = storage.save_raw("hello world", source="cli")
+            audit = storage.get_audit_log(operation="raw.ingested")
+            assert len(audit) == 1
+            entry = audit[0]
+            assert entry["memory_type"] == "raw"
+            assert entry["memory_id"] == raw_id
+            details = entry.get("details", {})
+            if isinstance(details, str):
+                details = json.loads(details)
+            assert details["source"] == "cli"
+            assert details["content_length"] == 11
+        finally:
+            storage.close()

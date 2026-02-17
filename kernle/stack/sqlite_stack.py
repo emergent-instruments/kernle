@@ -293,6 +293,8 @@ class SQLiteStack(
                 or bool(self._backend.get_beliefs(limit=1))
                 or bool(self._backend.get_values(limit=1))
                 or bool(self._backend.get_goals(limit=1))
+                or bool(self._backend.get_drives())
+                or bool(self._backend.get_relationships())
                 or bool(self._backend.list_raw(limit=1))
             )
             default = "true" if has_data else "false"
