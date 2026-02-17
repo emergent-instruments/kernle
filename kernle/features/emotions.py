@@ -120,23 +120,107 @@ class EmotionsMixin:
         },
     }
 
+    # ----- Gating helpers -----
+
+    _NEUTRAL_EMOTION = {"valence": 0.0, "arousal": 0.0, "tags": [], "confidence": 0.0}
+
+    def _use_legacy_heuristics(self: "Kernle") -> bool:
+        """Check if this stack uses legacy keyword heuristics."""
+        setting = self._storage.get_stack_setting("use_legacy_heuristics")
+        if setting is None:
+            return True  # default: legacy mode for safety
+        return setting.lower() == "true"
+
+    def _has_inference(self: "Kernle"):
+        """Check if an inference service is bound."""
+        stack = self.stack
+        return stack is not None and getattr(stack, "_inference", None) is not None
+
+    def _get_inference(self: "Kernle"):
+        """Get the bound inference service, or None."""
+        stack = self.stack
+        if stack is None:
+            return None
+        return getattr(stack, "_inference", None)
+
+    # ----- Emotion detection -----
+
     def detect_emotion(self: "Kernle", text: str) -> Dict[str, Any]:
         """Detect emotional signals in text.
+
+        Gating:
+        - ``use_legacy_heuristics=true``: keyword-based detection (unchanged)
+        - ``use_legacy_heuristics=false`` + no model: neutral defaults
+        - ``use_legacy_heuristics=false`` + model: inference-based detection
 
         Args:
             text: Text to analyze for emotional content
 
         Returns:
-            dict with:
-            - valence: float (-1.0 to 1.0)
-            - arousal: float (0.0 to 1.0)
-            - tags: list[str] - detected emotion labels
-            - confidence: float - how confident we are
+            dict with valence, arousal, tags, confidence
         """
-        # Handle None or empty input defensively
         if not text:
-            return {"valence": 0.0, "arousal": 0.0, "tags": [], "confidence": 0.0}
+            return dict(self._NEUTRAL_EMOTION)
 
+        # Gate: legacy heuristics mode
+        if self._use_legacy_heuristics():
+            return self._detect_emotion_keywords(text)
+
+        # Gate: inference availability
+        inference = self._get_inference()
+        if inference is None:
+            return dict(self._NEUTRAL_EMOTION)
+
+        # Inference path
+        return self._detect_emotion_inference(text, inference)
+
+    def _detect_emotion_inference(self: "Kernle", text: str, inference) -> Dict[str, Any]:
+        """Detect emotion via inference service."""
+        from kernle.core.inference_utils import parse_inference_json
+
+        prompt = (
+            "Analyze the emotional content of this text and return JSON:\n\n"
+            f"{text}\n\n"
+            'Return: {"valence": float (-1.0 to 1.0), '
+            '"arousal": float (0.0 to 1.0), '
+            '"emotions": [list of emotion strings]}'
+        )
+        try:
+            raw = inference.infer(
+                prompt=prompt,
+                system="You are an emotion analysis system. Return only valid JSON.",
+            )
+        except Exception:
+            logger.debug("Emotion inference call failed", exc_info=True)
+            return dict(self._NEUTRAL_EMOTION)
+
+        result = parse_inference_json(
+            raw,
+            required_fields=["valence", "arousal"],
+            fallback=dict(self._NEUTRAL_EMOTION),
+            logger=logger,
+        )
+
+        if result.fallback_used:
+            return dict(self._NEUTRAL_EMOTION)
+
+        # Normalize and clamp
+        valence = max(-1.0, min(1.0, float(result.data.get("valence", 0.0))))
+        arousal = max(0.0, min(1.0, float(result.data.get("arousal", 0.0))))
+        emotions = result.data.get("emotions", [])
+        if not isinstance(emotions, list):
+            emotions = []
+        tags = [str(e) for e in emotions if isinstance(e, str)]
+
+        return {
+            "valence": valence,
+            "arousal": arousal,
+            "tags": tags,
+            "confidence": 0.9,
+        }
+
+    def _detect_emotion_keywords(self: "Kernle", text: str) -> Dict[str, Any]:
+        """Detect emotional signals using keyword patterns (legacy)."""
         text_lower = text.lower()
         detected_emotions = []
         valence_sum = 0.0
@@ -151,11 +235,10 @@ class EmotionsMixin:
                     break  # One match per emotion is enough
 
         if detected_emotions:
-            # Average the emotional values
             count = len(detected_emotions)
             avg_valence = max(-1.0, min(1.0, valence_sum / count))
             avg_arousal = max(0.0, min(1.0, arousal_sum / count))
-            confidence = min(1.0, 0.3 + (count * 0.2))  # More matches = higher confidence
+            confidence = min(1.0, 0.3 + (count * 0.2))
         else:
             avg_valence = 0.0
             avg_arousal = 0.0

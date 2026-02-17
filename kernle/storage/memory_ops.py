@@ -244,15 +244,19 @@ class MemoryOps:
         operation: str,
         actor: str,
         details: Optional[Dict[str, Any]] = None,
+        correlation_id: Optional[str] = None,
     ) -> str:
         """Log an audit entry for a memory operation.
 
         Args:
             memory_type: Type of memory affected
             memory_id: ID of the memory affected
-            operation: Operation name (forget, recover, protect, weaken, verify)
+            operation: Operation name (forget, recover, protect, weaken, verify,
+                or dotted format like belief.revised, suggestion.created)
             actor: Who performed the operation (e.g. 'core:{id}', 'plugin:{name}')
             details: Optional JSON-serializable details about the operation
+            correlation_id: Optional ID linking related audit entries (e.g. from
+                a single process() run)
 
         Returns:
             The audit entry ID
@@ -262,8 +266,8 @@ class MemoryOps:
 
         with self._connect() as conn:
             conn.execute(
-                """INSERT INTO memory_audit (id, memory_type, memory_id, operation, details, actor, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO memory_audit (id, memory_type, memory_id, operation, details, actor, created_at, correlation_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     audit_id,
                     memory_type,
@@ -272,6 +276,7 @@ class MemoryOps:
                     json.dumps(details) if details else None,
                     actor,
                     now,
+                    correlation_id,
                 ),
             )
             conn.commit()
@@ -283,6 +288,7 @@ class MemoryOps:
         memory_type: Optional[str] = None,
         memory_id: Optional[str] = None,
         operation: Optional[str] = None,
+        correlation_id: Optional[str] = None,
         limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """Get audit log entries.
@@ -291,6 +297,7 @@ class MemoryOps:
             memory_type: Filter by memory type
             memory_id: Filter by memory ID
             operation: Filter by operation type
+            correlation_id: Filter by correlation ID (links related audit entries)
             limit: Max entries to return
 
         Returns:
@@ -308,12 +315,15 @@ class MemoryOps:
         if operation:
             conditions.append("operation = ?")
             params.append(operation)
+        if correlation_id:
+            conditions.append("correlation_id = ?")
+            params.append(correlation_id)
 
         params.append(limit)
 
         with self._connect() as conn:
             rows = conn.execute(
-                f"""SELECT id, memory_type, memory_id, operation, details, actor, created_at
+                f"""SELECT id, memory_type, memory_id, operation, details, actor, created_at, correlation_id
                    FROM memory_audit
                    WHERE {' AND '.join(conditions)}
                    ORDER BY created_at DESC
@@ -331,9 +341,124 @@ class MemoryOps:
                 "details": json.loads(row["details"]) if row["details"] else None,
                 "actor": row["actor"],
                 "created_at": row["created_at"],
+                "correlation_id": row["correlation_id"],
             }
             results.append(entry)
         return results
+
+    def export_audit_jsonl(
+        self,
+        *,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+        memory_type: Optional[str] = None,
+        operation: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+    ):
+        """Export audit log entries as JSONL lines.
+
+        Each yielded line is a JSON string with schema_version 1 format:
+        {schema_version, event_id, operation, timestamp, memory_type,
+         memory_id, correlation_id, actor, details}
+
+        Args:
+            since: Filter entries created at or after this ISO timestamp
+            until: Filter entries created before this ISO timestamp
+            memory_type: Filter by memory type
+            operation: Filter by operation type
+            correlation_id: Filter by correlation ID
+
+        Yields:
+            JSON string per audit entry (no trailing newline)
+        """
+        conditions = ["1=1"]
+        params: list = []
+
+        if memory_type:
+            conditions.append("memory_type = ?")
+            params.append(memory_type)
+        if operation:
+            conditions.append("operation = ?")
+            params.append(operation)
+        if correlation_id:
+            conditions.append("correlation_id = ?")
+            params.append(correlation_id)
+        if since:
+            conditions.append("created_at >= ?")
+            params.append(since)
+        if until:
+            conditions.append("created_at < ?")
+            params.append(until)
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""SELECT id, memory_type, memory_id, operation, details, actor, created_at, correlation_id
+                   FROM memory_audit
+                   WHERE {' AND '.join(conditions)}
+                   ORDER BY created_at ASC""",
+                params,
+            ).fetchall()
+
+        for row in rows:
+            entry = {
+                "schema_version": 1,
+                "event_id": row["id"],
+                "operation": row["operation"],
+                "timestamp": row["created_at"],
+                "memory_type": row["memory_type"],
+                "memory_id": row["memory_id"],
+                "correlation_id": row["correlation_id"],
+                "actor": row["actor"],
+                "details": json.loads(row["details"]) if row["details"] else None,
+            }
+            yield json.dumps(entry, default=str)
+
+    def log_belief_revision(
+        self,
+        old_id: str,
+        new_id: str,
+        reason: str | None = None,
+        actor: str = "system",
+        correlation_id: str | None = None,
+    ) -> tuple[str, str]:
+        """Log audit entries for a belief revision (deactivation + creation).
+
+        Convenience wrapper around log_audit() that emits the standard pair
+        of audit entries for a belief revision:
+        - ``belief.deactivated`` on the old belief
+        - ``belief.revised`` on the new belief
+
+        Args:
+            old_id: ID of the deactivated belief
+            new_id: ID of the newly created belief
+            reason: Optional human-readable reason for the revision
+            actor: Who performed the revision
+            correlation_id: Optional ID linking related audit entries
+
+        Returns:
+            Tuple of (deactivated_audit_id, revised_audit_id)
+        """
+        deactivated_id = self.log_audit(
+            memory_type="belief",
+            memory_id=old_id,
+            operation="belief.deactivated",
+            actor=actor,
+            details={"reason": reason or "Revised", "trigger_id": new_id},
+            correlation_id=correlation_id,
+        )
+        revised_id = self.log_audit(
+            memory_type="belief",
+            memory_id=new_id,
+            operation="belief.revised",
+            actor=actor,
+            details={
+                "revision_type": "supersession",
+                "trigger_id": old_id,
+                "reason": reason or "Revised",
+            },
+            correlation_id=correlation_id,
+        )
+        return deactivated_id, revised_id
 
     def weaken_memory(
         self,

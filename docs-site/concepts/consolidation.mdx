@@ -91,6 +91,10 @@ kernle belief revise <episode_id>
 kernle belief add "Pattern I noticed" --confidence 0.8
 ```
 
+<Info>
+**v0.14+**: Contradiction detection is controlled by `use_legacy_heuristics`. When set to `false` without a model, `belief revise` returns empty results (safe defaults) instead of keyword heuristics. See [Pipeline Glossary](/concepts/pipeline-glossary#the-use_legacy_heuristics-flag).
+</Info>
+
 ### Pattern Extraction (Guided)
 
 The `promote` command provides a reflection scaffold:
@@ -148,6 +152,8 @@ kernle promote --min-episodes 3
     kernle belief contradictions "New statement to check"
     ```
     Does this conflict with existing beliefs? You resolve conflicts.
+
+    With `use_legacy_heuristics=false` and no model, this returns an empty list instead of keyword matches. See [Pipeline Glossary](/concepts/pipeline-glossary#the-use_legacy_heuristics-flag).
   </Step>
 </Steps>
 

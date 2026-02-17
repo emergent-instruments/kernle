@@ -1047,7 +1047,7 @@ def main():
     belief_contradictions.add_argument("--limit", "-l", type=int, default=10)
     belief_contradictions.add_argument("--json", "-j", action="store_true")
 
-    belief_history = belief_sub.add_parser("history", help="Show supersession chain")
+    belief_history = belief_sub.add_parser("history", help="Show belief revision history")
     belief_history.add_argument("id", help="Belief ID")
     belief_history.add_argument("--json", "-j", action="store_true")
 
@@ -1058,8 +1058,10 @@ def main():
     )
     belief_reinforce.add_argument("--reason", help="Human-readable reason for reinforcement")
 
-    belief_supersede = belief_sub.add_parser("supersede", help="Replace a belief with a new one")
-    belief_supersede.add_argument("old_id", help="ID of belief to supersede")
+    belief_supersede = belief_sub.add_parser(
+        "supersede", help="Replace a belief with a new one (alias: revise-belief)"
+    )
+    belief_supersede.add_argument("old_id", help="ID of belief to revise")
     belief_supersede.add_argument("new_statement", help="New belief statement")
     belief_supersede.add_argument(
         "--confidence",
@@ -1068,7 +1070,7 @@ def main():
         default=0.8,
         help="Confidence in new belief (default: 0.8)",
     )
-    belief_supersede.add_argument("--reason", "-r", help="Reason for supersession")
+    belief_supersede.add_argument("--reason", "-r", help="Reason for revision")
 
     belief_list = belief_sub.add_parser("list", help="List beliefs")
     belief_list.add_argument("--all", "-a", action="store_true", help="Include inactive beliefs")
@@ -1659,6 +1661,22 @@ Typical usage:
         help="Run only assertions in this category (default: all)",
     )
     audit_cognitive.add_argument("--json", "-j", action="store_true", help="Output as JSON")
+
+    audit_export = audit_sub.add_parser("export", help="Export audit log")
+    audit_export.add_argument(
+        "--format",
+        "-f",
+        choices=["jsonl"],
+        default="jsonl",
+        help="Export format (default: jsonl)",
+    )
+    audit_export.add_argument("--since", help="Filter entries created at or after this ISO date")
+    audit_export.add_argument("--until", help="Filter entries created before this ISO date")
+    audit_export.add_argument("--memory-type", dest="memory_type", help="Filter by memory type")
+    audit_export.add_argument("--operation", help="Filter by operation type")
+    audit_export.add_argument(
+        "--correlation-id", dest="correlation_id", help="Filter by correlation ID"
+    )
 
     # stats (compliance and analytics)
     p_stats = subparsers.add_parser("stats", help="Compliance and analytics stats")

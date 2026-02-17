@@ -63,11 +63,14 @@ Two critical fields serve different purposes:
     ```json
     {
       "derived_from": ["raw:abc123", "belief:def456"],
-      "meaning": "This belief was promoted from raw:abc123 and supersedes belief:def456"
+      "meaning": "This belief was promoted from raw:abc123 and revises belief:def456"
     }
     ```
 
-    Used when a raw entry is promoted to a belief, or when a belief supersedes another.
+    Used when a memory is created, including:
+    - raw-to-episode promotion (`raw:...` → `episode:...`)
+    - episode-to-belief promotion (`episode:...` → `belief:...`)
+    - belief revision (`belief:old_id` → `belief:new_id`)
   </Tab>
 
   <Tab title="source_episodes">
@@ -239,24 +242,24 @@ Beliefs evolve through three mechanisms:
   </Card>
 </CardGroup>
 
-### Supersession Example
+### Revision Example
 
 ```python
-# Old belief gets superseded
+# Old belief is revised
 old_belief = {
   "statement": "Always validate inputs",
-  "superseded_by": "new_belief_id",
   "is_active": false
 }
 
-# New belief inherits provenance
+# New belief links directly to the previous one
 new_belief = {
   "statement": "Validate inputs at trust boundaries, not everywhere",
-  "supersedes": "old_belief_id",
   "derived_from": ["belief:old_belief_id"],
   "source_episodes": [/* inherited from old belief */]
 }
 ```
+
+`supersedes`/`superseded_by` are legacy compatibility fields retained for pre-v0.14 stacks. In normal operation, revision is reconstructed from audit entries (`belief.revised`, `belief.deactivated`) rather than from these fields.
 
 ## Design Principles
 

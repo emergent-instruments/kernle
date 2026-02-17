@@ -84,8 +84,8 @@ def save_belief(
                 belief.last_verified.isoformat() if belief.last_verified else None,
                 belief.verification_count,
                 to_json(belief.confidence_history),
-                belief.supersedes,
-                belief.superseded_by,
+                None,  # supersedes — deprecated, always NULL (v0.14+)
+                None,  # superseded_by — deprecated, always NULL (v0.14+)
                 belief.times_reinforced,
                 1 if belief.is_active else 0,
                 belief.strength,
@@ -188,8 +188,8 @@ def update_belief_atomic(
                 belief.last_verified.isoformat() if belief.last_verified else None,
                 belief.verification_count,
                 to_json(belief.confidence_history),
-                belief.supersedes,
-                belief.superseded_by,
+                None,  # supersedes — deprecated, always NULL (v0.14+)
+                None,  # superseded_by — deprecated, always NULL (v0.14+)
                 belief.times_reinforced,
                 1 if belief.is_active else 0,
                 belief.context,
@@ -273,8 +273,8 @@ def save_beliefs_batch(
                     belief.last_verified.isoformat() if belief.last_verified else None,
                     belief.verification_count,
                     to_json(belief.confidence_history),
-                    belief.supersedes,
-                    belief.superseded_by,
+                    None,  # supersedes — deprecated, always NULL (v0.14+)
+                    None,  # superseded_by — deprecated, always NULL (v0.14+)
                     belief.times_reinforced,
                     1 if belief.is_active else 0,
                     belief.times_accessed,

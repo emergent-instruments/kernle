@@ -82,7 +82,7 @@ class WritersMixin:
 
         episode_id = str(uuid.uuid4())
 
-        outcome_type = infer_outcome_type(outcome)
+        outcome_type = infer_outcome_type(outcome, use_legacy=self._use_legacy_heuristics())
 
         resolved = self._normalize_source_type(source_type)
 
@@ -140,7 +140,9 @@ class WritersMixin:
         if outcome is not None:
             outcome = self._validate_string_input(outcome, "outcome", 1000)
             existing.outcome = outcome
-            existing.outcome_type = infer_outcome_type(outcome)
+            existing.outcome_type = infer_outcome_type(
+                outcome, use_legacy=self._use_legacy_heuristics()
+            )
 
         if lessons:
             lessons = [self._validate_string_input(lesson, "lesson", 500) for lesson in lessons]
@@ -520,7 +522,9 @@ class WritersMixin:
             outcome = self._validate_string_input(ep_data.get("outcome", ""), "outcome", 1000)
 
             # Infer outcome_type if not explicitly provided
-            outcome_type = ep_data.get("outcome_type") or infer_outcome_type(outcome)
+            outcome_type = ep_data.get("outcome_type") or infer_outcome_type(
+                outcome, use_legacy=self._use_legacy_heuristics()
+            )
 
             derived_from_value = build_derived_from(
                 ep_data.get("derived_from"), ep_data.get("source")

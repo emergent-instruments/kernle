@@ -96,13 +96,13 @@ Beliefs represent what you hold to be true, with confidence scores that can evol
 | `statement` | TEXT | The belief statement |
 | `belief_type` | TEXT | `fact` / `preference` / `observation` |
 | `confidence` | FLOAT | 0.0 to 1.0 |
-| `supersedes` | TEXT | ID of belief this replaced |
-| `superseded_by` | TEXT | ID of belief that replaced this |
+| `supersedes` | TEXT | Deprecated (v0.14+). Always NULL on new writes. Retained for pre-v0.14 data. |
+| `superseded_by` | TEXT | Deprecated (v0.14+). Always NULL on new writes. Retained for pre-v0.14 data. |
 | `times_reinforced` | INT | Confirmation count |
-| `is_active` | BOOL | False if superseded/archived |
+| `is_active` | BOOL | False if revised/archived |
 | `strength` | FLOAT | Memory strength (0.0 to 1.0, default 1.0) |
 
-**Revision Chain**: When beliefs evolve, old versions are marked `is_active=False` with `superseded_by` linking to the new belief.
+**Revision history**: Revision is tracked through audit events (`belief.revised`, `belief.deactivated`) with optional legacy fallback to chain fields.
 
 **Usage**:
 ```bash
@@ -112,7 +112,10 @@ kernle belief "Testing before deployment prevents outages" --confidence 0.85
 # Reinforce when confirmed
 kernle belief reinforce <id>
 
-# Supersede when updated
+# Revise when updated
+kernle belief revise <old_id> "Automated testing is essential" --confidence 0.95
+
+# Legacy alias (deprecated, same behavior)
 kernle belief supersede <old_id> "Automated testing is essential" --confidence 0.95
 
 # View history

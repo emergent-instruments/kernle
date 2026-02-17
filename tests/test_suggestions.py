@@ -85,6 +85,7 @@ class TestSuggestionExtraction:
     def test_extract_episode_suggestion(self, tmp_path):
         """Episode suggestion should be extracted from work log content."""
         k = Kernle("test-agent", storage=MagicMock(), strict=False)
+        k._storage.get_stack_setting = MagicMock(return_value="true")
         k._storage.save_suggestion = MagicMock(return_value="suggestion-123")
 
         raw_entry = RawEntry(
@@ -112,6 +113,7 @@ class TestSuggestionExtraction:
     def test_extract_belief_suggestion(self, tmp_path):
         """Belief suggestion should be extracted from opinion content."""
         k = Kernle("test-agent", storage=MagicMock(), strict=False)
+        k._storage.get_stack_setting = MagicMock(return_value="true")
         k._storage.save_suggestion = MagicMock()
 
         raw_entry = RawEntry(
@@ -134,6 +136,7 @@ class TestSuggestionExtraction:
     def test_extract_note_suggestion(self, tmp_path):
         """Note suggestion should be extracted from decision content."""
         k = Kernle("test-agent", storage=MagicMock(), strict=False)
+        k._storage.get_stack_setting = MagicMock(return_value="true")
         k._storage.save_suggestion = MagicMock()
 
         # This content should trigger note detection but NOT episode or belief
@@ -158,6 +161,7 @@ class TestSuggestionExtraction:
     def test_auto_save_suggestions(self, tmp_path):
         """Suggestions should be saved when auto_save=True."""
         k = Kernle("test-agent", storage=MagicMock(), strict=False)
+        k._storage.get_stack_setting = MagicMock(return_value="true")
         k._storage.save_suggestion = MagicMock(return_value="saved-id")
 
         raw_entry = RawEntry(

@@ -342,10 +342,13 @@ class Belief:
     verification_count: int = 0
     confidence_history: Optional[List[Dict[str, Any]]] = None
     # Belief revision fields
-    supersedes: Optional[str] = None  # ID of belief this replaced
-    superseded_by: Optional[str] = None  # ID of belief that replaced this
+    # DEPRECATED (v0.14+): supersedes/superseded_by are no longer written.
+    # Revision tracking uses audit log (belief.revised/belief.deactivated).
+    # These fields remain for reading pre-v0.14 data; will be removed in v0.15.
+    supersedes: Optional[str] = None
+    superseded_by: Optional[str] = None
     times_reinforced: int = 0  # How many times confirmed
-    is_active: bool = True  # False if superseded/archived
+    is_active: bool = True  # False if revised/archived
     # Strength and access fields
     strength: float = 1.0  # 0.0 (forgotten) to 1.0 (strong)
     times_accessed: int = 0

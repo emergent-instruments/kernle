@@ -1,0 +1,182 @@
+---
+title: Pipeline Glossary
+description: "Terminology and processing modes for the Kernle memory pipeline"
+---
+
+# Pipeline Glossary
+
+This page defines the terminology used in Kernle's memory processing pipeline and documents the behavior of the `use_legacy_heuristics` configuration flag.
+
+## Core Terms
+
+| Term | Definition |
+|------|-----------|
+| **Transition** | A layer-to-layer promotion path (e.g., `raw_to_episode`, `episode_to_belief`). Each transition has quantity thresholds that trigger processing. |
+| **Processing** | The automated pipeline that reads source memories, applies inference, and writes promoted memories or suggestions. Controlled by `kernle process run`. |
+| **Promotion** | Moving a memory from a lower layer to a higher one (raw → episode → belief → value). Can be direct (`auto_promote=True`) or suggestion-based. |
+| **Suggestion** | A proposed memory that the SI reviews before accepting. Created when `auto_promote=False` (default). The SI retains control over what gets promoted. |
+| **Scaffold** | A structured reflection prompt output by `kernle promote`. Contains episodes, existing beliefs, and prompts for the SI to reason over. No AI involved. |
+| **Maintenance** | Background operations that keep the memory system healthy: epoch rotation, summary generation, narrative updates, consolidation scoring. |
+| **Consolidation** | The process of transforming raw experiences into structured knowledge. See [Consolidation](/concepts/consolidation) for details. |
+| **Revision** | Updating an existing belief based on new evidence. Uses audit-log tracking (v0.14+) rather than supersession chains. |
+
+## Layer Transitions
+
+The processing pipeline supports these transitions, executed in deterministic order:
+
+```
+raw_to_episode        → Extract episodes from raw captures
+raw_to_note           → Extract notes from raw captures
+episode_to_belief     → Derive beliefs from episode patterns (identity layer)
+episode_to_goal       → Derive goals from episode patterns (identity layer)
+episode_to_relationship → Derive relationship models (identity layer)
+belief_to_value       → Derive values from belief clusters (identity layer)
+episode_to_drive      → Derive drives from episode patterns (identity layer)
+```
+
+All transitions require a bound model by default. Without one, processing is blocked.
+
+**Identity-layer transitions** (`episode_to_belief`, `episode_to_goal`, `episode_to_relationship`, `episode_to_drive`, `belief_to_value`) have additional safety rules:
+
+- `belief_to_value` is **never** overridable — values sit at the top of the identity layer, so malformed values are costly to fix.
+- The other four identity transitions can be overridden with `force=True` and `allow_no_inference_override=True`. Even with overrides, the transition's configured safety gates (minimum confidence, minimum evidence count) still apply.
+- Without those overrides, they are blocked like any other transition.
+
+## Processing Modes
+
+The `process()` function accepts three parameters that control behavior:
+
+| Parameter | Default | Effect |
+|-----------|---------|--------|
+| `auto_promote` | `False` | When `True`, writes memories directly. When `False`, creates suggestions for SI review. |
+| `force` | `False` | When `True`, processes even if quantity thresholds aren't met. |
+| `allow_no_inference_override` | `False` | When `True` (requires `force=True`), allows identity-layer writes without inference for transitions that support it. `belief_to_value` is never overridable. |
+
+## The `use_legacy_heuristics` Flag
+
+<Info>
+**Added in v0.14.0**. This flag controls whether heuristic (keyword/pattern) functions run or whether inference is required for classification, emotion detection, and contradiction detection.
+</Info>
+
+### How It Works
+
+The flag is stored in the `stack_settings` table:
+
+```bash
+# Check current value
+kernle config get use_legacy_heuristics
+
+# Switch to inference-only mode
+kernle config set use_legacy_heuristics false
+```
+
+**Default values:**
+- **Existing stacks** (migrated from pre-v0.14): `true` — no behavior change until you opt out
+- **New stacks** (created in v0.14+): `false` — inference-or-nothing by default
+
+### Three-Way Gating Pattern
+
+Every heuristic-dependent function follows the same gating logic:
+
+```
+┌──────────────────────────────┐
+│ use_legacy_heuristics=true?  │
+│            │                 │
+│      ┌─────┴─────┐          │
+│     YES          NO          │
+│      │            │          │
+│  Run keyword   Model bound?  │
+│  heuristic        │          │
+│      │      ┌─────┴─────┐   │
+│      │     YES          NO   │
+│      │      │            │   │
+│      │  Run inference  Return │
+│      │      │          safe   │
+│      │      │         default │
+│      ▼      ▼            ▼   │
+│   Result  Result     Neutral │
+└──────────────────────────────┘
+```
+
+### Affected Functions
+
+| Function | Legacy behavior | No-model default | Inference behavior |
+|----------|----------------|------------------|--------------------|
+| `detect_emotion()` | Keyword matching (joy, fear, etc.) | `{valence: 0, arousal: 0, tags: [], confidence: 0}` | LLM classifies emotional content |
+| `extract_suggestions()` | Pattern scoring (episode/belief/note regex) | `[]` (empty list) | LLM classifies memory type |
+| `detect_significance()` | Keyword weight scoring | `{significant: false, score: 0, signals: []}` | LLM evaluates significance |
+| `find_contradictions()` | Word overlap + opposition pairs | `[]` (empty list) | LLM evaluates contradiction with embedding candidates |
+| `find_semantic_contradictions()` | Embedding search + legacy opposition heuristics | `[]` (empty list) | Delegates to inference contradiction path |
+| `revise_beliefs_from_episode()` | Word overlap + outcome type heuristic | `{reinforced: [], contradicted: [], suggested_new: []}` | LLM analyzes episode-belief relationships |
+
+### Why This Matters
+
+The keyword heuristics have known limitations:
+
+- **False positives**: "I'm not happy" triggers joy detection (keyword "happy" matches)
+- **False negatives**: "I felt accomplished" doesn't trigger any keyword
+- **Context blindness**: "Great, another bug" is flagged as positive sentiment
+- **Domain confusion**: Word overlap between unrelated topics triggers false contradictions
+
+With `use_legacy_heuristics=false` and a bound model, these are resolved by inference. Without a model, functions return safe neutral defaults rather than unreliable heuristic results.
+
+## Pipeline Diagram
+
+The full processing pipeline from raw capture to identity layer:
+
+```
+┌─────────────┐
+│  Raw Entry  │  ← kernle raw "..." / API / MCP
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────┐
+│ extract_suggestions() │  ← Gated by use_legacy_heuristics
+│ detect_significance() │
+└──────┬──────────┘
+       │
+       ▼
+┌─────────────────┐
+│   Suggestions   │  ← SI resolves via accept/dismiss (or expire)
+│   (or direct    │
+│    promotion)   │
+└──────┬──────────┘
+       │
+       ▼
+┌──────────────────────────────────────────────┐
+│              Memory Layers                    │
+│                                              │
+│  Episodes ──┬── Beliefs ──── Values          │
+│             ├── Goals                        │
+│             ├── Drives                       │
+│             └── Relationships                │
+│                                              │
+│  Notes (standalone, not promoted further)    │
+└──────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│   Maintenance   │  ← Epochs, summaries, narratives
+│   Operations    │
+└─────────────────┘
+```
+
+## Audit Trail
+
+All memory operations are logged in the `memory_audit` table with:
+- **operation**: Dotted format for new events (e.g., `belief.revised`, `suggestion.created`)
+- **correlation_id**: Groups all audit entries from a single `process()` run, allowing you to trace every write back to the invocation that produced it
+- **details**: Structured JSON with operation-specific data
+
+### Key Audit Events
+
+| Event | Emitted When |
+|-------|-------------|
+| `raw.ingested` | A raw entry is captured (via CLI, API, or MCP) |
+| `suggestion.created` | Processing creates a suggestion for SI review |
+| `suggestion.resolved` | A suggestion is accepted, dismissed, or expired. The `details.resolution` field records which (`"accepted"`, `"dismissed"`, `"expired"`, or `"lint_rejected"`). |
+| `memory.promoted` | A memory is directly written (auto-promote path) |
+| `belief.revised` | A new belief replaces an old one via revision |
+| `belief.deactivated` | An old belief is marked inactive during revision |
+
+Use `kernle audit export --format jsonl` to export the audit log for analysis.

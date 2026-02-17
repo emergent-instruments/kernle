@@ -799,15 +799,18 @@ class ForgettingStorage(Protocol):
         operation: str,
         actor: str,
         details: Optional[Dict[str, Any]] = None,
+        correlation_id: Optional[str] = None,
     ) -> str:
         """Log an audit entry for a memory operation.
 
         Args:
             memory_type: Type of memory affected
             memory_id: ID of the memory affected
-            operation: Operation name (forget, recover, protect, weaken, verify)
+            operation: Operation name (forget, recover, protect, weaken, verify,
+                or dotted format like belief.revised, suggestion.created)
             actor: Who performed the operation
             details: Optional JSON-serializable details
+            correlation_id: Optional ID linking related audit entries
 
         Returns:
             The audit entry ID
@@ -820,6 +823,7 @@ class ForgettingStorage(Protocol):
         memory_type: Optional[str] = None,
         memory_id: Optional[str] = None,
         operation: Optional[str] = None,
+        correlation_id: Optional[str] = None,
         limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """Get audit log entries.
@@ -828,6 +832,7 @@ class ForgettingStorage(Protocol):
             memory_type: Filter by memory type
             memory_id: Filter by memory ID
             operation: Filter by operation type
+            correlation_id: Filter by correlation ID
             limit: Max entries to return
 
         Returns:

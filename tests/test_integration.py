@@ -135,8 +135,8 @@ class TestCLIIntegration:
         assert belief.confidence > 0.7
         assert belief.times_reinforced > 0
 
-        # Supersede with new belief
-        new_id = k.supersede_belief(
+        # Supersede with new belief (delegates to revise_belief)
+        k.supersede_belief(
             old_id=belief_id,
             new_statement="Integration tests are essential for quality",
             confidence=0.9,
@@ -148,7 +148,8 @@ class TestCLIIntegration:
         old_belief = next((b for b in beliefs if b.id == belief_id), None)
         assert old_belief is not None
         assert old_belief.is_active is False
-        assert old_belief.superseded_by == new_id
+        # v0.14+: chain fields no longer written; revision tracked via audit log
+        assert old_belief.superseded_by is None
 
     def test_search_finds_recent_entries(self, temp_kernle):
         """Search should find recently added entries."""

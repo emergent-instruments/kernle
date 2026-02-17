@@ -97,8 +97,8 @@ def cmd_belief(args, k: "Kernle"):
 
             for i, entry in enumerate(history):
                 is_current = ">>> " if entry["is_current"] else "    "
-                status = "🟢 active" if entry["is_active"] else "⚫ superseded"
-                conf_bar = "█" * int(entry["confidence"] * 5) + "░" * (
+                status = "\U0001f7e2 active" if entry["is_active"] else "\u26ab revised"
+                conf_bar = "\u2588" * int(entry["confidence"] * 5) + "\u2591" * (
                     5 - int(entry["confidence"] * 5)
                 )
 
@@ -114,8 +114,9 @@ def cmd_belief(args, k: "Kernle"):
                 if entry.get("supersession_reason"):
                     print(f"     Reason: {entry['supersession_reason'][:50]}...")
 
-                if entry["superseded_by"]:
-                    print(f"     → Superseded by: {entry['superseded_by'][:8]}...")
+                # Show chain link if present (legacy data)
+                if entry.get("superseded_by"):
+                    print(f"     \u2192 Revised to: {entry['superseded_by'][:8]}...")
 
     elif args.belief_action == "reinforce":
         belief_id = validate_input(args.id, "belief_id", 100)
@@ -134,13 +135,13 @@ def cmd_belief(args, k: "Kernle"):
         new_statement = validate_input(args.new_statement, "new_statement", 2000)
 
         try:
-            new_id = k.supersede_belief(
+            new_id = k.revise_belief(
                 old_id=old_id,
                 new_statement=new_statement,
                 confidence=args.confidence,
                 reason=args.reason,
             )
-            print("✓ Belief superseded")
+            print("✓ Belief revised")
             print(f"  Old: {old_id[:8]}... (now inactive)")
             print(f"  New: {new_id[:8]}... (active)")
             print(f"  Statement: {new_statement[:60]}...")

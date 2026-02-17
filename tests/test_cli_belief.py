@@ -332,7 +332,7 @@ class TestCmdBeliefSupersede:
     def test_supersede_success(self, capsys):
         """Successful supersession."""
         k = MagicMock()
-        k.supersede_belief.return_value = "new-b456"
+        k.revise_belief.return_value = "new-b456"
 
         args = Namespace(
             belief_action="supersede",
@@ -346,13 +346,13 @@ class TestCmdBeliefSupersede:
 
         captured = capsys.readouterr()
         assert "✓" in captured.out
-        assert "superseded" in captured.out
+        assert "revised" in captured.out
         assert "new-b456" in captured.out
 
     def test_supersede_error(self, capsys):
         """Supersession with error."""
         k = MagicMock()
-        k.supersede_belief.side_effect = ValueError("Belief not found")
+        k.revise_belief.side_effect = ValueError("Belief not found")
 
         args = Namespace(
             belief_action="supersede",

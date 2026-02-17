@@ -216,6 +216,7 @@ def _make_mock_stack(stack_id="test-stack", schema_version=22):
     stack.on_attach.return_value = None
     stack.on_detach.return_value = None
     stack.on_model_changed.return_value = None
+    stack.get_stack_setting.return_value = None
     # Write ops return IDs
     stack.save_episode.side_effect = lambda ep: ep.id
     stack.save_belief.side_effect = lambda b: b.id

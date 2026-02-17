@@ -27,17 +27,22 @@ _SUCCESS_WORDS = ("success", "done", "completed", "finished", "accomplished")
 _FAILURE_WORDS = ("fail", "error", "broke", "unable", "couldn't")
 
 
-def infer_outcome_type(outcome: str) -> str:
+def infer_outcome_type(outcome: str, *, use_legacy: bool = True) -> str:
     """Classify outcome text as success/failure/partial.
 
-    Uses substring matching against keyword lists.
+    When ``use_legacy=True`` (default), uses keyword matching.
+    When ``use_legacy=False``, returns ``"unknown"`` to defer to inference.
 
     Args:
         outcome: The outcome description text.
+        use_legacy: Whether to use keyword heuristics (default True for
+            backward compatibility).
 
     Returns:
-        One of "success", "failure", or "partial".
+        One of "success", "failure", "partial", or "unknown".
     """
+    if not use_legacy:
+        return "unknown"
     outcome_lower = outcome.lower().strip()
     if any(word in outcome_lower for word in _SUCCESS_WORDS):
         return "success"

@@ -281,6 +281,25 @@ class SQLiteStack(
         # Bootstrap self-trust if missing (e.g. after migration creates the table)
         self._ensure_self_trust()
 
+        # Set use_legacy_heuristics for stacks that don't have the setting yet.
+        # Existing stacks (with data) get "true" to preserve behavior.
+        # Truly new stacks (empty) get "false" for inference-or-nothing.
+        if self._backend.get_stack_setting("use_legacy_heuristics") is None:
+            # Check multiple tables — an existing stack may have notes,
+            # beliefs, values, etc. without any episodes.
+            has_data = (
+                bool(self._backend.get_episodes(limit=1))
+                or bool(self._backend.get_notes(limit=1))
+                or bool(self._backend.get_beliefs(limit=1))
+                or bool(self._backend.get_values(limit=1))
+                or bool(self._backend.get_goals(limit=1))
+                or bool(self._backend.get_drives())
+                or bool(self._backend.get_relationships())
+                or bool(self._backend.list_raw(limit=1))
+            )
+            default = "true" if has_data else "false"
+            self._backend.set_stack_setting("use_legacy_heuristics", default)
+
     def _ensure_self_trust(self) -> None:
         """Bootstrap self-trust assessment if missing after migration."""
         existing = self._backend.get_trust_assessment("identity")
@@ -1109,8 +1128,10 @@ class SQLiteStack(
             self.log_audit(
                 "suggestion",
                 suggestion_id,
-                "accepted",
+                "suggestion.resolved",
                 details={
+                    "resolution": "accepted",
+                    "suggestion_id": suggestion_id,
                     "promoted_to": f"{memory_type}:{memory_id}",
                     "memory_type": memory_type,
                     "had_modifications": bool(modifications),
@@ -1141,8 +1162,12 @@ class SQLiteStack(
             self.log_audit(
                 "suggestion",
                 suggestion_id,
-                "dismissed",
-                details={"reason": reason},
+                "suggestion.resolved",
+                details={
+                    "resolution": "dismissed",
+                    "suggestion_id": suggestion_id,
+                    "reason": reason,
+                },
             )
         return result
 
@@ -1162,8 +1187,12 @@ class SQLiteStack(
             self.log_audit(
                 "suggestion",
                 sid,
-                "expired",
-                details={"max_age_hours": max_age_hours},
+                "suggestion.resolved",
+                details={
+                    "resolution": "expired",
+                    "suggestion_id": sid,
+                    "max_age_hours": max_age_hours,
+                },
             )
         return expired_ids
 
@@ -1788,8 +1817,16 @@ class SQLiteStack(
         *,
         actor: str = "system",
         details: Optional[Any] = None,
+        correlation_id: Optional[str] = None,
     ) -> str:
-        return self._backend.log_audit(memory_type, memory_id, operation, actor, details)
+        return self._backend.log_audit(
+            memory_type,
+            memory_id,
+            operation,
+            actor,
+            details,
+            correlation_id,
+        )
 
     def get_audit_log(
         self,
@@ -1797,12 +1834,14 @@ class SQLiteStack(
         memory_type: Optional[str] = None,
         memory_id: Optional[str] = None,
         operation: Optional[str] = None,
+        correlation_id: Optional[str] = None,
         limit: int = 50,
     ) -> List[Any]:
         return self._backend.get_audit_log(
             memory_type=memory_type,
             memory_id=memory_id,
             operation=operation,
+            correlation_id=correlation_id,
             limit=limit,
         )
 
@@ -2095,9 +2134,11 @@ class SQLiteStack(
         self._backend.log_audit(
             memory_type,
             suggestion_id,
-            "lint_rejected",
+            "suggestion.resolved",
             "system",
             {
+                "resolution": "lint_rejected",
+                "suggestion_id": suggestion_id,
                 "failures": lint_result.failures,
                 "redirected_to": f"suggestion:{suggestion_id}",
             },

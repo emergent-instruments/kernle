@@ -801,6 +801,7 @@ class TestStackProvenancePolicy:
                 "register_plugin",
                 "system",
                 expected_details,
+                None,  # correlation_id
             )
 
     def test_unregister_plugin_logs_mutation(self, stack):
@@ -818,6 +819,7 @@ class TestStackProvenancePolicy:
                 "unregister_plugin",
                 "system",
                 expected_details,
+                None,  # correlation_id
             )
 
     def test_unregister_nonexistent_plugin_still_records_audit(self, stack):
@@ -834,6 +836,7 @@ class TestStackProvenancePolicy:
                 "unregister_plugin",
                 "system",
                 expected_details,
+                None,  # correlation_id
             )
 
 

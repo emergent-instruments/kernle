@@ -44,7 +44,7 @@ class TestSchemaConstants:
 
     def test_schema_version_is_current(self):
         assert isinstance(SCHEMA_VERSION, int)
-        assert SCHEMA_VERSION == 26
+        assert SCHEMA_VERSION == 27
 
     def test_allowed_tables_has_core_tables(self):
         core_tables = {

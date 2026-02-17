@@ -9,6 +9,13 @@ if TYPE_CHECKING:
 
 def cmd_audit(args, k: "Kernle"):
     """Handle audit subcommands."""
+    action = getattr(args, "audit_action", None)
+
+    if action == "export":
+        _cmd_audit_export(args, k)
+        return
+
+    # Default: cognitive audit
     from kernle.testing.assertions import CognitiveAssertions
 
     assertions = CognitiveAssertions(k)
@@ -46,3 +53,23 @@ def cmd_audit(args, k: "Kernle"):
         print(json.dumps(output, indent=2, default=str))
     else:
         print(report.summary())
+
+
+def _cmd_audit_export(args, k: "Kernle"):
+    """Export audit log as JSONL."""
+    storage = k._storage
+
+    kwargs = {}
+    if getattr(args, "since", None):
+        kwargs["since"] = args.since
+    if getattr(args, "until", None):
+        kwargs["until"] = args.until
+    if getattr(args, "memory_type", None):
+        kwargs["memory_type"] = args.memory_type
+    if getattr(args, "operation", None):
+        kwargs["operation"] = args.operation
+    if getattr(args, "correlation_id", None):
+        kwargs["correlation_id"] = args.correlation_id
+
+    for line in storage.export_audit_jsonl(**kwargs):
+        print(line)

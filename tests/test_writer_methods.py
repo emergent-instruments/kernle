@@ -67,6 +67,7 @@ def mocked_kernle():
         )
 
         mock_storage = MagicMock()
+        mock_storage.get_stack_setting.return_value = None
         mock_write_backend = MagicMock()
 
         k._storage = mock_storage

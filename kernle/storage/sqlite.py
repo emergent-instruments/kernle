@@ -1820,7 +1820,7 @@ class SQLiteStorage:
     def save_raw(self, blob: str, source: str = "unknown") -> str:
         """Save a raw entry. Delegates to raw_entries.save_raw()."""
         with self._connect() as conn:
-            return _save_raw(
+            raw_id = _save_raw(
                 conn=conn,
                 stack_id=self.stack_id,
                 blob=blob,
@@ -1830,6 +1830,14 @@ class SQLiteStorage:
                 save_embedding_fn=self._save_embedding,
                 should_sync_raw_fn=self._should_sync_raw,
             )
+        self.log_audit(
+            "raw",
+            raw_id,
+            "raw.ingested",
+            actor="system",
+            details={"source": source, "content_length": len(blob)},
+        )
+        return raw_id
 
     def _should_sync_raw(self) -> bool:
         """Check if raw sync is enabled. Delegates to raw_entries.should_sync_raw()."""
@@ -2686,9 +2694,12 @@ class SQLiteStorage:
         operation: str,
         actor: str,
         details: Optional[Dict[str, Any]] = None,
+        correlation_id: Optional[str] = None,
     ) -> str:
         """Log an audit entry for a memory operation."""
-        return self._memory_ops.log_audit(memory_type, memory_id, operation, actor, details)
+        return self._memory_ops.log_audit(
+            memory_type, memory_id, operation, actor, details, correlation_id
+        )
 
     def get_audit_log(
         self,
@@ -2696,12 +2707,32 @@ class SQLiteStorage:
         memory_type: Optional[str] = None,
         memory_id: Optional[str] = None,
         operation: Optional[str] = None,
+        correlation_id: Optional[str] = None,
         limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """Get audit log entries."""
         return self._memory_ops.get_audit_log(
-            memory_type=memory_type, memory_id=memory_id, operation=operation, limit=limit
+            memory_type=memory_type,
+            memory_id=memory_id,
+            operation=operation,
+            correlation_id=correlation_id,
+            limit=limit,
         )
+
+    def export_audit_jsonl(self, **kwargs):
+        """Export audit log entries as JSONL lines."""
+        return self._memory_ops.export_audit_jsonl(**kwargs)
+
+    def log_belief_revision(
+        self,
+        old_id: str,
+        new_id: str,
+        reason: str | None = None,
+        actor: str = "system",
+        correlation_id: str | None = None,
+    ) -> tuple[str, str]:
+        """Log audit entries for a belief revision."""
+        return self._memory_ops.log_belief_revision(old_id, new_id, reason, actor, correlation_id)
 
     def weaken_memory(self, memory_type: str, memory_id: str, amount: float) -> bool:
         """Reduce a memory's strength by a given amount."""

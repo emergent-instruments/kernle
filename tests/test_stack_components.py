@@ -49,6 +49,7 @@ def _make_mock_storage() -> MagicMock:
     storage.get_current_epoch.return_value = None
     storage.list_raw.return_value = []
     storage.save_suggestion.return_value = "suggestion-id"
+    storage.get_stack_setting.return_value = None
     return storage
 
 
@@ -940,14 +941,23 @@ class TestKnowledgeComponent:
 class TestEmotionalTaggingInference:
     """Test inference wiring and fallback in EmotionalTaggingComponent."""
 
-    def test_with_inference_valid_json(self):
-        """When inference returns valid JSON, uses inference result."""
+    def _make_non_legacy_component(self, inference=None):
+        """Create an EmotionalTaggingComponent in non-legacy mode."""
         c = EmotionalTaggingComponent()
+        storage = _make_mock_storage()
+        storage.get_stack_setting.return_value = "false"  # non-legacy
+        c.set_storage(storage)
+        if inference is not None:
+            c.set_inference(inference)
+        return c
+
+    def test_with_inference_valid_json(self):
+        """When inference returns valid JSON, uses inference result (non-legacy)."""
         inference = _make_mock_inference()
         inference.infer.return_value = (
             '{"valence": 0.6, "arousal": 0.4, "emotions": ["joy", "pride"]}'
         )
-        c.set_inference(inference)
+        c = self._make_non_legacy_component(inference)
 
         result = c.detect_emotion("I completed the project successfully!")
         assert result["valence"] == 0.6
@@ -956,66 +966,83 @@ class TestEmotionalTaggingInference:
         assert result["confidence"] == 0.9
         inference.infer.assert_called_once()
 
-    def test_without_inference_falls_back_to_keywords(self):
-        """Without inference, uses keyword-based detection."""
+    def test_legacy_mode_uses_keywords_only(self):
+        """Legacy mode uses keyword-based detection, never calls inference."""
         c = EmotionalTaggingComponent()
-        # No inference set
+        inference = _make_mock_inference()
+        inference.infer.return_value = '{"valence": 0.9, "arousal": 0.9, "emotions": ["ecstasy"]}'
+        c.set_inference(inference)
+        # No storage → legacy mode (default)
+        result = c.detect_emotion("I'm so happy and excited!")
+        assert result["valence"] > 0
+        assert "joy" in result["tags"] or "excitement" in result["tags"]
+        # Inference must NOT have been called in legacy mode
+        inference.infer.assert_not_called()
+
+    def test_without_inference_legacy_falls_back_to_keywords(self):
+        """Without inference in legacy mode, uses keyword-based detection."""
+        c = EmotionalTaggingComponent()
+        # No inference set, no storage → legacy mode
         result = c.detect_emotion("I'm so happy and excited!")
         assert result["valence"] > 0
         assert "joy" in result["tags"] or "excitement" in result["tags"]
 
-    def test_inference_returns_bad_json_falls_back(self):
-        """When inference returns invalid JSON, falls back to keywords."""
-        c = EmotionalTaggingComponent()
+    def test_non_legacy_bad_json_returns_neutral(self):
+        """Non-legacy: invalid JSON from inference → neutral defaults (not keywords)."""
         inference = _make_mock_inference()
         inference.infer.return_value = "not valid json at all"
-        c.set_inference(inference)
+        c = self._make_non_legacy_component(inference)
 
         result = c.detect_emotion("I'm so happy and excited!")
-        # Should still get a result from keyword fallback
-        assert result["valence"] > 0
-        assert len(result["tags"]) > 0
+        assert result["valence"] == 0.0
+        assert result["arousal"] == 0.0
+        assert result["tags"] == []
         inference.infer.assert_called_once()
 
-    def test_inference_raises_exception_falls_back(self):
-        """When inference raises, falls back to keywords gracefully."""
-        c = EmotionalTaggingComponent()
+    def test_non_legacy_inference_raises_returns_neutral(self):
+        """Non-legacy: inference exception → neutral defaults (not keywords)."""
         inference = _make_mock_inference()
         inference.infer.side_effect = RuntimeError("model unavailable")
-        c.set_inference(inference)
+        c = self._make_non_legacy_component(inference)
 
         result = c.detect_emotion("I'm frustrated and angry")
-        assert result["valence"] < 0
-        assert len(result["tags"]) > 0
+        assert result["valence"] == 0.0
+        assert result["tags"] == []
 
-    def test_inference_missing_fields_falls_back(self):
-        """When inference JSON lacks required fields, falls back."""
-        c = EmotionalTaggingComponent()
+    def test_non_legacy_no_model_returns_neutral(self):
+        """Non-legacy without model → neutral defaults."""
+        c = self._make_non_legacy_component()  # no inference
+
+        result = c.detect_emotion("I'm frustrated and angry")
+        assert result["valence"] == 0.0
+        assert result["arousal"] == 0.0
+        assert result["tags"] == []
+
+    def test_non_legacy_missing_fields_returns_neutral(self):
+        """Non-legacy: inference JSON lacks required fields → neutral."""
         inference = _make_mock_inference()
-        inference.infer.return_value = '{"valence": 0.5}'  # missing arousal and emotions
-        c.set_inference(inference)
+        inference.infer.return_value = '{"valence": 0.5}'  # missing arousal
+        c = self._make_non_legacy_component(inference)
 
         result = c.detect_emotion("I'm so happy and excited!")
-        # Should fall back to keywords since 'arousal' key missing
-        assert result["valence"] > 0
+        # Falls back to neutral since arousal missing
+        assert result["valence"] == 0.0
 
     def test_inference_clamps_values(self):
-        """Inference values are clamped to valid ranges."""
-        c = EmotionalTaggingComponent()
+        """Inference values are clamped to valid ranges (non-legacy)."""
         inference = _make_mock_inference()
         inference.infer.return_value = '{"valence": 5.0, "arousal": -3.0, "emotions": ["joy"]}'
-        c.set_inference(inference)
+        c = self._make_non_legacy_component(inference)
 
         result = c.detect_emotion("extreme text")
         assert result["valence"] == 1.0  # clamped from 5.0
         assert result["arousal"] == 0.0  # clamped from -3.0
 
     def test_on_save_uses_inference_when_available(self):
-        """on_save() uses inference path for emotion detection."""
-        c = EmotionalTaggingComponent()
+        """on_save() uses inference path for emotion detection (non-legacy)."""
         inference = _make_mock_inference()
         inference.infer.return_value = '{"valence": -0.3, "arousal": 0.7, "emotions": ["anxiety"]}'
-        c.set_inference(inference)
+        c = self._make_non_legacy_component(inference)
 
         memory = MagicMock()
         memory.objective = "Deploy to production"

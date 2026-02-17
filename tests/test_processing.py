@@ -1807,7 +1807,8 @@ class TestProcessLayer:
         assert len(result.created) == 1
         assert result.created[0] == {"type": "episode", "id": "ep-new"}
         assert len(inference.calls) == 1
-        mock_stack.log_audit.assert_called_once()
+        # Two audit calls: memory.promoted for each created item + process summary
+        assert mock_stack.log_audit.call_count == 2
 
     def test_inference_failure(self):
         mock_stack = _make_mock_stack()
@@ -1889,22 +1890,18 @@ class TestProcessLayer:
         config = DEFAULT_LAYER_CONFIGS["raw_to_episode"]
         processor._process_layer("raw_to_episode", config, auto_promote=True)
 
-        mock_stack.log_audit.assert_called_once_with(
-            "processing",
-            "raw_to_episode",
-            "process",
-            actor="core:test",
-            details={
-                "source_count": 1,
-                "created_count": 1,
-                "suggestion_count": 0,
-                "auto_promote": True,
-                "deduplicated": 0,
-                "gate_blocked": 0,
-                "gate_details": [],
-                "errors": [],
-            },
-        )
+        # memory.promoted + process summary = 2 calls
+        assert mock_stack.log_audit.call_count == 2
+        # Last call is the process summary
+        call_kwargs = mock_stack.log_audit.call_args
+        assert call_kwargs[0] == ("processing", "raw_to_episode", "process")
+        assert call_kwargs[1]["actor"] == "core:test"
+        assert call_kwargs[1]["details"]["source_count"] == 1
+        assert call_kwargs[1]["details"]["created_count"] == 1
+        assert call_kwargs[1]["details"]["suggestion_count"] == 0
+        assert call_kwargs[1]["details"]["auto_promote"] is True
+        # correlation_id is generated per process() run
+        assert "correlation_id" in call_kwargs[1]
 
     def test_auto_promote_write_failure_keeps_sources_unprocessed_and_reports_error(self):
         mock_stack = _make_mock_stack()
@@ -2037,7 +2034,7 @@ class TestProcessFullFlow:
         processor, _ = _make_processor(mock_stack)
 
         fake_process_layer = MagicMock(
-            side_effect=lambda t, config, auto_promote=False, batch_size=None: ProcessingResult(
+            side_effect=lambda t, config, auto_promote=False, batch_size=None, correlation_id=None: ProcessingResult(
                 layer_transition=t,
                 source_count=0,
                 skipped=True,

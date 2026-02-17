@@ -67,6 +67,14 @@ _normalize_source_type = normalize_source_type
 logger = logging.getLogger(__name__)
 
 
+def _use_legacy(stack: StackProtocol) -> bool:
+    """Read use_legacy_heuristics flag from a stack, defaulting to True."""
+    setting = stack.get_stack_setting("use_legacy_heuristics")
+    if setting is None:
+        return True
+    return setting.lower() == "true"
+
+
 _ID_LOCK = threading.Lock()
 _ID_SEQUENCE = 0
 _ID_LAST_TIMESTAMP_MS = 0
@@ -693,7 +701,10 @@ class Entity:
             stack_id=stack.stack_id,
             objective=objective,
             outcome=outcome,
-            outcome_type=infer_outcome_type(outcome),
+            outcome_type=infer_outcome_type(
+                outcome,
+                use_legacy=_use_legacy(stack),
+            ),
             lessons=lessons,
             repeat=repeat,
             avoid=avoid,

@@ -313,8 +313,8 @@ class ConsolidationMixin:
             if belief.times_reinforced < min_reinforcements:
                 continue
 
-            # Check not contradicted (superseded_by means it was replaced)
-            if belief.superseded_by:
+            # Check not revised/deactivated
+            if not belief.is_active:
                 continue
 
             # Check confidence

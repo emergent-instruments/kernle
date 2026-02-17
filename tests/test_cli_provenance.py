@@ -152,8 +152,8 @@ class TestBeliefSupersedeDerivedFrom:
         # The important assertion is that core.py line ~4236 sets:
         # derived_from=[f"belief:{old_id}"]
         # This is tested by the core tests, not CLI tests.
-        # Here we just verify the CLI calls supersede_belief correctly.
-        k.supersede_belief.return_value = "new-belief-id"
+        # Here we just verify the CLI calls revise_belief correctly.
+        k.revise_belief.return_value = "new-belief-id"
 
         from kernle.cli.commands.belief import cmd_belief
 
@@ -168,7 +168,7 @@ class TestBeliefSupersedeDerivedFrom:
 
         cmd_belief(args, k)
 
-        k.supersede_belief.assert_called_once_with(
+        k.revise_belief.assert_called_once_with(
             old_id="old-belief-123",
             new_statement="Updated belief statement",
             confidence=0.9,

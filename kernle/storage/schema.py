@@ -15,7 +15,7 @@ import sqlite3
 logger = logging.getLogger(__name__)
 
 # Schema version for migrations
-SCHEMA_VERSION = 26  # v0.13.06: add sync conflict provenance and deterministic tie-break metadata
+SCHEMA_VERSION = 27  # v0.14.00: add correlation_id to memory_audit, use_legacy_heuristics flag
 
 # Allowed table names for SQL queries (security: prevents SQL injection via table names)
 ALLOWED_TABLES = frozenset(
@@ -771,7 +771,7 @@ CREATE TABLE IF NOT EXISTS embedding_meta (
 );
 CREATE INDEX IF NOT EXISTS idx_embedding_meta_record ON embedding_meta(table_name, record_id);
 
--- Memory audit trail (v0.9.0)
+-- Memory audit trail (v0.9.0, correlation_id added v0.14.0)
 CREATE TABLE IF NOT EXISTS memory_audit (
     id TEXT PRIMARY KEY,
     memory_type TEXT NOT NULL,
@@ -779,11 +779,13 @@ CREATE TABLE IF NOT EXISTS memory_audit (
     operation TEXT NOT NULL,
     details TEXT,
     actor TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    correlation_id TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_audit_memory ON memory_audit(memory_type, memory_id);
 CREATE INDEX IF NOT EXISTS idx_audit_operation ON memory_audit(operation);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON memory_audit(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_correlation ON memory_audit(correlation_id);
 
 -- Processing configuration (v0.9.0)
 CREATE TABLE IF NOT EXISTS processing_config (
@@ -1894,3 +1896,47 @@ def migrate_schema(conn: sqlite3.Connection, stack_id: str) -> None:
         conn.commit()
 
         conn.commit()
+
+    # v27: Add correlation_id to memory_audit for processing session tracking
+    if "memory_audit" in table_names:
+        audit_cols = get_columns("memory_audit")
+        if "correlation_id" not in audit_cols:
+            try:
+                conn.execute("ALTER TABLE memory_audit ADD COLUMN correlation_id TEXT")
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_audit_correlation ON memory_audit(correlation_id)"
+                )
+                logger.info("v27: Added correlation_id column to memory_audit")
+            except Exception as e:
+                if "duplicate column" not in str(e).lower():
+                    logger.warning(f"v27: Failed to add correlation_id: {e}", exc_info=True)
+
+    # v27: Set use_legacy_heuristics=true for existing stacks
+    if "stack_settings" in table_names:
+        try:
+            # Check if any stack data exists (indicating an existing stack)
+            has_data = conn.execute(
+                "SELECT 1 FROM stack_settings WHERE stack_id = ? LIMIT 1",
+                (stack_id,),
+            ).fetchone()
+            if has_data:
+                # Only set if not already configured
+                existing = conn.execute(
+                    "SELECT 1 FROM stack_settings WHERE stack_id = ? AND key = ?",
+                    (stack_id, "use_legacy_heuristics"),
+                ).fetchone()
+                if not existing:
+                    from datetime import datetime, timezone
+
+                    now = datetime.now(timezone.utc).isoformat()
+                    conn.execute(
+                        "INSERT INTO stack_settings (stack_id, key, value, updated_at) VALUES (?, ?, ?, ?)",
+                        (stack_id, "use_legacy_heuristics", "true", now),
+                    )
+                    logger.info(
+                        "v27: Set use_legacy_heuristics=true for existing stack %s", stack_id
+                    )
+        except Exception as e:
+            logger.warning(f"v27: Failed to set use_legacy_heuristics: {e}", exc_info=True)
+
+    conn.commit()

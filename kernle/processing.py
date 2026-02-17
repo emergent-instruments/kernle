@@ -688,6 +688,10 @@ class MemoryProcessor:
         results = []
         promote = auto_promote if auto_promote is not None else self._auto_promote
 
+        # Generate a correlation_id for this entire process() run so all
+        # audit entries from one invocation can be linked together.
+        correlation_id = str(uuid.uuid4())
+
         transitions = [transition] if transition else list(VALID_TRANSITION_ORDER)
 
         for t in transitions:
@@ -704,7 +708,13 @@ class MemoryProcessor:
             if not force and not self.check_triggers(t):
                 continue
 
-            result = self._process_layer(t, config, auto_promote=promote, batch_size=batch_size)
+            result = self._process_layer(
+                t,
+                config,
+                auto_promote=promote,
+                batch_size=batch_size,
+                correlation_id=correlation_id,
+            )
             results.append(result)
 
         return results
@@ -958,6 +968,7 @@ class MemoryProcessor:
         *,
         auto_promote: bool = False,
         batch_size: Optional[int] = None,
+        correlation_id: Optional[str] = None,
     ) -> ProcessingResult:
         """Run one processing pass for a specific layer transition."""
         prompts = LAYER_PROMPTS.get(transition)
@@ -1065,11 +1076,22 @@ class MemoryProcessor:
         # 7. Write memories or create suggestions (dedup-aware)
         if auto_promote:
             # Direct promotion (opt-in): write memories immediately
-            created = self._write_memories(transition, parsed, sources, dedup_index)
+            created = self._write_memories(
+                transition,
+                parsed,
+                sources,
+                dedup_index,
+                correlation_id=correlation_id,
+            )
             result.created = created
         else:
             # Default: create suggestions for review
-            suggestions = self._write_suggestions(transition, parsed, sources)
+            suggestions = self._write_suggestions(
+                transition,
+                parsed,
+                sources,
+                correlation_id=correlation_id,
+            )
             result.suggestions = suggestions
         result.errors.extend(getattr(self, "_last_write_errors", []))
         result.deduplicated = getattr(self, "_last_deduplicated", 0)
@@ -1102,6 +1124,7 @@ class MemoryProcessor:
                 "gate_details": result.gate_details,
                 "errors": result.errors,
             },
+            correlation_id=correlation_id,
         )
 
         return result
@@ -1381,6 +1404,7 @@ class MemoryProcessor:
         parsed: list,
         sources: list,
         dedup_index: Optional[Dict[str, Any]] = None,
+        correlation_id: Optional[str] = None,
     ) -> List[Dict[str, str]]:
         """Write parsed memories through the stack with provenance.
 
@@ -1545,6 +1569,18 @@ class MemoryProcessor:
                     did = self._stack.save_drive(drive)
                     created.append({"type": "drive", "id": did})
 
+                # Emit memory.promoted audit event for direct writes
+                if created:
+                    promoted = created[-1]
+                    self._stack.log_audit(
+                        promoted["type"],
+                        promoted["id"],
+                        "memory.promoted",
+                        actor=f"core:{self._core_id}",
+                        details={"transition": transition, "source_id": promoted["id"]},
+                        correlation_id=correlation_id,
+                    )
+
                 # Update dedup index with newly created memory so subsequent
                 # items in this batch are checked against it (intra-batch dedup).
                 if dedup_index is not None and created:
@@ -1571,7 +1607,11 @@ class MemoryProcessor:
         return created
 
     def _write_suggestions(
-        self, transition: str, parsed: list, sources: list
+        self,
+        transition: str,
+        parsed: list,
+        sources: list,
+        correlation_id: Optional[str] = None,
     ) -> List[Dict[str, str]]:
         """Create MemorySuggestions instead of directly writing memories.
 
@@ -1642,6 +1682,13 @@ class MemoryProcessor:
                 )
                 sid = self._stack.save_suggestion(suggestion)
                 suggestions_created.append({"type": memory_type, "id": sid})
+                self._stack.log_audit(
+                    "suggestion",
+                    sid,
+                    "suggestion.created",
+                    details={"transition": transition, "source_id": sid},
+                    correlation_id=correlation_id,
+                )
                 if fingerprint:
                     seen_fingerprints.add(fingerprint)
 

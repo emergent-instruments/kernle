@@ -256,19 +256,19 @@ class TestBeliefToValuePromotion:
         assert len(result["candidates"]) == 0
 
     def test_contradicted_belief_not_promoted(self, kernle_instance, storage):
-        """Beliefs that have been superseded should not be candidates."""
+        """Inactive (revised) beliefs should not be candidates."""
         belief = _make_belief(
             statement="Contradicted belief",
             created_at=datetime.now(timezone.utc) - timedelta(days=200),
             times_reinforced=5,
             source_domain="coding",
             cross_domain_applications=["testing", "deployment"],
-            superseded_by="some-other-belief-id",
+            is_active=False,  # v0.14+: use is_active instead of superseded_by
         )
         storage.save_belief(belief)
 
         result = kernle_instance.scaffold_belief_to_value()
-        assert result["beliefs_scanned"] == 1
+        # Inactive beliefs are filtered out before scanning
         assert len(result["candidates"]) == 0
 
     def test_stable_belief_is_candidate(self, kernle_instance, storage):
