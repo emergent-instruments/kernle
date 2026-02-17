@@ -413,6 +413,53 @@ class MemoryOps:
             }
             yield json.dumps(entry, default=str)
 
+    def log_belief_revision(
+        self,
+        old_id: str,
+        new_id: str,
+        reason: str | None = None,
+        actor: str = "system",
+        correlation_id: str | None = None,
+    ) -> tuple[str, str]:
+        """Log audit entries for a belief revision (deactivation + creation).
+
+        Convenience wrapper around log_audit() that emits the standard pair
+        of audit entries for a belief revision:
+        - ``belief.deactivated`` on the old belief
+        - ``belief.revised`` on the new belief
+
+        Args:
+            old_id: ID of the deactivated belief
+            new_id: ID of the newly created belief
+            reason: Optional human-readable reason for the revision
+            actor: Who performed the revision
+            correlation_id: Optional ID linking related audit entries
+
+        Returns:
+            Tuple of (deactivated_audit_id, revised_audit_id)
+        """
+        deactivated_id = self.log_audit(
+            memory_type="belief",
+            memory_id=old_id,
+            operation="belief.deactivated",
+            actor=actor,
+            details={"reason": reason or "Revised", "trigger_id": new_id},
+            correlation_id=correlation_id,
+        )
+        revised_id = self.log_audit(
+            memory_type="belief",
+            memory_id=new_id,
+            operation="belief.revised",
+            actor=actor,
+            details={
+                "revision_type": "supersession",
+                "trigger_id": old_id,
+                "reason": reason or "Revised",
+            },
+            correlation_id=correlation_id,
+        )
+        return deactivated_id, revised_id
+
     def weaken_memory(
         self,
         memory_type: str,

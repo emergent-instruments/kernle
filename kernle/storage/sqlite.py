@@ -2715,6 +2715,17 @@ class SQLiteStorage:
         """Export audit log entries as JSONL lines."""
         return self._memory_ops.export_audit_jsonl(**kwargs)
 
+    def log_belief_revision(
+        self,
+        old_id: str,
+        new_id: str,
+        reason: str | None = None,
+        actor: str = "system",
+        correlation_id: str | None = None,
+    ) -> tuple[str, str]:
+        """Log audit entries for a belief revision."""
+        return self._memory_ops.log_belief_revision(old_id, new_id, reason, actor, correlation_id)
+
     def weaken_memory(self, memory_type: str, memory_id: str, amount: float) -> bool:
         """Reduce a memory's strength by a given amount."""
         return self._memory_ops.weaken_memory(memory_type, memory_id, amount)

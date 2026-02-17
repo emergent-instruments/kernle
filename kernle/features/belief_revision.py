@@ -901,13 +901,32 @@ class BeliefRevisionMixin:
         confidence: float = 0.8,
         reason: Optional[str] = None,
     ) -> str:
-        """Replace an old belief with a new one, maintaining the revision chain.
+        """Replace an old belief with a new one.
+
+        .. deprecated:: 0.14.0
+            Use :meth:`revise_belief` instead. This method delegates to
+            ``revise_belief`` and exists only for backward compatibility.
+        """
+        return self.revise_belief(old_id, new_statement, confidence, reason)
+
+    def revise_belief(
+        self: "Kernle",
+        old_id: str,
+        new_statement: str,
+        confidence: float = 0.8,
+        reason: Optional[str] = None,
+    ) -> str:
+        """Replace an old belief with a new one, tracked via audit log.
+
+        Creates a new active belief and deactivates the old one. The revision
+        relationship is recorded in the audit log (not via supersession chain
+        fields). The new belief's ``derived_from`` links back to the old one.
 
         Args:
-            old_id: ID of the belief being superseded
+            old_id: ID of the belief being revised
             new_statement: The new belief statement
             confidence: Confidence in the new belief (clamped to 0.0-1.0)
-            reason: Optional reason for the supersession
+            reason: Optional reason for the revision
 
         Returns:
             ID of the new belief
@@ -929,7 +948,7 @@ class BeliefRevisionMixin:
         if not old_belief:
             raise ValueError(f"Belief {old_id} not found")
 
-        # Create the new belief
+        # Create the new belief — no supersession chain fields
         confidence = max(0.0, min(1.0, confidence))  # Clamp to valid range
         new_id = str(uuid.uuid4())
         new_belief = Belief(
@@ -940,7 +959,7 @@ class BeliefRevisionMixin:
             confidence=confidence,
             created_at=datetime.now(timezone.utc),
             source_type="inference",
-            supersedes=old_id,
+            supersedes=None,
             superseded_by=None,
             times_reinforced=0,
             is_active=True,
@@ -952,29 +971,36 @@ class BeliefRevisionMixin:
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "old": 0.0,
                     "new": confidence,
-                    "reason": reason or f"Superseded belief {old_id[:8]}",
+                    "reason": reason or f"Revised belief {old_id[:8]}",
                 }
             ],
         )
         self._write_backend.save_belief(new_belief)
 
-        # Update the old belief
-        old_belief.superseded_by = new_id
+        # Deactivate the old belief — no superseded_by chain field
         old_belief.is_active = False
 
         # Add to confidence history
-        history = old_belief.confidence_history or []
-        history.append(
+        hist = old_belief.confidence_history or []
+        hist.append(
             {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "old": old_belief.confidence,
                 "new": old_belief.confidence,
-                "reason": f"Superseded by belief {new_id[:8]}: {reason or 'no reason given'}",
+                "reason": f"Revised to belief {new_id[:8]}: {reason or 'no reason given'}",
             }
         )
-        old_belief.confidence_history = history[-20:]
+        old_belief.confidence_history = hist[-20:]
         # Use atomic update with optimistic concurrency control
         self._storage.update_belief_atomic(old_belief)
+
+        # Record revision in audit log (not chain fields)
+        self._storage.log_belief_revision(
+            old_id=old_id,
+            new_id=new_id,
+            reason=reason,
+            actor=f"core:{getattr(self, 'core_id', 'unknown')}",
+        )
 
         return new_id
 
@@ -1148,10 +1174,11 @@ class BeliefRevisionMixin:
         return result
 
     def get_belief_history(self: "Kernle", belief_id: str) -> List[Dict[str, Any]]:
-        """Get the supersession chain for a belief.
+        """Get the revision history for a belief.
 
-        Walks both backwards (what this belief superseded) and forwards
-        (what superseded this belief) to build the full revision history.
+        Uses a dual-source strategy:
+        1. **Primary**: Audit log entries (``belief.revised`` / ``belief.deactivated``)
+        2. **Fallback**: Legacy supersession chain walk (for pre-v0.14 data)
 
         Args:
             belief_id: ID of the belief to trace
@@ -1168,11 +1195,100 @@ class BeliefRevisionMixin:
         if belief_id not in belief_map:
             return []
 
-        history = []
-        visited = set()
+        # --- Strategy 1: Audit log (primary) ---
+        audit_history = self._get_belief_history_from_audit(belief_id, belief_map)
+        if audit_history:
+            return audit_history
 
-        # Walk backwards to find the original belief (with cycle detection)
-        back_visited = set()
+        # --- Strategy 2: Legacy chain walk (fallback for pre-v0.14 data) ---
+        belief = belief_map[belief_id]
+        if belief.superseded_by or belief.supersedes:
+            return self._walk_chain_legacy(belief_id, belief_map)
+
+        # Single belief, no revisions
+        return [self._belief_to_history_entry(belief, is_current=True)]
+
+    def _get_belief_history_from_audit(
+        self: "Kernle",
+        belief_id: str,
+        belief_map: Dict[str, "Belief"],
+    ) -> List[Dict[str, Any]]:
+        """Build belief history from audit log entries.
+
+        Traces the full revision chain by following ``belief.deactivated``
+        and ``belief.revised`` audit entries.
+
+        Returns empty list if no audit entries found (caller should try
+        legacy chain walk).
+        """
+        # Collect all belief IDs in the revision chain via audit log
+        chain_ids = {belief_id}
+        frontier = {belief_id}
+
+        while frontier:
+            next_frontier: set = set()
+            for bid in frontier:
+                # Find revisions that reference this belief
+                deactivated = self._storage.get_audit_log(
+                    memory_id=bid, operation="belief.deactivated"
+                )
+                for entry in deactivated:
+                    details = entry.get("details") or {}
+                    if isinstance(details, str):
+                        import json
+
+                        details = json.loads(details)
+                    trigger_id = details.get("trigger_id")
+                    if trigger_id and trigger_id not in chain_ids:
+                        chain_ids.add(trigger_id)
+                        next_frontier.add(trigger_id)
+
+                revised = self._storage.get_audit_log(memory_id=bid, operation="belief.revised")
+                for entry in revised:
+                    details = entry.get("details") or {}
+                    if isinstance(details, str):
+                        import json
+
+                        details = json.loads(details)
+                    trigger_id = details.get("trigger_id")
+                    if trigger_id and trigger_id not in chain_ids:
+                        chain_ids.add(trigger_id)
+                        next_frontier.add(trigger_id)
+
+            frontier = next_frontier
+
+        # If we only found the original belief ID (no audit trail), return empty
+        if len(chain_ids) <= 1:
+            # Check if there are any audit entries at all for this belief
+            any_entries = self._storage.get_audit_log(
+                memory_id=belief_id, operation="belief.deactivated"
+            ) or self._storage.get_audit_log(memory_id=belief_id, operation="belief.revised")
+            if not any_entries:
+                return []
+
+        # Build history entries sorted by creation date
+        history = []
+        for bid in chain_ids:
+            if bid in belief_map:
+                belief = belief_map[bid]
+                entry = self._belief_to_history_entry(belief, is_current=(bid == belief_id))
+                history.append(entry)
+
+        # Sort by created_at (chronological)
+        history.sort(key=lambda h: h.get("created_at") or "")
+        return history
+
+    def _walk_chain_legacy(
+        self: "Kernle",
+        belief_id: str,
+        belief_map: Dict[str, "Belief"],
+    ) -> List[Dict[str, Any]]:
+        """Walk the supersession chain for pre-v0.14 data (fallback)."""
+        history = []
+        visited: set = set()
+
+        # Walk backwards to find the root
+        back_visited: set = set()
 
         def walk_back(bid: str) -> Optional[str]:
             if bid in back_visited or bid not in belief_map:
@@ -1183,7 +1299,6 @@ class BeliefRevisionMixin:
                 return belief.supersedes
             return None
 
-        # Find the root
         root_id = belief_id
         while True:
             prev = walk_back(root_id)
@@ -1193,28 +1308,17 @@ class BeliefRevisionMixin:
                 break
 
         # Walk forward from root
-        current_id = root_id
+        current_id: Optional[str] = root_id
         while current_id and current_id not in visited and current_id in belief_map:
             visited.add(current_id)
             belief = belief_map[current_id]
+            entry = self._belief_to_history_entry(belief, is_current=(current_id == belief_id))
 
-            entry = {
-                "id": belief.id,
-                "statement": belief.statement,
-                "confidence": belief.confidence,
-                "times_reinforced": belief.times_reinforced,
-                "is_active": belief.is_active,
-                "is_current": belief.id == belief_id,
-                "created_at": belief.created_at.isoformat() if belief.created_at else None,
-                "supersedes": belief.supersedes,
-                "superseded_by": belief.superseded_by,
-            }
-
-            # Add supersession reason if available from confidence history
+            # Add supersession reason from confidence history
             if belief.confidence_history:
                 for h in reversed(belief.confidence_history):
                     reason = h.get("reason", "")
-                    if "Superseded" in reason:
+                    if "Superseded" in reason or "Revised" in reason:
                         entry["supersession_reason"] = reason
                         break
 
@@ -1222,3 +1326,18 @@ class BeliefRevisionMixin:
             current_id = belief.superseded_by
 
         return history
+
+    @staticmethod
+    def _belief_to_history_entry(belief: "Belief", *, is_current: bool = False) -> Dict[str, Any]:
+        """Convert a Belief to a history entry dict."""
+        return {
+            "id": belief.id,
+            "statement": belief.statement,
+            "confidence": belief.confidence,
+            "times_reinforced": belief.times_reinforced,
+            "is_active": belief.is_active,
+            "is_current": is_current,
+            "created_at": belief.created_at.isoformat() if belief.created_at else None,
+            "supersedes": belief.supersedes,
+            "superseded_by": belief.superseded_by,
+        }

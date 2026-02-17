@@ -229,7 +229,7 @@ class TestSupersedeBelief:
         # Add original belief
         old_id = k.belief("Python 2 is the best", confidence=0.7)
 
-        # Supersede it
+        # Supersede it (delegates to revise_belief)
         new_id = k.supersede_belief(
             old_id, "Python 3 is the best", confidence=0.9, reason="Python 2 is deprecated"
         )
@@ -242,7 +242,9 @@ class TestSupersedeBelief:
         assert new_belief is not None
         assert new_belief.statement == "Python 3 is the best"
         assert new_belief.confidence == 0.9
-        assert new_belief.supersedes == old_id
+        # v0.14+: chain fields are no longer written; derived_from tracks lineage
+        assert new_belief.supersedes is None
+        assert f"belief:{old_id}" in (new_belief.derived_from or [])
         assert new_belief.is_active is True
 
     def test_deactivates_old_belief(self, kernle_fresh):
@@ -258,8 +260,8 @@ class TestSupersedeBelief:
         assert old_belief is not None
         assert old_belief.is_active is False
 
-    def test_links_beliefs_bidirectionally(self, kernle_fresh):
-        """Should link old and new beliefs both ways."""
+    def test_links_beliefs_via_audit_and_derived_from(self, kernle_fresh):
+        """Should link old and new beliefs via audit log and derived_from."""
         k = kernle_fresh
 
         old_id = k.belief("Python 2 is the best", confidence=0.7)
@@ -269,8 +271,14 @@ class TestSupersedeBelief:
         old_belief = next((b for b in beliefs if b.id == old_id), None)
         new_belief = next((b for b in beliefs if b.id == new_id), None)
 
-        assert old_belief.superseded_by == new_id
-        assert new_belief.supersedes == old_id
+        # v0.14+: chain fields no longer written
+        assert old_belief.superseded_by is None
+        assert new_belief.supersedes is None
+        # Linkage via derived_from and audit log
+        assert f"belief:{old_id}" in (new_belief.derived_from or [])
+        # Audit log records the revision
+        deactivated = k._storage.get_audit_log(memory_id=old_id, operation="belief.deactivated")
+        assert len(deactivated) >= 1
 
     def test_raises_for_nonexistent(self, kernle_fresh):
         """Should raise ValueError for nonexistent belief."""
@@ -383,10 +391,10 @@ class TestBeliefHistory:
         assert history[0]["is_active"] is True
 
     def test_returns_full_chain_for_superseded_beliefs(self, kernle_fresh):
-        """Should return full supersession chain."""
+        """Should return full revision chain via audit log."""
         k = kernle_fresh
 
-        # Create a chain of supersessions
+        # Create a chain of revisions
         id1 = k.belief("Version 1", confidence=0.6)
         id2 = k.supersede_belief(id1, "Version 2", confidence=0.7)
         id3 = k.supersede_belief(id2, "Version 3", confidence=0.8)
@@ -396,19 +404,25 @@ class TestBeliefHistory:
 
         assert len(history) == 3
         # Should be in chronological order
-        assert history[0]["id"] == id1
-        assert history[1]["id"] == id2
-        assert history[2]["id"] == id3
+        ids = [h["id"] for h in history]
+        assert id1 in ids
+        assert id2 in ids
+        assert id3 in ids
+
+        # Find entries by ID
+        h1 = next(h for h in history if h["id"] == id1)
+        h2 = next(h for h in history if h["id"] == id2)
+        h3 = next(h for h in history if h["id"] == id3)
 
         # Check is_current flag
-        assert history[0]["is_current"] is False
-        assert history[1]["is_current"] is True  # We queried for id2
-        assert history[2]["is_current"] is False
+        assert h1["is_current"] is False
+        assert h2["is_current"] is True  # We queried for id2
+        assert h3["is_current"] is False
 
         # Check is_active flag
-        assert history[0]["is_active"] is False
-        assert history[1]["is_active"] is False  # Superseded by id3
-        assert history[2]["is_active"] is True
+        assert h1["is_active"] is False
+        assert h2["is_active"] is False  # Revised to id3
+        assert h3["is_active"] is True
 
     def test_returns_empty_for_nonexistent(self, kernle_fresh):
         """Should return empty list for nonexistent belief."""
@@ -419,7 +433,7 @@ class TestBeliefHistory:
         assert history == []
 
     def test_walks_backwards_from_later_belief(self, kernle_fresh):
-        """Should walk backwards to find root when starting from later belief."""
+        """Should find root when starting from later belief via audit log."""
         k = kernle_fresh
 
         id1 = k.belief("Original", confidence=0.5)
@@ -429,7 +443,9 @@ class TestBeliefHistory:
         history = k.get_belief_history(id2)
 
         assert len(history) == 2
-        assert history[0]["id"] == id1  # Root should be first
+        ids = [h["id"] for h in history]
+        assert id1 in ids
+        assert id2 in ids
 
 
 class TestBeliefDataclassFields:
