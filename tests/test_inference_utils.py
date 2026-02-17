@@ -3,7 +3,6 @@
 TDD tests for:
 - parse_inference_json() parsing and validation
 - InferenceResult dataclass
-- use_legacy_heuristics flag read/write/defaults
 """
 
 import json

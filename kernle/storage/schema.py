@@ -1911,7 +1911,7 @@ def migrate_schema(conn: sqlite3.Connection, stack_id: str) -> None:
                 if "duplicate column" not in str(e).lower():
                     logger.warning(f"v27: Failed to add correlation_id: {e}", exc_info=True)
 
-    # v27: Originally set use_legacy_heuristics for existing stacks (removed in #860)
+    # v27: no-op (bootstrap logic removed in #860)
     pass
 
     conn.commit()

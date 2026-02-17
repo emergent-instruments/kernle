@@ -34,7 +34,7 @@ def k_inference(tmp_path):
 class TestNoModelReturnsNeutral:
     def test_no_model_returns_neutral(self, k_inference):
         """Without a bound model, detect_emotion returns neutral defaults."""
-        # k_inference has use_legacy_heuristics=false but no model bound
+        # k_inference has no model bound — returns safe defaults
         result = k_inference.detect_emotion("I'm so happy!")
         assert result["valence"] == 0.0
         assert result["arousal"] == 0.0
