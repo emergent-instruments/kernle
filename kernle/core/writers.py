@@ -446,13 +446,14 @@ class WritersMixin:
             memory_ref = f"episode:{memory_id}"
 
         elif as_type == "note":
+            content = entry.blob or entry.content or ""
             note_type = kwargs.get("type", "note")
             tags = kwargs.get("tags") or entry.tags or []
             if "raw" not in tags:
                 tags.append("raw")
 
             memory_id = self.note(
-                content=entry.content,
+                content=content,
                 type=note_type,
                 speaker=kwargs.get("speaker"),
                 reason=kwargs.get("reason"),
@@ -463,11 +464,12 @@ class WritersMixin:
             memory_ref = f"note:{memory_id}"
 
         elif as_type == "belief":
+            content = entry.blob or entry.content or ""
             confidence = kwargs.get("confidence", 0.7)
             belief_type = kwargs.get("type", "observation")
 
             memory_id = self.belief(
-                statement=entry.content,
+                statement=content,
                 type=belief_type,
                 confidence=confidence,
                 source="raw-processing",

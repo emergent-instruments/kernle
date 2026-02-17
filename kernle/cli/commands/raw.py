@@ -341,58 +341,30 @@ def cmd_raw(args, k: "Kernle"):
             print(f"\n✓ Deleted {deleted} {label} raw entries.")
 
     elif args.raw_action == "promote":
-        # Alias for process - simpler UX
-        args.raw_action = "process"
-        # Fall through to process handler would require refactor, so duplicate minimal logic
+        # Resolve the raw entry ID
         try:
             full_id = resolve_raw_id(k, args.id)
         except ValueError as e:
             print(f"✗ {e}")
             return
 
-        entry = k.get_raw(full_id)
-        if not entry:
-            print(f"✗ Raw entry {args.id} not found.")
-            return
-
         target_type = args.type
-        # Use blob (new) with content (legacy) as fallback
-        blob = entry.get("blob") or entry.get("content") or ""
 
-        raw_ref = f"raw:{full_id}"
-
+        # Build kwargs for process_raw — only pass episode-specific args
+        kwargs = {}
         if target_type == "episode":
-            objective = args.objective or blob[:100]
-            outcome = args.outcome or "Promoted from raw capture"
-            result_id = k.episode(
-                objective=objective,
-                outcome=outcome,
-                tags=["promoted"],
-                source="cli-promote",
-                derived_from=[raw_ref],
-            )
-            print(f"✓ Promoted to episode: {result_id[:8]}...")
-        elif target_type == "note":
-            result_id = k.note(
-                content=blob,
-                type="note",
-                tags=["promoted"],
-                source="cli-promote",
-                derived_from=[raw_ref],
-            )
-            print(f"✓ Promoted to note: {result_id[:8]}...")
-        elif target_type == "belief":
-            result_id = k.belief(
-                statement=blob,
-                confidence=0.7,
-                source="cli-promote",
-                derived_from=[raw_ref],
-            )
-            print(f"✓ Promoted to belief: {result_id[:8]}...")
+            if args.objective:
+                kwargs["objective"] = args.objective
+            if args.outcome:
+                kwargs["outcome"] = args.outcome
 
-        # Mark as processed
-        k._storage.mark_raw_processed(full_id, [f"{target_type}:{result_id}"])
-        print("  Raw entry marked as processed.")
+        try:
+            result_id = k.process_raw(raw_id=full_id, as_type=target_type, **kwargs)
+            print(f"✓ Promoted to {target_type}: {result_id[:8]}...")
+            print("  Raw entry marked as processed.")
+        except ValueError as e:
+            print(f"✗ {e}")
+            return
 
     elif args.raw_action == "triage":
         # Guided triage of unprocessed entries
