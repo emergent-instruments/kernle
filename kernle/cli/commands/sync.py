@@ -3,15 +3,13 @@
 import hashlib
 import json
 import logging
-import os
 import sqlite3
 import sys
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from kernle.core.validation import validate_backend_url as _validate_backend_url
-from kernle.utils import get_kernle_home
+from kernle.credentials import resolve_credentials, resolve_sync_display_config
 
 if TYPE_CHECKING:
     from kernle import Kernle
@@ -23,55 +21,12 @@ PULL_POISON_META_KEY = "pull_poison_operations"
 
 def cmd_sync(args, k: "Kernle"):
     """Handle sync subcommands for local-to-cloud synchronization."""
-    # Load credentials with priority:
-    # 1. ~/.kernle/credentials.json (preferred)
-    # 2. Environment variables (fallback)
-    # 3. ~/.kernle/config.json (legacy fallback)
-
-    backend_url = None
-    auth_token = None
-    user_id = None
-
-    # Try credentials.json first (preferred)
-    credentials_path = get_kernle_home() / "credentials.json"
-    if credentials_path.exists():
-        try:
-            import json as json_module
-
-            with open(credentials_path) as f:
-                creds = json_module.load(f)
-                backend_url = creds.get("backend_url")
-                # Support multiple auth token field names
-                auth_token = creds.get("auth_token") or creds.get("token") or creds.get("api_key")
-                user_id = creds.get("user_id")
-        except (json.JSONDecodeError, OSError, KeyError, ValueError) as e:
-            logger.debug(f"Failed to load credentials file: {e}", exc_info=True)
-            # Fall through to env vars
-
-    # Fall back to environment variables
-    if not backend_url:
-        backend_url = os.environ.get("KERNLE_BACKEND_URL")
-    if not auth_token:
-        auth_token = os.environ.get("KERNLE_AUTH_TOKEN")
-    if not user_id:
-        user_id = os.environ.get("KERNLE_USER_ID")
-
-    # Legacy fallback: check config.json
-    config_path = get_kernle_home() / "config.json"
-    if config_path.exists() and (not backend_url or not auth_token):
-        try:
-            import json as json_module
-
-            with open(config_path) as f:
-                config = json_module.load(f)
-                backend_url = backend_url or config.get("backend_url")
-                auth_token = auth_token or config.get("auth_token")
-        except (json.JSONDecodeError, OSError, KeyError, ValueError) as e:
-            logger.debug(f"Failed to load legacy config file: {e}", exc_info=True)
-
-    # Validate backend URL security
-    if backend_url:
-        backend_url = _validate_backend_url(backend_url)
+    # Separate sensitive (auth_token) from display-safe (backend_url, user_id)
+    # to avoid CodeQL tainting CLI output through the credential dict.
+    auth_token = resolve_credentials()["auth_token"]
+    display_config = resolve_sync_display_config()
+    backend_url = display_config["backend_url"]
+    user_id = display_config["user_id"]
 
     def get_local_project_name():
         """Extract the local project name from stack_id (without namespace)."""

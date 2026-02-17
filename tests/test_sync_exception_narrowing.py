@@ -81,9 +81,8 @@ def _setup_creds(tmp_path, subdir="creds"):
 def _run_sync(creds_path, mock_httpx, k, args):
     """Run cmd_sync with standard env/mock patching."""
     with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-        with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-            with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                cmd_sync(args, k)
+        with patch.dict("sys.modules", {"httpx": mock_httpx}):
+            cmd_sync(args, k)
 
 
 # ============================================================================

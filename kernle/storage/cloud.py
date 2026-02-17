@@ -8,8 +8,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from kernle.core.validation import validate_backend_url
-from kernle.utils import get_kernle_home
+from kernle.credentials import resolve_credentials
 
 from .base import (
     Belief,
@@ -38,68 +37,23 @@ class CloudClient:
         self._cloud_credentials: Optional[Dict[str, str]] = None
         self._cloud_credentials_loaded: bool = False
 
-    def _validate_backend_url(self, backend_url: str) -> Optional[str]:
-        """Validate backend URL to avoid leaking auth tokens to unsafe endpoints.
-
-        Delegates to the canonical ``validate_backend_url`` in
-        ``kernle.core.validation``.
-        """
-        return validate_backend_url(backend_url)
-
     def _load_cloud_credentials(self) -> Optional[Dict[str, str]]:
-        """Load cloud credentials from config files or environment variables.
+        """Load cloud credentials via shared resolve_credentials().
 
-        Priority:
-        1. ~/.kernle/credentials.json
-        2. Environment variables (KERNLE_BACKEND_URL, KERNLE_AUTH_TOKEN)
-        3. ~/.kernle/config.json (legacy)
-
-        Returns:
-            Dict with 'backend_url' and 'auth_token', or None if not configured.
+        Results are cached after first call. Returns dict with
+        'backend_url' and 'auth_token', or None if not configured.
         """
-        import os
-
         if self._cloud_credentials_loaded:
             return self._cloud_credentials
 
         self._cloud_credentials_loaded = True
-        backend_url = None
-        auth_token = None
-
-        # Try credentials.json first
-        credentials_path = get_kernle_home() / "credentials.json"
-        if credentials_path.exists():
-            try:
-                with open(credentials_path) as f:
-                    creds = json.load(f)
-                    backend_url = creds.get("backend_url")
-                    # Accept both "auth_token" (preferred) and "token" (legacy) for compatibility
-                    auth_token = creds.get("auth_token") or creds.get("token")
-            except (json.JSONDecodeError, OSError):
-                pass
-
-        # Override with environment variables
-        backend_url = os.environ.get("KERNLE_BACKEND_URL") or backend_url
-        auth_token = os.environ.get("KERNLE_AUTH_TOKEN") or auth_token
-
-        # Try config.json as fallback
-        if not backend_url or not auth_token:
-            config_path = get_kernle_home() / "config.json"
-            if config_path.exists():
-                try:
-                    with open(config_path) as f:
-                        config = json.load(f)
-                        backend_url = backend_url or config.get("backend_url")
-                        auth_token = auth_token or config.get("auth_token")
-                except (json.JSONDecodeError, OSError):
-                    pass
-
-        if backend_url:
-            backend_url = self._validate_backend_url(backend_url)
+        resolved = resolve_credentials()
+        backend_url = resolved["backend_url"]
+        auth_token = resolved["auth_token"]
 
         if backend_url and auth_token:
             self._cloud_credentials = {
-                "backend_url": backend_url.rstrip("/"),
+                "backend_url": backend_url,
                 "auth_token": auth_token,
             }
         else:

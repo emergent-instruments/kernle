@@ -103,9 +103,8 @@ class TestFormatDatetime:
         (creds_path / "credentials.json").write_text(json.dumps(creds))
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="status", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="status", json=True), k)
 
         output = json.loads(capsys.readouterr().out)
         assert output["backend_connected"] is True
@@ -138,9 +137,8 @@ class TestSyncStatus:
                 "KERNLE_USER_ID": "",
             }
             with patch.dict(os.environ, env_overrides):
-                with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                    with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                        cmd_sync(_args(sync_action="status"), k)
+                with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                    cmd_sync(_args(sync_action="status"), k)
 
         captured = capsys.readouterr().out
         assert "Sync Status" in captured
@@ -156,9 +154,8 @@ class TestSyncStatus:
         (creds_path / "credentials.json").write_text(json.dumps(creds))
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="status", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="status", json=True), k)
 
         output = json.loads(capsys.readouterr().out)
         assert output["local_stack_id"] == "test-sync"
@@ -180,9 +177,8 @@ class TestSyncStatus:
         (creds_path / "credentials.json").write_text(json.dumps(creds))
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="status", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="status", json=True), k)
 
         output = json.loads(capsys.readouterr().out)
         assert output["backend_connected"] is False
@@ -208,18 +204,17 @@ class TestSyncStatus:
         (creds_path / "credentials.json").write_text(json.dumps(creds))
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    import io
-                    import sys
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                import io
+                import sys
 
-                    captured = io.StringIO()
-                    old_stdout = sys.stdout
-                    sys.stdout = captured
-                    try:
-                        cmd_sync(_args(sync_action="status", json=True), inst)
-                    finally:
-                        sys.stdout = old_stdout
+                captured = io.StringIO()
+                old_stdout = sys.stdout
+                sys.stdout = captured
+                try:
+                    cmd_sync(_args(sync_action="status", json=True), inst)
+                finally:
+                    sys.stdout = old_stdout
 
         try:
             output = json.loads(captured.getvalue())
@@ -243,9 +238,8 @@ class TestSyncStatus:
             "KERNLE_USER_ID": "env-user",
         }
         with patch.dict(os.environ, env):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="status", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="status", json=True), k)
 
         output = json.loads(capsys.readouterr().out)
         assert output["backend_url"] == "https://env.api.com"
@@ -273,12 +267,11 @@ class TestSyncPush:
             "KERNLE_USER_ID": "",
         }
         with patch.dict(os.environ, env):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                mock_httpx = _mock_httpx_module()
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="push"), k)
-                    assert exc_info.value.code == 1
+            mock_httpx = _mock_httpx_module()
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="push"), k)
+                assert exc_info.value.code == 1
 
     def test_push_no_auth_token(self, k, tmp_path):
         """Exits when no auth token configured."""
@@ -289,12 +282,11 @@ class TestSyncPush:
 
         env = {"KERNLE_DATA_DIR": str(creds_path), "KERNLE_AUTH_TOKEN": ""}
         with patch.dict(os.environ, env):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                mock_httpx = _mock_httpx_module()
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="push"), k)
-                    assert exc_info.value.code == 1
+            mock_httpx = _mock_httpx_module()
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="push"), k)
+                assert exc_info.value.code == 1
 
     def test_push_no_pending_changes(self, k, capsys, tmp_path):
         """Reports no changes when queue is empty."""
@@ -305,9 +297,8 @@ class TestSyncPush:
 
         mock_httpx = _mock_httpx_module()
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="push"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="push"), k)
 
         captured = capsys.readouterr().out
         assert "No pending changes" in captured
@@ -329,9 +320,8 @@ class TestSyncPush:
         mock_httpx = _mock_httpx_module(post_response=push_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="push"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="push"), k)
 
         captured = capsys.readouterr().out
         assert "Pushed 1 changes" in captured
@@ -353,9 +343,8 @@ class TestSyncPush:
         mock_httpx = _mock_httpx_module(post_response=push_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="push", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="push", json=True), k)
 
         output = _extract_json(capsys.readouterr().out)
         assert output["synced"] == 1
@@ -377,11 +366,10 @@ class TestSyncPush:
         mock_httpx = _mock_httpx_module(post_response=push_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="push"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="push"), k)
+                assert exc_info.value.code == 1
 
     def test_push_server_error(self, k, tmp_path):
         """Exits on 500 server error."""
@@ -398,11 +386,10 @@ class TestSyncPush:
         mock_httpx = _mock_httpx_module(post_response=push_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="push"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="push"), k)
+                assert exc_info.value.code == 1
 
     def test_push_network_error(self, k, tmp_path):
         """Exits on network connection error."""
@@ -419,11 +406,10 @@ class TestSyncPush:
         mock_httpx.post.side_effect = ConnectionError("Connection refused")
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="push"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="push"), k)
+                assert exc_info.value.code == 1
 
     def test_push_with_conflicts_in_response(self, k, capsys, tmp_path):
         """Reports conflicts returned by backend."""
@@ -441,9 +427,8 @@ class TestSyncPush:
         mock_httpx = _mock_httpx_module(post_response=push_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="push"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="push"), k)
 
         captured = capsys.readouterr().out
         assert "1 conflicts" in captured
@@ -474,9 +459,8 @@ class TestSyncPush:
         mock_httpx = _mock_httpx_module(post_response=push_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="push", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="push", json=True), k)
 
         output = _extract_json(capsys.readouterr().out)
         assert output["conflict_snapshot"]["count"] == 2
@@ -506,9 +490,8 @@ class TestSyncPush:
         mock_httpx = _mock_httpx_module(post_response=push_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="push"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="push"), k)
 
         # Verify the API call was made with proper table mapping
         call_args = mock_httpx.post.call_args
@@ -541,9 +524,8 @@ class TestSyncPush:
         mock_httpx = _mock_httpx_module(post_response=push_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="push"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="push"), k)
 
         remaining = k._storage.get_queued_changes(limit=10)
         assert len(remaining) == 1
@@ -566,9 +548,8 @@ class TestSyncPush:
         mock_httpx = _mock_httpx_module(post_response=push_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="push"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="push"), k)
 
         assert k._storage._get_sync_meta("last_sync_time") == sentinel_cursor
 
@@ -593,12 +574,11 @@ class TestSyncPull:
             "KERNLE_USER_ID": "",
         }
         with patch.dict(os.environ, env):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                mock_httpx = _mock_httpx_module()
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="pull"), k)
-                    assert exc_info.value.code == 1
+            mock_httpx = _mock_httpx_module()
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="pull"), k)
+                assert exc_info.value.code == 1
 
     def test_pull_no_auth(self, k, tmp_path):
         """Exits when not authenticated."""
@@ -609,12 +589,11 @@ class TestSyncPull:
 
         env = {"KERNLE_DATA_DIR": str(creds_path), "KERNLE_AUTH_TOKEN": ""}
         with patch.dict(os.environ, env):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                mock_httpx = _mock_httpx_module()
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="pull"), k)
-                    assert exc_info.value.code == 1
+            mock_httpx = _mock_httpx_module()
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="pull"), k)
+                assert exc_info.value.code == 1
 
     def test_pull_already_up_to_date(self, k, capsys, tmp_path):
         """Reports up to date when no operations returned."""
@@ -627,9 +606,8 @@ class TestSyncPull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="pull"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="pull"), k)
 
         captured = capsys.readouterr().out
         assert "up to date" in captured
@@ -658,9 +636,8 @@ class TestSyncPull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="pull"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="pull"), k)
 
         captured = capsys.readouterr().out
         assert "Pulled 1 changes" in captured
@@ -684,9 +661,8 @@ class TestSyncPull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="pull"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="pull"), k)
 
         captured = capsys.readouterr().out
         assert "Pulled 1 changes" in captured
@@ -710,9 +686,8 @@ class TestSyncPull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="pull", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="pull", json=True), k)
 
         output = _extract_json(capsys.readouterr().out)
         assert output["pulled"] == 1
@@ -751,9 +726,8 @@ class TestSyncPull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="pull", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="pull", json=True), k)
 
         output = _extract_json(capsys.readouterr().out)
         assert output["conflicts"] == 2
@@ -774,11 +748,10 @@ class TestSyncPull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="pull"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="pull"), k)
+                assert exc_info.value.code == 1
 
     def test_pull_server_error(self, k, tmp_path):
         """Exits on 500 server error."""
@@ -791,11 +764,10 @@ class TestSyncPull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="pull"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="pull"), k)
+                assert exc_info.value.code == 1
 
     def test_pull_network_error(self, k, tmp_path):
         """Exits on network connection error."""
@@ -808,11 +780,10 @@ class TestSyncPull:
         mock_httpx.post.side_effect = ConnectionError("Connection refused")
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="pull"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="pull"), k)
+                assert exc_info.value.code == 1
 
     def test_pull_has_more_hint(self, k, capsys, tmp_path):
         """Shows hint when more changes are available."""
@@ -826,9 +797,8 @@ class TestSyncPull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="pull"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="pull"), k)
 
         captured = capsys.readouterr().out
         assert "More changes available" in captured
@@ -844,9 +814,8 @@ class TestSyncPull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="pull", full=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="pull", full=True), k)
 
         # Verify the request did NOT include a "since" parameter
         call_args = mock_httpx.post.call_args
@@ -881,9 +850,8 @@ class TestSyncPull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="pull"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="pull"), k)
 
         captured = capsys.readouterr().out
         assert "Pulled 1 changes" in captured
@@ -938,18 +906,16 @@ class TestSyncPull:
 
         with patch.object(k._storage, "save_note", side_effect=flaky_save):
             with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-                with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                    with patch.dict(
-                        "sys.modules", {"httpx": _mock_httpx_module(post_response=first_pull)}
-                    ):
-                        cmd_sync(_args(sync_action="pull"), k)
+                with patch.dict(
+                    "sys.modules", {"httpx": _mock_httpx_module(post_response=first_pull)}
+                ):
+                    cmd_sync(_args(sync_action="pull"), k)
 
             with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-                with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                    with patch.dict(
-                        "sys.modules", {"httpx": _mock_httpx_module(post_response=second_pull)}
-                    ):
-                        cmd_sync(_args(sync_action="pull"), k)
+                with patch.dict(
+                    "sys.modules", {"httpx": _mock_httpx_module(post_response=second_pull)}
+                ):
+                    cmd_sync(_args(sync_action="pull"), k)
 
         captured = capsys.readouterr().out
         assert "Pulled 0 changes" in captured
@@ -980,9 +946,8 @@ class TestSyncPull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="pull"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="pull"), k)
 
         episodes = k._storage.get_episodes(limit=20)
         pulled_ep = next(e for e in episodes if e.id == "ep-pulled-1")
@@ -1004,8 +969,7 @@ class TestSyncConflicts:
         creds_path.mkdir()
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                cmd_sync(_args(sync_action="conflicts"), k)
+            cmd_sync(_args(sync_action="conflicts"), k)
 
         captured = capsys.readouterr().out
         assert "No sync conflicts" in captured
@@ -1030,8 +994,7 @@ class TestSyncConflicts:
         creds_path.mkdir()
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                cmd_sync(_args(sync_action="conflicts"), k)
+            cmd_sync(_args(sync_action="conflicts"), k)
 
         captured = capsys.readouterr().out
         assert "1 conflicts" in captured
@@ -1059,8 +1022,7 @@ class TestSyncConflicts:
         creds_path.mkdir()
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                cmd_sync(_args(sync_action="conflicts", json=True), k)
+            cmd_sync(_args(sync_action="conflicts", json=True), k)
 
         output = json.loads(capsys.readouterr().out)
         assert output["count"] == 1
@@ -1085,8 +1047,7 @@ class TestSyncConflicts:
         creds_path.mkdir()
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                cmd_sync(_args(sync_action="conflicts", clear=True), k)
+            cmd_sync(_args(sync_action="conflicts", clear=True), k)
 
         captured = capsys.readouterr().out
         assert "Cleared" in captured
@@ -1101,8 +1062,7 @@ class TestSyncConflicts:
         creds_path.mkdir()
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                cmd_sync(_args(sync_action="conflicts", clear=True, json=True), k)
+            cmd_sync(_args(sync_action="conflicts", clear=True, json=True), k)
 
         output = json.loads(capsys.readouterr().out)
         assert "cleared" in output
@@ -1128,12 +1088,11 @@ class TestSyncFull:
             "KERNLE_USER_ID": "",
         }
         with patch.dict(os.environ, env):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                mock_httpx = _mock_httpx_module()
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="full"), k)
-                    assert exc_info.value.code == 1
+            mock_httpx = _mock_httpx_module()
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="full"), k)
+                assert exc_info.value.code == 1
 
     def test_full_no_auth(self, k, tmp_path):
         """Exits when not authenticated."""
@@ -1144,12 +1103,11 @@ class TestSyncFull:
 
         env = {"KERNLE_DATA_DIR": str(creds_path), "KERNLE_AUTH_TOKEN": ""}
         with patch.dict(os.environ, env):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                mock_httpx = _mock_httpx_module()
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="full"), k)
-                    assert exc_info.value.code == 1
+            mock_httpx = _mock_httpx_module()
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="full"), k)
+                assert exc_info.value.code == 1
 
     def test_full_sync_success(self, k, capsys, tmp_path):
         """Full sync pulls then pushes."""
@@ -1163,9 +1121,8 @@ class TestSyncFull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="full"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="full"), k)
 
         captured = capsys.readouterr().out
         assert "Full sync complete" in captured
@@ -1212,9 +1169,8 @@ class TestSyncFull:
         mock_httpx.post.side_effect = route_post
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="full"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="full"), k)
 
         # Verify push was called (2 POSTs: pull + push)
         assert mock_httpx.post.call_count == 2
@@ -1255,9 +1211,8 @@ class TestSyncFull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="full"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="full"), k)
 
         captured = capsys.readouterr().out
         assert "Pulled 1 changes" in captured
@@ -1298,9 +1253,8 @@ class TestSyncFull:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="full"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="full"), k)
 
         captured = capsys.readouterr().out
         assert "0 changes" in captured
@@ -1333,9 +1287,8 @@ class TestJsonVersionField:
         (creds_path / "credentials.json").write_text(json.dumps(creds))
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="status", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="status", json=True), k)
 
         output = json.loads(capsys.readouterr().out)
         assert output["version"] == 1
@@ -1355,9 +1308,8 @@ class TestJsonVersionField:
         mock_httpx = _mock_httpx_module(post_response=push_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="push", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="push", json=True), k)
 
         output = _extract_json(capsys.readouterr().out)
         assert output["version"] == 1
@@ -1381,9 +1333,8 @@ class TestJsonVersionField:
         mock_httpx = _mock_httpx_module(post_response=pull_resp)
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="pull", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="pull", json=True), k)
 
         output = _extract_json(capsys.readouterr().out)
         assert output["version"] == 1
@@ -1394,8 +1345,7 @@ class TestJsonVersionField:
         creds_path.mkdir()
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                cmd_sync(_args(sync_action="conflicts", json=True), k)
+            cmd_sync(_args(sync_action="conflicts", json=True), k)
 
         output = json.loads(capsys.readouterr().out)
         assert output["version"] == 1
@@ -1406,8 +1356,7 @@ class TestJsonVersionField:
         creds_path.mkdir()
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                cmd_sync(_args(sync_action="conflicts", clear=True, json=True), k)
+            cmd_sync(_args(sync_action="conflicts", clear=True, json=True), k)
 
         output = json.loads(capsys.readouterr().out)
         assert output["version"] == 1
@@ -1426,9 +1375,8 @@ class TestJsonVersionField:
         (creds_path / "credentials.json").write_text(json.dumps(creds))
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    cmd_sync(_args(sync_action="status", json=True), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="status", json=True), k)
 
         output = json.loads(capsys.readouterr().out)
         ts = output["last_sync_time"]
