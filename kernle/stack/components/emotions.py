@@ -8,7 +8,6 @@ falls back to keyword-based detection otherwise.
 
 from __future__ import annotations
 
-import json
 import logging
 from collections import Counter
 from typing import Any, Dict, List, Optional
@@ -215,6 +214,8 @@ class EmotionalTaggingComponent:
         Returns a detection dict on success, or None if inference is
         unavailable or returns invalid data.
         """
+        from kernle.core.inference_utils import parse_inference_json
+
         if self._inference is None:
             return None
 
@@ -229,31 +230,36 @@ class EmotionalTaggingComponent:
                 ),
                 system="You are an emotion analysis system. Return only valid JSON.",
             )
-            data = json.loads(response)
-
-            valence = float(data["valence"])
-            arousal = float(data["arousal"])
-            emotions = data["emotions"]
-
-            if not isinstance(emotions, list):
-                return None
-
-            valence = max(-1.0, min(1.0, valence))
-            arousal = max(0.0, min(1.0, arousal))
-            emotions = [str(e) for e in emotions if isinstance(e, str)]
-
-            return {
-                "valence": valence,
-                "arousal": arousal,
-                "tags": emotions,
-                "confidence": 0.9,
-            }
         except Exception:
             logger.debug(
-                "EmotionalTaggingComponent: inference failed, falling back to keywords",
+                "EmotionalTaggingComponent: inference call failed",
                 exc_info=True,
             )
             return None
+
+        result = parse_inference_json(
+            response,
+            required_fields=["valence", "arousal"],
+            fallback={"valence": 0.0, "arousal": 0.0, "emotions": []},
+            logger=logger,
+        )
+
+        if result.fallback_used:
+            return None
+
+        valence = max(-1.0, min(1.0, float(result.data.get("valence", 0.0))))
+        arousal = max(0.0, min(1.0, float(result.data.get("arousal", 0.0))))
+        emotions = result.data.get("emotions", [])
+        if not isinstance(emotions, list):
+            return None
+        emotions = [str(e) for e in emotions if isinstance(e, str)]
+
+        return {
+            "valence": valence,
+            "arousal": arousal,
+            "tags": emotions,
+            "confidence": 0.9,
+        }
 
     def detect_emotion(self, text: str) -> Dict[str, Any]:
         """Detect emotional signals in text.
