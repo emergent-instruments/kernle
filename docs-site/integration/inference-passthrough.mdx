@@ -1,0 +1,101 @@
+---
+title: Inference Passthrough
+description: "Use your existing model instead of configuring a separate one for Kernle"
+---
+
+# Inference Passthrough
+
+Every Kernle user with a working AI application already has a model. Inference passthrough eliminates the need to configure a separate model binding for Kernle — your existing model "just works."
+
+## How It Works
+
+Kernle supports two integration patterns, each with its own inference source:
+
+| Pattern | Inference Source | Setup Required |
+|---------|-----------------|----------------|
+| **MCP server** | Host agent's model via MCP sampling | None (automatic) |
+| **Library embedding** | Your existing `generate()` function | One line |
+
+### Model Binding Priority
+
+When a tool is called, Kernle binds a model in this order:
+
+1. **Explicit model** — if you've already called `k.entity.set_model()`, that model is used
+2. **Persisted config** — if you ran `kernle model set`, that config is loaded
+3. **MCP sampling** — if the MCP client supports sampling, the host agent's model is used
+4. **Capture-only** — no model available; memory capture works, inference-dependent features are skipped
+
+## MCP Integration (Automatic)
+
+If your MCP client supports the `sampling` capability (Claude Code, Claude Desktop), Kernle automatically uses the host agent's model for inference. No configuration needed.
+
+```bash
+# Just start the server — no model config required
+kernle -s my-agent mcp
+```
+
+The MCP server detects sampling support at the first tool call and binds it transparently. You'll see this in logs:
+
+```
+INFO: Bound MCP sampling model (via host agent)
+```
+
+If the client doesn't support sampling, Kernle operates in capture-only mode — memory operations (episodes, notes, beliefs) still work, but inference-dependent features like emotion detection and contradiction finding are skipped.
+
+## Library Embedding (CallableModelAdapter)
+
+For Python library users, wrap any `(prompt, system) -> str` callable:
+
+```python
+from kernle import Kernle, CallableModelAdapter
+
+# Your existing generate function
+def my_generate(prompt: str, system: str | None) -> str:
+    return my_llm_client.complete(prompt, system_prompt=system)
+
+# One line to connect it
+k = Kernle(stack_id="my-agent")
+k.entity.set_model(
+    CallableModelAdapter(my_generate, model_id="gpt-4o", provider="openai")
+)
+
+# Now all Kernle features use your model
+k.raw("I learned something important today")
+```
+
+### Message Flattening
+
+`CallableModelAdapter` flattens the message list into a single prompt string:
+
+```
+USER: first message
+
+ASSISTANT: response
+
+USER: follow-up
+```
+
+This is intentionally simple. If you need full message-structure fidelity (tool calls, structured content), implement `ModelProtocol` directly instead.
+
+## No Model? No Problem
+
+Kernle works without a model. Memory capture (`raw()`, `episode()`, `note()`, `belief()`) always works. Inference-dependent features return safe defaults:
+
+| Feature | Without Model |
+|---------|--------------|
+| `raw()` | Works normally |
+| `episode()` | Works normally |
+| `note()`, `belief()`, `value()` | Works normally |
+| Emotion detection | Returns neutral (valence=0, arousal=0) |
+| Contradiction detection | Returns empty list |
+| Suggestion extraction | Returns empty list |
+
+## Exports
+
+`CallableModelAdapter` is available at the top level:
+
+```python
+from kernle import CallableModelAdapter
+```
+
+`SamplingModelAdapter` is internal to the MCP server and not exported at the package top level. The server instantiates it automatically when sampling is available.

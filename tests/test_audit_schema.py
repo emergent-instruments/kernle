@@ -223,26 +223,6 @@ class TestMigration26To27:
         assert rows[1]["operation"] == "protect"
         assert rows[2]["operation"] == "accepted"
 
-    def test_migration_sets_legacy_heuristics_for_existing_stack(self, pre_v27_db):
-        """Migration sets use_legacy_heuristics=true for existing stacks."""
-        conn, db_path = pre_v27_db
-
-        # Insert a row to indicate this stack exists
-        conn.execute(
-            "INSERT INTO stack_settings (stack_id, key, value, updated_at) VALUES (?, ?, ?, ?)",
-            ("test-stack", "some_setting", "some_value", "2025-01-01T00:00:00Z"),
-        )
-        conn.commit()
-
-        migrate_schema(conn, "test-stack")
-
-        row = conn.execute(
-            "SELECT value FROM stack_settings WHERE stack_id = ? AND key = ?",
-            ("test-stack", "use_legacy_heuristics"),
-        ).fetchone()
-        assert row is not None
-        assert row[0] == "true"
-
 
 # ---------------------------------------------------------------------------
 # log_audit() tests

@@ -18,7 +18,8 @@ Usage:
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List
+import threading
+from typing import Any, Dict, List, Optional
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -291,6 +292,93 @@ def handle_tool_error(e: Exception, tool_name: str, arguments: Dict[str, Any]) -
 
 
 # =============================================================================
+# INFERENCE PASSTHROUGH — async/sync bridge for MCP sampling
+# =============================================================================
+
+# Serializes built-in handler execution across threads. The current
+# event-loop model already serializes all tool calls; the lock makes that
+# guarantee explicit across the async/thread boundary.
+_kernle_lock = threading.Lock()
+
+
+def _get_mcp_session() -> Optional[Any]:
+    """Return the current MCP ServerSession, or None if not available.
+
+    Must be called in async/event-loop context. Returns None on any error.
+    """
+    try:
+        from mcp.server.lowlevel.server import request_ctx
+
+        return request_ctx.get().session
+    except Exception:
+        return None
+
+
+def _maybe_bind_model(
+    k: "Kernle",
+    session: Any,
+    loop: asyncio.AbstractEventLoop,
+) -> None:
+    """Attempt to bind a model to k if none is already set.
+
+    Priority order:
+    1. No-op if model already bound (idempotent)
+    2. Persisted boot_config model (user ran ``kernle model set``)
+    3. MCP sampling if client supports it
+    4. Log and continue — capture-only mode (not an error)
+
+    Must be called under ``_kernle_lock``. ``session`` and ``loop`` must
+    be captured in async scope before thread dispatch.
+    """
+    if k.entity.model is not None:
+        logger.debug("Model already bound: %s", k.entity.model.model_id)
+        return
+
+    # Priority 1: persisted config
+    try:
+        from kernle.cli.commands.model import load_persisted_model
+
+        persisted = load_persisted_model(k)
+        if persisted:
+            try:
+                k.entity.set_model(persisted)
+                logger.info("Bound persisted model from boot_config: %s", persisted.model_id)
+                return
+            except Exception as e:
+                logger.warning("set_model(persisted) failed: %s — falling through to sampling", e)
+        else:
+            logger.debug("No persisted model in boot_config")
+    except Exception as e:
+        logger.warning("Persisted model load failed: %s — falling through to sampling", e)
+
+    # Priority 2: MCP sampling
+    if session is None:
+        logger.debug("No MCP session available — operating in capture-only mode")
+        return
+    try:
+        from mcp.types import ClientCapabilities, SamplingCapability
+
+        if not callable(getattr(session, "check_client_capability", None)):
+            logger.debug("MCP session does not support capability checks — skipping sampling")
+        elif session.check_client_capability(ClientCapabilities(sampling=SamplingCapability())):
+            from kernle.models.adapters import SamplingModelAdapter
+
+            adapter = SamplingModelAdapter(session=session, loop=loop)
+            try:
+                k.entity.set_model(adapter)
+                logger.info("Bound MCP sampling model (via host agent)")
+            except Exception as e:
+                logger.warning("set_model(SamplingModelAdapter) failed: %s — capture-only", e)
+            return
+        else:
+            logger.debug("MCP client does not support sampling capability")
+    except Exception as e:
+        logger.warning("MCP sampling setup failed: %s — operating in capture-only mode", e)
+
+    logger.info("No model bound — Kernle operating in capture-only mode (no inference)")
+
+
+# =============================================================================
 # MCP PROTOCOL HANDLERS
 # =============================================================================
 
@@ -306,15 +394,23 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Handle tool calls with comprehensive validation and error handling."""
     try:
         sanitized_args = validate_tool_input(name, arguments)
-        k = get_kernle()
 
-        # Built-in tool handler
         handler = HANDLERS.get(name)
         if handler is not None:
-            result = handler(sanitized_args, k)
+            # Capture k and session in async scope before executor dispatch
+            k = get_kernle()
+            loop = asyncio.get_event_loop()
+            session = _get_mcp_session()
+
+            def _run_builtin() -> str:
+                with _kernle_lock:
+                    _maybe_bind_model(k, session, loop)
+                    return handler(sanitized_args, k)
+
+            result = await loop.run_in_executor(None, _run_builtin)
             return [TextContent(type="text", text=result)]
 
-        # Plugin tool handler
+        # Plugin handlers: stay in event loop (no threading, no k access)
         plugin_handler = _plugin_handlers.get(name)
         if plugin_handler is not None:
             handler_result = plugin_handler(sanitized_args)
@@ -324,8 +420,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 result = json.dumps(handler_result, indent=2, default=str)
             return [TextContent(type="text", text=result)]
 
-        # Should not reach here due to validation, but handle gracefully
-        logger.error(f"Unexpected tool name after validation: {name}")
+        logger.error("Unexpected tool name after validation: %s", name)
         return [TextContent(type="text", text=f"Tool '{name}' is not available")]
 
     except Exception as e:

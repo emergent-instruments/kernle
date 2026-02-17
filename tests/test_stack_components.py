@@ -27,7 +27,6 @@ from kernle.stack.components import (
     MetaMemoryComponent,
     SuggestionComponent,
 )
-from kernle.stack.components.suggestions import EPISODE_PATTERNS
 
 # ============================================================================
 # Helpers
@@ -636,18 +635,18 @@ class TestConsolidationComponent:
 
 
 class TestEmotionalTaggingComponent:
-    def test_detect_emotion_positive(self):
+    def test_detect_emotion_without_inference_returns_neutral(self):
+        """Without inference, detect_emotion returns neutral defaults."""
         c = EmotionalTaggingComponent()
         result = c.detect_emotion("I'm so happy and excited about this!")
-        assert result["valence"] > 0
-        assert result["confidence"] > 0
-        assert len(result["tags"]) > 0
+        assert result["valence"] == 0.0
+        assert result["arousal"] == 0.0
+        assert result["confidence"] == 0.0
+        assert result["tags"] == []
 
-    def test_detect_emotion_negative(self):
-        c = EmotionalTaggingComponent()
         result = c.detect_emotion("I'm frustrated and angry about the failure")
-        assert result["valence"] < 0
-        assert result["confidence"] > 0
+        assert result["valence"] == 0.0
+        assert result["confidence"] == 0.0
 
     def test_detect_emotion_neutral(self):
         c = EmotionalTaggingComponent()
@@ -660,16 +659,15 @@ class TestEmotionalTaggingComponent:
         result = c.detect_emotion("")
         assert result["confidence"] == 0.0
 
-    def test_on_save_episode_detects_emotion(self):
+    def test_on_save_episode_without_inference_returns_none(self):
+        """Without inference, on_save returns None (no emotion detected)."""
         c = EmotionalTaggingComponent()
         memory = MagicMock()
         memory.objective = "Fix the frustrating bug"
         memory.outcome = "Finally resolved it, feeling satisfied"
 
         result = c.on_save("episode", "ep-1", memory)
-        assert result is not None
-        assert "emotional_valence" in result
-        assert "emotional_tags" in result
+        assert result is None
 
     def test_on_save_non_episode_ignored(self):
         c = EmotionalTaggingComponent()
@@ -700,7 +698,8 @@ class TestEmotionalTaggingComponent:
 
 
 class TestSuggestionComponent:
-    def test_on_maintenance_extracts_suggestions(self):
+    def test_on_maintenance_no_inference_extracts_nothing(self):
+        """Without inference, on_maintenance processes entries but extracts no suggestions."""
         c = SuggestionComponent()
         c.attach("stack-001")
         storage = _make_mock_storage()
@@ -711,8 +710,7 @@ class TestSuggestionComponent:
 
         result = c.on_maintenance()
         assert result["raw_entries_processed"] == 1
-        assert result["suggestions_extracted"] >= 1
-        assert storage.save_suggestion.called
+        assert result["suggestions_extracted"] == 0
 
     def test_on_maintenance_no_raw_entries(self):
         c = SuggestionComponent()
@@ -724,31 +722,18 @@ class TestSuggestionComponent:
         assert result["raw_entries_processed"] == 0
         assert result["suggestions_extracted"] == 0
 
-    def test_pattern_scoring(self):
-        c = SuggestionComponent()
-        episode_score = c._score_patterns(
-            "i completed the task and shipped it, succeeded and learned a lot",
-            EPISODE_PATTERNS,
-        )
-        assert episode_score > 0.4
-
-    def test_pattern_scoring_no_match(self):
-        c = SuggestionComponent()
-        score = c._score_patterns("the sky is blue today", EPISODE_PATTERNS)
-        assert score < 0.4
-
-    def test_extract_suggestions_episode(self):
+    def test_extract_suggestions_no_inference_returns_empty(self):
+        """Without inference, _extract_suggestions returns empty list."""
         c = SuggestionComponent()
         c._stack_id = "stack-001"
         entry = _make_mock_raw_entry(
             content="I completed the migration and it succeeded. Lesson: always test first."
         )
         suggestions = c._extract_suggestions(entry)
-        assert len(suggestions) >= 1
-        types = [s.memory_type for s in suggestions]
-        assert "episode" in types
+        assert suggestions == []
 
-    def test_short_content_skipped(self):
+    def test_short_content_no_inference_returns_empty(self):
+        """Short content with no inference returns empty list."""
         c = SuggestionComponent()
         c._stack_id = "stack-001"
         entry = _make_mock_raw_entry(content="hi")
@@ -966,26 +951,27 @@ class TestEmotionalTaggingInference:
         assert result["confidence"] == 0.9
         inference.infer.assert_called_once()
 
-    def test_legacy_mode_uses_keywords_only(self):
-        """Legacy mode uses keyword-based detection, never calls inference."""
+    def test_with_inference_no_storage_uses_inference(self):
+        """With inference set (no storage), calls inference directly."""
         c = EmotionalTaggingComponent()
         inference = _make_mock_inference()
         inference.infer.return_value = '{"valence": 0.9, "arousal": 0.9, "emotions": ["ecstasy"]}'
         c.set_inference(inference)
-        # No storage → legacy mode (default)
         result = c.detect_emotion("I'm so happy and excited!")
-        assert result["valence"] > 0
-        assert "joy" in result["tags"] or "excitement" in result["tags"]
-        # Inference must NOT have been called in legacy mode
-        inference.infer.assert_not_called()
+        assert result["valence"] == 0.9
+        assert result["arousal"] == 0.9
+        assert "ecstasy" in result["tags"]
+        inference.infer.assert_called_once()
 
-    def test_without_inference_legacy_falls_back_to_keywords(self):
-        """Without inference in legacy mode, uses keyword-based detection."""
+    def test_without_inference_returns_neutral(self):
+        """Without inference, returns neutral defaults."""
         c = EmotionalTaggingComponent()
-        # No inference set, no storage → legacy mode
+        # No inference set, no storage
         result = c.detect_emotion("I'm so happy and excited!")
-        assert result["valence"] > 0
-        assert "joy" in result["tags"] or "excitement" in result["tags"]
+        assert result["valence"] == 0.0
+        assert result["arousal"] == 0.0
+        assert result["tags"] == []
+        assert result["confidence"] == 0.0
 
     def test_non_legacy_bad_json_returns_neutral(self):
         """Non-legacy: invalid JSON from inference → neutral defaults (not keywords)."""

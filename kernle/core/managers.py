@@ -603,80 +603,18 @@ class ManagersMixin:
     # SIGNAL DETECTION (Auto-Capture Significance)
     # =========================================================================
 
-    SIGNAL_PATTERNS = {
-        "success": {
-            "keywords": ["completed", "done", "finished", "succeeded", "works", "fixed", "solved"],
-            "weight": 0.7,
-            "type": "positive",
-        },
-        "failure": {
-            "keywords": ["failed", "error", "broken", "doesn't work", "bug", "issue"],
-            "weight": 0.7,
-            "type": "negative",
-        },
-        "decision": {
-            "keywords": ["decided", "chose", "going with", "will use", "picked"],
-            "weight": 0.8,
-            "type": "decision",
-        },
-        "lesson": {
-            "keywords": ["learned", "realized", "insight", "discovered", "understood"],
-            "weight": 0.9,
-            "type": "lesson",
-        },
-        "feedback": {
-            "keywords": ["great", "thanks", "helpful", "perfect", "exactly", "wrong", "not what"],
-            "weight": 0.6,
-            "type": "feedback",
-        },
-    }
-
     _NOT_SIGNIFICANT = {"significant": False, "score": 0.0, "signals": []}
 
     def detect_significance(self, text: str) -> Dict[str, Any]:
         """Detect if text contains significant signals worth capturing.
 
-        Gating:
-        - ``use_legacy_heuristics=true``: keyword-based detection (unchanged)
-        - ``use_legacy_heuristics=false`` + no model: not significant
-        - ``use_legacy_heuristics=false`` + model: inference-based detection
+        Uses inference when available; returns not-significant otherwise.
         """
-        # Gate: legacy heuristics mode
-        if self._use_legacy_heuristics():
-            return self._detect_significance_keywords(text)
-
-        # Gate: inference availability
         inference = self._get_inference()
         if inference is None:
             return dict(self._NOT_SIGNIFICANT)
 
-        # Inference path
         return self._detect_significance_inference(text, inference)
-
-    def _detect_significance_keywords(self, text: str) -> Dict[str, Any]:
-        """Detect significance using keyword patterns (legacy)."""
-        text_lower = text.lower()
-        signals = []
-        total_weight = 0.0
-
-        for signal_name, pattern in self.SIGNAL_PATTERNS.items():
-            for keyword in pattern["keywords"]:
-                if keyword in text_lower:
-                    signals.append(
-                        {
-                            "signal": signal_name,
-                            "type": pattern["type"],
-                            "weight": pattern["weight"],
-                        }
-                    )
-                    total_weight = max(total_weight, pattern["weight"])
-                    break
-
-        return {
-            "significant": total_weight >= 0.6,
-            "score": total_weight,
-            "signals": signals,
-        }
 
     def _detect_significance_inference(self, text: str, inference) -> Dict[str, Any]:
         """Detect significance via inference service."""

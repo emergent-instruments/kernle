@@ -811,8 +811,7 @@ class TestStackSettings:
     def test_get_all_empty(self, tmp_path):
         stack = SQLiteStack("test", db_path=tmp_path / "test.db", components=[])
         settings = stack.get_all_stack_settings()
-        # New stacks auto-set use_legacy_heuristics=false
-        assert settings.get("use_legacy_heuristics") == "false"
+        assert settings == {}
 
 
 # ==============================================================================

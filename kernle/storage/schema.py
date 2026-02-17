@@ -15,7 +15,7 @@ import sqlite3
 logger = logging.getLogger(__name__)
 
 # Schema version for migrations
-SCHEMA_VERSION = 27  # v0.14.00: add correlation_id to memory_audit, use_legacy_heuristics flag
+SCHEMA_VERSION = 27  # v0.14.00: add correlation_id to memory_audit
 
 # Allowed table names for SQL queries (security: prevents SQL injection via table names)
 ALLOWED_TABLES = frozenset(
@@ -1911,32 +1911,7 @@ def migrate_schema(conn: sqlite3.Connection, stack_id: str) -> None:
                 if "duplicate column" not in str(e).lower():
                     logger.warning(f"v27: Failed to add correlation_id: {e}", exc_info=True)
 
-    # v27: Set use_legacy_heuristics=true for existing stacks
-    if "stack_settings" in table_names:
-        try:
-            # Check if any stack data exists (indicating an existing stack)
-            has_data = conn.execute(
-                "SELECT 1 FROM stack_settings WHERE stack_id = ? LIMIT 1",
-                (stack_id,),
-            ).fetchone()
-            if has_data:
-                # Only set if not already configured
-                existing = conn.execute(
-                    "SELECT 1 FROM stack_settings WHERE stack_id = ? AND key = ?",
-                    (stack_id, "use_legacy_heuristics"),
-                ).fetchone()
-                if not existing:
-                    from datetime import datetime, timezone
-
-                    now = datetime.now(timezone.utc).isoformat()
-                    conn.execute(
-                        "INSERT INTO stack_settings (stack_id, key, value, updated_at) VALUES (?, ?, ?, ?)",
-                        (stack_id, "use_legacy_heuristics", "true", now),
-                    )
-                    logger.info(
-                        "v27: Set use_legacy_heuristics=true for existing stack %s", stack_id
-                    )
-        except Exception as e:
-            logger.warning(f"v27: Failed to set use_legacy_heuristics: {e}", exc_info=True)
+    # v27: no-op (bootstrap logic removed in #860)
+    pass
 
     conn.commit()
