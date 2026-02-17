@@ -76,11 +76,10 @@ class TestNoBackendUrl:
         creds_path.mkdir()
 
         with patch.dict(os.environ, _no_creds_env(creds_path)):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="push"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="push"), k)
+                assert exc_info.value.code == 1
 
         captured = capsys.readouterr().out
         assert "Backend not configured" in captured
@@ -91,11 +90,10 @@ class TestNoBackendUrl:
         creds_path.mkdir()
 
         with patch.dict(os.environ, _no_creds_env(creds_path)):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="pull"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="pull"), k)
+                assert exc_info.value.code == 1
 
         captured = capsys.readouterr().out
         assert "Backend not configured" in captured
@@ -106,11 +104,10 @@ class TestNoBackendUrl:
         creds_path.mkdir()
 
         with patch.dict(os.environ, _no_creds_env(creds_path)):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="full"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="full"), k)
+                assert exc_info.value.code == 1
 
         captured = capsys.readouterr().out
         assert "Backend not configured" in captured
@@ -133,11 +130,10 @@ class TestNoCredentials:
 
         env = {"KERNLE_DATA_DIR": str(creds_path), "KERNLE_AUTH_TOKEN": ""}
         with patch.dict(os.environ, env):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="push"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="push"), k)
+                assert exc_info.value.code == 1
 
         captured = capsys.readouterr().out
         assert "Not authenticated" in captured
@@ -151,11 +147,10 @@ class TestNoCredentials:
 
         env = {"KERNLE_DATA_DIR": str(creds_path), "KERNLE_AUTH_TOKEN": ""}
         with patch.dict(os.environ, env):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="pull"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="pull"), k)
+                assert exc_info.value.code == 1
 
         captured = capsys.readouterr().out
         assert "Not authenticated" in captured
@@ -169,11 +164,10 @@ class TestNoCredentials:
 
         env = {"KERNLE_DATA_DIR": str(creds_path), "KERNLE_AUTH_TOKEN": ""}
         with patch.dict(os.environ, env):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
-                    with pytest.raises(SystemExit) as exc_info:
-                        cmd_sync(_args(sync_action="full"), k)
-                    assert exc_info.value.code == 1
+            with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
+                with pytest.raises(SystemExit) as exc_info:
+                    cmd_sync(_args(sync_action="full"), k)
+                assert exc_info.value.code == 1
 
         captured = capsys.readouterr().out
         assert "Not authenticated" in captured
@@ -197,9 +191,8 @@ class TestInvalidSyncAction:
         creds_path.mkdir()
 
         with patch.dict(os.environ, _no_creds_env(creds_path)):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                # Should not raise any exception
-                cmd_sync(_args(sync_action="invalid_direction"), k)
+            # Should not raise any exception
+            cmd_sync(_args(sync_action="invalid_direction"), k)
 
         # No output expected for unrecognized action
         captured = capsys.readouterr().out
@@ -229,10 +222,9 @@ class TestRecoveryTips:
         mock_httpx.post.side_effect = ConnectionError("Connection refused")
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit):
-                        cmd_sync(_args(sync_action="push"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit):
+                    cmd_sync(_args(sync_action="push"), k)
 
         captured = capsys.readouterr().out
         # The push failure handler prints a Tip about local queuing
@@ -250,10 +242,9 @@ class TestRecoveryTips:
         mock_httpx.post.side_effect = ConnectionError("Connection refused")
 
         with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": mock_httpx}):
-                    with pytest.raises(SystemExit):
-                        cmd_sync(_args(sync_action="pull"), k)
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                with pytest.raises(SystemExit):
+                    cmd_sync(_args(sync_action="pull"), k)
 
         captured = capsys.readouterr().out
         # The pull failure handler prints a Tip about checking connectivity
@@ -266,10 +257,9 @@ class TestRecoveryTips:
         creds_path.mkdir()
 
         with patch.dict(os.environ, _no_creds_env(creds_path)):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
-                    with pytest.raises(SystemExit):
-                        cmd_sync(_args(sync_action="push"), k)
+            with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
+                with pytest.raises(SystemExit):
+                    cmd_sync(_args(sync_action="push"), k)
 
         captured = capsys.readouterr().out
         assert "kernle auth login" in captured or "KERNLE_BACKEND_URL" in captured
@@ -283,10 +273,9 @@ class TestRecoveryTips:
 
         env = {"KERNLE_DATA_DIR": str(creds_path), "KERNLE_AUTH_TOKEN": ""}
         with patch.dict(os.environ, env):
-            with patch("kernle.cli.commands.sync.get_kernle_home", return_value=creds_path):
-                with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
-                    with pytest.raises(SystemExit):
-                        cmd_sync(_args(sync_action="pull"), k)
+            with patch.dict("sys.modules", {"httpx": _mock_httpx()}):
+                with pytest.raises(SystemExit):
+                    cmd_sync(_args(sync_action="pull"), k)
 
         captured = capsys.readouterr().out
         assert "kernle auth login" in captured or "KERNLE_AUTH_TOKEN" in captured

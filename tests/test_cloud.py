@@ -1,15 +1,19 @@
 """Tests for kernle/storage/cloud.py — CloudClient mixin.
 
 Covers:
-- _validate_backend_url: scheme/host validation
-- _load_cloud_credentials: credentials.json, config.json fallback, env vars
+- _load_cloud_credentials: delegates to resolve_credentials(), with caching
 - cloud_health_check: success, timeout, error, missing creds
 - _cloud_search: success, empty, HTTP error, network error, malformed JSON
 - _parse_cloud_search_results: episode, note, belief, value, goal parsing
 - _create_record_from_cloud: all 5 types + unknown type
+
+Note: URL validation tests moved to test_core_validation.py and
+test_sync_url_validation.py. Credential resolution logic tested in
+test_resolve_credentials.py.
 """
 
 import json
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,43 +29,7 @@ def client():
 
 
 # ---------------------------------------------------------------------------
-# 1. _validate_backend_url
-# ---------------------------------------------------------------------------
-
-
-class TestValidateBackendUrl:
-    def test_valid_https(self, client):
-        assert client._validate_backend_url("https://api.kernle.ai") == "https://api.kernle.ai"
-
-    def test_valid_http_localhost(self, client):
-        assert client._validate_backend_url("http://localhost:8000") == "http://localhost:8000"
-
-    def test_valid_http_127(self, client):
-        url = "http://127.0.0.1:8000/v1"
-        assert client._validate_backend_url(url) == url
-
-    def test_http_non_local_rejected(self, client):
-        assert client._validate_backend_url("http://evil.com/api") is None
-
-    def test_ftp_rejected(self, client):
-        assert client._validate_backend_url("ftp://files.example.com") is None
-
-    def test_empty_scheme_rejected(self, client):
-        assert client._validate_backend_url("://no-scheme") is None
-
-    def test_missing_netloc_rejected(self, client):
-        assert client._validate_backend_url("https://") is None
-
-    def test_empty_string_rejected(self, client):
-        assert client._validate_backend_url("") is None
-
-    def test_bare_path_rejected(self, client):
-        # urlparse("just-a-path") gives scheme='', netloc=''
-        assert client._validate_backend_url("just-a-path") is None
-
-
-# ---------------------------------------------------------------------------
-# 2. _load_cloud_credentials
+# 1. _load_cloud_credentials
 # ---------------------------------------------------------------------------
 
 
@@ -71,57 +39,79 @@ class TestLoadCloudCredentials:
         creds_file.write_text(
             json.dumps({"backend_url": "https://api.kernle.ai", "auth_token": "tok123"})
         )
-        with patch("kernle.storage.cloud.get_kernle_home", return_value=tmp_path):
-            result = client._load_cloud_credentials()
+        with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(tmp_path)}, clear=False):
+            env_clean = {
+                k: v
+                for k, v in os.environ.items()
+                if k not in ("KERNLE_BACKEND_URL", "KERNLE_AUTH_TOKEN", "KERNLE_USER_ID")
+            }
+            env_clean["KERNLE_DATA_DIR"] = str(tmp_path)
+            with patch.dict(os.environ, env_clean, clear=True):
+                result = client._load_cloud_credentials()
         assert result == {"backend_url": "https://api.kernle.ai", "auth_token": "tok123"}
 
-    def test_legacy_token_key(self, client, tmp_path):
+    def test_legacy_token_key(self, tmp_path):
         """credentials.json with 'token' instead of 'auth_token'."""
+        client = CloudClient(stack_id="test-stack")
         creds_file = tmp_path / "credentials.json"
         creds_file.write_text(
             json.dumps({"backend_url": "https://api.kernle.ai", "token": "legacy-tok"})
         )
-        with patch("kernle.storage.cloud.get_kernle_home", return_value=tmp_path):
+        env = {"KERNLE_DATA_DIR": str(tmp_path)}
+        with patch.dict(os.environ, env, clear=True):
             result = client._load_cloud_credentials()
         assert result is not None
         assert result["auth_token"] == "legacy-tok"
 
-    def test_missing_file_returns_none(self, client, tmp_path):
-        with patch("kernle.storage.cloud.get_kernle_home", return_value=tmp_path):
+    def test_missing_file_returns_none(self, tmp_path):
+        client = CloudClient(stack_id="test-stack")
+        env = {"KERNLE_DATA_DIR": str(tmp_path)}
+        with patch.dict(os.environ, env, clear=True):
             result = client._load_cloud_credentials()
         assert result is None
 
-    def test_malformed_json_returns_none(self, client, tmp_path):
+    def test_malformed_json_returns_none(self, tmp_path):
+        client = CloudClient(stack_id="test-stack")
         creds_file = tmp_path / "credentials.json"
         creds_file.write_text("{not valid json")
-        with patch("kernle.storage.cloud.get_kernle_home", return_value=tmp_path):
+        env = {"KERNLE_DATA_DIR": str(tmp_path)}
+        with patch.dict(os.environ, env, clear=True):
             result = client._load_cloud_credentials()
         assert result is None
 
-    def test_falls_back_to_config_json(self, client, tmp_path):
+    def test_falls_back_to_config_json(self, tmp_path):
+        client = CloudClient(stack_id="test-stack")
         config_file = tmp_path / "config.json"
         config_file.write_text(
             json.dumps({"backend_url": "https://config.kernle.ai", "auth_token": "cfg-tok"})
         )
-        with patch("kernle.storage.cloud.get_kernle_home", return_value=tmp_path):
+        env = {"KERNLE_DATA_DIR": str(tmp_path)}
+        with patch.dict(os.environ, env, clear=True):
             result = client._load_cloud_credentials()
         assert result == {"backend_url": "https://config.kernle.ai", "auth_token": "cfg-tok"}
 
-    def test_env_vars_override_files(self, client, tmp_path, monkeypatch):
+    def test_file_takes_priority_over_env(self, tmp_path):
+        """credentials.json values take priority over env vars."""
+        client = CloudClient(stack_id="test-stack")
         creds_file = tmp_path / "credentials.json"
         creds_file.write_text(
             json.dumps({"backend_url": "https://file.kernle.ai", "auth_token": "file-tok"})
         )
-        monkeypatch.setenv("KERNLE_BACKEND_URL", "https://env.kernle.ai")
-        monkeypatch.setenv("KERNLE_AUTH_TOKEN", "env-tok")
-        with patch("kernle.storage.cloud.get_kernle_home", return_value=tmp_path):
+        env = {
+            "KERNLE_DATA_DIR": str(tmp_path),
+            "KERNLE_BACKEND_URL": "https://env.kernle.ai",
+            "KERNLE_AUTH_TOKEN": "env-tok",
+        }
+        with patch.dict(os.environ, env, clear=True):
             result = client._load_cloud_credentials()
-        assert result == {"backend_url": "https://env.kernle.ai", "auth_token": "env-tok"}
+        assert result == {"backend_url": "https://file.kernle.ai", "auth_token": "file-tok"}
 
-    def test_invalid_backend_url_returns_none(self, client, tmp_path):
+    def test_invalid_backend_url_returns_none(self, tmp_path):
+        client = CloudClient(stack_id="test-stack")
         creds_file = tmp_path / "credentials.json"
         creds_file.write_text(json.dumps({"backend_url": "ftp://bad.host", "auth_token": "tok"}))
-        with patch("kernle.storage.cloud.get_kernle_home", return_value=tmp_path):
+        env = {"KERNLE_DATA_DIR": str(tmp_path)}
+        with patch.dict(os.environ, env, clear=True):
             result = client._load_cloud_credentials()
         assert result is None
 
@@ -131,7 +121,8 @@ class TestLoadCloudCredentials:
         creds_file.write_text(
             json.dumps({"backend_url": "https://api.kernle.ai", "auth_token": "tok"})
         )
-        with patch("kernle.storage.cloud.get_kernle_home", return_value=tmp_path):
+        env = {"KERNLE_DATA_DIR": str(tmp_path)}
+        with patch.dict(os.environ, env, clear=True):
             first = client._load_cloud_credentials()
             # Mutate file — should not affect cached result
             creds_file.write_text(
@@ -140,27 +131,31 @@ class TestLoadCloudCredentials:
             second = client._load_cloud_credentials()
         assert first is second  # same object (cached)
 
-    def test_partial_credentials_from_file_and_config(self, client, tmp_path):
+    def test_partial_credentials_from_file_and_config(self, tmp_path):
         """credentials.json has backend_url only, config.json fills in auth_token."""
+        client = CloudClient(stack_id="test-stack")
         creds_file = tmp_path / "credentials.json"
         creds_file.write_text(json.dumps({"backend_url": "https://api.kernle.ai"}))
         config_file = tmp_path / "config.json"
         config_file.write_text(json.dumps({"auth_token": "cfg-tok"}))
-        with patch("kernle.storage.cloud.get_kernle_home", return_value=tmp_path):
+        env = {"KERNLE_DATA_DIR": str(tmp_path)}
+        with patch.dict(os.environ, env, clear=True):
             result = client._load_cloud_credentials()
         assert result == {"backend_url": "https://api.kernle.ai", "auth_token": "cfg-tok"}
 
-    def test_malformed_config_json_fallback(self, client, tmp_path):
+    def test_malformed_config_json_fallback(self, tmp_path):
         """Malformed config.json is gracefully ignored."""
+        client = CloudClient(stack_id="test-stack")
         config_file = tmp_path / "config.json"
         config_file.write_text("{bad json!!!")
-        with patch("kernle.storage.cloud.get_kernle_home", return_value=tmp_path):
+        env = {"KERNLE_DATA_DIR": str(tmp_path)}
+        with patch.dict(os.environ, env, clear=True):
             result = client._load_cloud_credentials()
         assert result is None
 
 
 # ---------------------------------------------------------------------------
-# 3. cloud_health_check
+# 2. cloud_health_check
 # ---------------------------------------------------------------------------
 
 
@@ -228,7 +223,7 @@ class TestCloudHealthCheck:
 
 
 # ---------------------------------------------------------------------------
-# 4. _cloud_search
+# 3. _cloud_search
 # ---------------------------------------------------------------------------
 
 
@@ -336,7 +331,7 @@ class TestCloudSearch:
 
 
 # ---------------------------------------------------------------------------
-# 5. _parse_cloud_search_results
+# 4. _parse_cloud_search_results
 # ---------------------------------------------------------------------------
 
 
@@ -495,7 +490,7 @@ class TestParseCloudSearchResults:
 
 
 # ---------------------------------------------------------------------------
-# 6. _create_record_from_cloud
+# 5. _create_record_from_cloud
 # ---------------------------------------------------------------------------
 
 
@@ -589,7 +584,7 @@ class TestCreateRecordFromCloud:
 
 
 # ---------------------------------------------------------------------------
-# 7. has_cloud_credentials
+# 6. has_cloud_credentials
 # ---------------------------------------------------------------------------
 
 
