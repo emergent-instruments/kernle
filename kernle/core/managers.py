@@ -631,8 +631,30 @@ class ManagersMixin:
         },
     }
 
+    _NOT_SIGNIFICANT = {"significant": False, "score": 0.0, "signals": []}
+
     def detect_significance(self, text: str) -> Dict[str, Any]:
-        """Detect if text contains significant signals worth capturing."""
+        """Detect if text contains significant signals worth capturing.
+
+        Gating:
+        - ``use_legacy_heuristics=true``: keyword-based detection (unchanged)
+        - ``use_legacy_heuristics=false`` + no model: not significant
+        - ``use_legacy_heuristics=false`` + model: inference-based detection
+        """
+        # Gate: legacy heuristics mode
+        if self._use_legacy_heuristics():
+            return self._detect_significance_keywords(text)
+
+        # Gate: inference availability
+        inference = self._get_inference()
+        if inference is None:
+            return dict(self._NOT_SIGNIFICANT)
+
+        # Inference path
+        return self._detect_significance_inference(text, inference)
+
+    def _detect_significance_keywords(self, text: str) -> Dict[str, Any]:
+        """Detect significance using keyword patterns (legacy)."""
         text_lower = text.lower()
         signals = []
         total_weight = 0.0
@@ -648,12 +670,46 @@ class ManagersMixin:
                         }
                     )
                     total_weight = max(total_weight, pattern["weight"])
-                    break  # One match per pattern is enough
+                    break
 
         return {
             "significant": total_weight >= 0.6,
             "score": total_weight,
             "signals": signals,
+        }
+
+    def _detect_significance_inference(self, text: str, inference) -> Dict[str, Any]:
+        """Detect significance via inference service."""
+        from kernle.core.inference_utils import parse_inference_json
+
+        prompt = (
+            "Analyze if this text contains significant signals worth remembering.\n\n"
+            f"Text: {text[:500]}\n\n"
+            'Return JSON: {"significant": boolean, "score": float 0-1, '
+            '"signals": [{"signal": string, "type": string, "weight": float}]}'
+        )
+        try:
+            raw = inference.infer(
+                prompt=prompt,
+                system="You are a significance detection system. Return only valid JSON.",
+            )
+        except Exception:
+            return dict(self._NOT_SIGNIFICANT)
+
+        result = parse_inference_json(
+            raw,
+            required_fields=["significant"],
+            fallback=dict(self._NOT_SIGNIFICANT),
+            logger=logging.getLogger(__name__),
+        )
+
+        if result.fallback_used:
+            return dict(self._NOT_SIGNIFICANT)
+
+        return {
+            "significant": bool(result.data.get("significant", False)),
+            "score": float(result.data.get("score", 0.0)),
+            "signals": result.data.get("signals", []),
         }
 
     def auto_capture(self, text: str, context: Optional[str] = None) -> Optional[str]:

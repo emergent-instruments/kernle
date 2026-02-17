@@ -10,6 +10,7 @@ Pattern-based extraction (no LLM calls) detects:
 - Notes: Quotes, decisions, insights, observations
 """
 
+import logging
 import re
 import uuid
 from datetime import datetime, timezone
@@ -19,6 +20,8 @@ from kernle.types import MemorySuggestion, RawEntry
 
 if TYPE_CHECKING:
     from kernle.core import Kernle
+
+logger = logging.getLogger(__name__)
 
 
 # Episode detection patterns
@@ -110,8 +113,10 @@ class SuggestionsMixin:
     ) -> List[MemorySuggestion]:
         """Extract memory suggestions from a raw entry.
 
-        Uses pattern-based extraction to identify potential memories.
-        Multiple suggestions may be extracted from a single raw entry.
+        Gating:
+        - ``use_legacy_heuristics=true``: pattern-based extraction (unchanged)
+        - ``use_legacy_heuristics=false`` + no model: empty list
+        - ``use_legacy_heuristics=false`` + model: inference-based classification
 
         Args:
             raw_entry: The raw entry to analyze
@@ -120,6 +125,24 @@ class SuggestionsMixin:
         Returns:
             List of extracted suggestions
         """
+        # Gate: legacy heuristics mode
+        if self._use_legacy_heuristics():
+            return self._extract_suggestions_keywords(raw_entry, auto_save)
+
+        # Gate: inference availability
+        inference = self._get_inference()
+        if inference is None:
+            return []
+
+        # Inference path
+        return self._extract_suggestions_inference(raw_entry, inference, auto_save)
+
+    def _extract_suggestions_keywords(
+        self: "Kernle",
+        raw_entry: RawEntry,
+        auto_save: bool = True,
+    ) -> List[MemorySuggestion]:
+        """Extract suggestions using keyword patterns (legacy)."""
         content = (raw_entry.blob or raw_entry.content or "").lower()
         suggestions = []
 
@@ -131,25 +154,85 @@ class SuggestionsMixin:
         # Only create suggestions above threshold
         threshold = 0.4
 
-        # Episode suggestion
         if episode_score >= threshold:
             suggestion = self._create_episode_suggestion(raw_entry, episode_score)
             if suggestion:
                 suggestions.append(suggestion)
 
-        # Belief suggestion
         if belief_score >= threshold:
             suggestion = self._create_belief_suggestion(raw_entry, belief_score)
             if suggestion:
                 suggestions.append(suggestion)
 
-        # Note suggestion (if not already captured as episode/belief)
         if note_score >= threshold and episode_score < threshold and belief_score < threshold:
             suggestion = self._create_note_suggestion(raw_entry, note_score)
             if suggestion:
                 suggestions.append(suggestion)
 
-        # Save suggestions if requested
+        if auto_save:
+            for suggestion in suggestions:
+                self._storage.save_suggestion(suggestion)
+
+        return suggestions
+
+    def _extract_suggestions_inference(
+        self: "Kernle",
+        raw_entry: RawEntry,
+        inference,
+        auto_save: bool = True,
+    ) -> List[MemorySuggestion]:
+        """Extract suggestions using inference (new path)."""
+        from kernle.core.inference_utils import parse_inference_json
+
+        content = raw_entry.blob or raw_entry.content or ""
+        if not content.strip():
+            return []
+
+        prompt = (
+            "Classify this text and suggest what type of memory it represents.\n\n"
+            f"Text: {content[:500]}\n\n"
+            'Return JSON: {"suggestions": [{"memory_type": "episode"|"belief"|"note", '
+            '"confidence": float 0-1, "reason": string}]}\n'
+            "Only include suggestions with confidence >= 0.5."
+        )
+        try:
+            raw = inference.infer(
+                prompt=prompt,
+                system="You are a memory classification system. Return only valid JSON.",
+            )
+        except Exception:
+            logger.debug("Suggestion inference call failed", exc_info=True)
+            return []
+
+        result = parse_inference_json(
+            raw,
+            required_fields=["suggestions"],
+            fallback={"suggestions": []},
+            logger=logger,
+        )
+
+        if result.fallback_used:
+            return []
+
+        suggestions = []
+        for item in result.data.get("suggestions", []):
+            memory_type = item.get("memory_type", "note")
+            confidence = float(item.get("confidence", 0.5))
+            if memory_type not in ("episode", "belief", "note"):
+                memory_type = "note"
+            if confidence < 0.5:
+                continue
+
+            if memory_type == "episode":
+                suggestion = self._create_episode_suggestion(raw_entry, confidence)
+            elif memory_type == "belief":
+                suggestion = self._create_belief_suggestion(raw_entry, confidence)
+            else:
+                suggestion = self._create_note_suggestion(raw_entry, confidence)
+
+            if suggestion:
+                suggestions.append(suggestion)
+
         if auto_save:
             for suggestion in suggestions:
                 self._storage.save_suggestion(suggestion)
