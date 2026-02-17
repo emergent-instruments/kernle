@@ -491,16 +491,25 @@ class TestSaveBeliefLint:
     def test_lint_failure_logged_to_audit(self, stack):
         belief = _make_belief(stack.stack_id, "bad")
         stack.save_belief(belief)
-        audit = stack.get_audit_log(operation="lint_rejected")
-        assert len(audit) == 1
-        entry = audit[0]
-        assert entry["operation"] == "lint_rejected"
+        audit = stack.get_audit_log(operation="suggestion.resolved")
+        # Filter to lint_rejected entries
+        lint_entries = []
+        for entry in audit:
+            d = entry.get("details", {})
+            if isinstance(d, str):
+                d = json.loads(d)
+            if d.get("resolution") == "lint_rejected":
+                lint_entries.append(entry)
+        assert len(lint_entries) == 1
+        entry = lint_entries[0]
+        assert entry["operation"] == "suggestion.resolved"
         assert entry["memory_type"] == "belief"
         details = entry.get("details", {})
         if isinstance(details, str):
             details = json.loads(details)
         assert "failures" in details
         assert "redirected_to" in details
+        assert details["resolution"] == "lint_rejected"
 
     def test_lint_disabled_via_settings_saves_normally(self, stack):
         stack.set_stack_setting("lint_rules", json.dumps({"enabled": False}))
@@ -593,9 +602,19 @@ class TestSaveValueLint:
     def test_value_lint_failure_logged_to_audit(self, stack):
         value = _make_value(stack.stack_id, "CQ", "bad")
         stack.save_value(value)
-        audit = stack.get_audit_log(operation="lint_rejected")
-        assert len(audit) == 1
-        assert audit[0]["memory_type"] == "value"
+        audit = stack.get_audit_log(operation="suggestion.resolved")
+        lint_entries = [
+            e
+            for e in audit
+            if (
+                json.loads(e["details"])
+                if isinstance(e.get("details"), str)
+                else e.get("details", {})
+            ).get("resolution")
+            == "lint_rejected"
+        ]
+        assert len(lint_entries) == 1
+        assert lint_entries[0]["memory_type"] == "value"
 
 
 # ============================================================================

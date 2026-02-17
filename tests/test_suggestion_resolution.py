@@ -259,7 +259,9 @@ class TestStackAcceptSuggestion:
         assert beliefs[0].derived_from == [f"raw:{raw_id}"]
 
         # Verify audit log
-        audit = stack.get_audit_log(memory_type="suggestion", memory_id=sid, operation="accepted")
+        audit = stack.get_audit_log(
+            memory_type="suggestion", memory_id=sid, operation="suggestion.resolved"
+        )
         assert len(audit) == 1
 
     def test_accept_episode_suggestion(self, tmp_path):
@@ -640,7 +642,9 @@ class TestStackDismissSuggestion:
         assert suggestion.resolution_reason == "Not relevant"
 
         # Verify audit log
-        audit = stack.get_audit_log(memory_type="suggestion", memory_id=sid, operation="dismissed")
+        audit = stack.get_audit_log(
+            memory_type="suggestion", memory_id=sid, operation="suggestion.resolved"
+        )
         assert len(audit) == 1
 
     def test_dismiss_already_resolved_returns_false(self, tmp_path):
@@ -679,7 +683,9 @@ class TestStackExpireSuggestions:
         expired = stack.expire_suggestions(max_age_hours=168)
         assert len(expired) == 1
 
-        audit = stack.get_audit_log(memory_type="suggestion", memory_id=sid, operation="expired")
+        audit = stack.get_audit_log(
+            memory_type="suggestion", memory_id=sid, operation="suggestion.resolved"
+        )
         assert len(audit) == 1
 
 

@@ -1807,7 +1807,8 @@ class TestProcessLayer:
         assert len(result.created) == 1
         assert result.created[0] == {"type": "episode", "id": "ep-new"}
         assert len(inference.calls) == 1
-        mock_stack.log_audit.assert_called_once()
+        # Two audit calls: memory.promoted for each created item + process summary
+        assert mock_stack.log_audit.call_count == 2
 
     def test_inference_failure(self):
         mock_stack = _make_mock_stack()
@@ -1889,7 +1890,9 @@ class TestProcessLayer:
         config = DEFAULT_LAYER_CONFIGS["raw_to_episode"]
         processor._process_layer("raw_to_episode", config, auto_promote=True)
 
-        mock_stack.log_audit.assert_called_once()
+        # memory.promoted + process summary = 2 calls
+        assert mock_stack.log_audit.call_count == 2
+        # Last call is the process summary
         call_kwargs = mock_stack.log_audit.call_args
         assert call_kwargs[0] == ("processing", "raw_to_episode", "process")
         assert call_kwargs[1]["actor"] == "core:test"

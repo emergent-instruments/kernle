@@ -261,22 +261,40 @@ class EmotionalTaggingComponent:
             "confidence": 0.9,
         }
 
+    _NEUTRAL_EMOTION = {"valence": 0.0, "arousal": 0.0, "tags": [], "confidence": 0.0}
+
+    def _use_legacy_heuristics(self) -> bool:
+        """Check if legacy heuristics mode is enabled."""
+        if self._storage is None:
+            return True
+        setting = self._storage.get_stack_setting("use_legacy_heuristics")
+        if setting is None:
+            return True
+        return setting.lower() == "true"
+
     def detect_emotion(self, text: str) -> Dict[str, Any]:
         """Detect emotional signals in text.
 
-        Uses inference when available; falls back to keyword patterns.
-        Returns dict with valence, arousal, tags, and confidence.
+        Gating:
+        - ``use_legacy_heuristics=true``: keyword-based detection (unchanged)
+        - ``use_legacy_heuristics=false`` + no model: neutral defaults
+        - ``use_legacy_heuristics=false`` + model: inference-based detection
         """
         if not text:
-            return {"valence": 0.0, "arousal": 0.0, "tags": [], "confidence": 0.0}
+            return dict(self._NEUTRAL_EMOTION)
 
-        # Try inference first
+        if self._use_legacy_heuristics():
+            # Legacy: try inference first, fall back to keywords
+            inference_result = self._detect_emotion_via_inference(text)
+            if inference_result is not None:
+                return inference_result
+            return self._detect_emotion_keywords(text)
+
+        # Non-legacy: inference or neutral defaults (no keyword fallback)
         inference_result = self._detect_emotion_via_inference(text)
         if inference_result is not None:
             return inference_result
-
-        # Fall back to keyword-based detection
-        return self._detect_emotion_keywords(text)
+        return dict(self._NEUTRAL_EMOTION)
 
     def _detect_emotion_keywords(self, text: str) -> Dict[str, Any]:
         """Detect emotional signals using keyword patterns."""

@@ -281,10 +281,13 @@ class SQLiteStack(
         # Bootstrap self-trust if missing (e.g. after migration creates the table)
         self._ensure_self_trust()
 
-        # Set use_legacy_heuristics=false for new stacks (existing stacks get
-        # "true" via migration). New stacks default to inference-or-nothing.
+        # Set use_legacy_heuristics for stacks that don't have the setting yet.
+        # Existing stacks (with data) get "true" to preserve behavior.
+        # Truly new stacks (empty) get "false" for inference-or-nothing.
         if self._backend.get_stack_setting("use_legacy_heuristics") is None:
-            self._backend.set_stack_setting("use_legacy_heuristics", "false")
+            has_data = bool(self._backend.get_episodes(limit=1))
+            default = "true" if has_data else "false"
+            self._backend.set_stack_setting("use_legacy_heuristics", default)
 
     def _ensure_self_trust(self) -> None:
         """Bootstrap self-trust assessment if missing after migration."""
@@ -1114,8 +1117,10 @@ class SQLiteStack(
             self.log_audit(
                 "suggestion",
                 suggestion_id,
-                "accepted",
+                "suggestion.resolved",
                 details={
+                    "resolution": "accepted",
+                    "suggestion_id": suggestion_id,
                     "promoted_to": f"{memory_type}:{memory_id}",
                     "memory_type": memory_type,
                     "had_modifications": bool(modifications),
@@ -1146,8 +1151,12 @@ class SQLiteStack(
             self.log_audit(
                 "suggestion",
                 suggestion_id,
-                "dismissed",
-                details={"reason": reason},
+                "suggestion.resolved",
+                details={
+                    "resolution": "dismissed",
+                    "suggestion_id": suggestion_id,
+                    "reason": reason,
+                },
             )
         return result
 
@@ -1167,8 +1176,12 @@ class SQLiteStack(
             self.log_audit(
                 "suggestion",
                 sid,
-                "expired",
-                details={"max_age_hours": max_age_hours},
+                "suggestion.resolved",
+                details={
+                    "resolution": "expired",
+                    "suggestion_id": sid,
+                    "max_age_hours": max_age_hours,
+                },
             )
         return expired_ids
 
@@ -2110,9 +2123,11 @@ class SQLiteStack(
         self._backend.log_audit(
             memory_type,
             suggestion_id,
-            "lint_rejected",
+            "suggestion.resolved",
             "system",
             {
+                "resolution": "lint_rejected",
+                "suggestion_id": suggestion_id,
                 "failures": lint_result.failures,
                 "redirected_to": f"suggestion:{suggestion_id}",
             },

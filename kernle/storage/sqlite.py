@@ -1820,7 +1820,7 @@ class SQLiteStorage:
     def save_raw(self, blob: str, source: str = "unknown") -> str:
         """Save a raw entry. Delegates to raw_entries.save_raw()."""
         with self._connect() as conn:
-            return _save_raw(
+            raw_id = _save_raw(
                 conn=conn,
                 stack_id=self.stack_id,
                 blob=blob,
@@ -1830,6 +1830,14 @@ class SQLiteStorage:
                 save_embedding_fn=self._save_embedding,
                 should_sync_raw_fn=self._should_sync_raw,
             )
+        self.log_audit(
+            "raw",
+            raw_id,
+            "raw.ingested",
+            actor="system",
+            details={"source": source, "content_length": len(blob)},
+        )
+        return raw_id
 
     def _should_sync_raw(self) -> bool:
         """Check if raw sync is enabled. Delegates to raw_entries.should_sync_raw()."""

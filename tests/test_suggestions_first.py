@@ -796,7 +796,8 @@ class TestAuditLogSuggestions:
         config = DEFAULT_LAYER_CONFIGS["raw_to_episode"]
         processor._process_layer("raw_to_episode", config, auto_promote=False)
 
-        mock_stack.log_audit.assert_called_once()
+        # suggestion.created + process summary = 2 calls
+        assert mock_stack.log_audit.call_count == 2
         details = mock_stack.log_audit.call_args[1]["details"]
         assert details["suggestion_count"] == 1
         assert details["created_count"] == 0
@@ -817,7 +818,8 @@ class TestAuditLogSuggestions:
         config = DEFAULT_LAYER_CONFIGS["raw_to_episode"]
         processor._process_layer("raw_to_episode", config, auto_promote=True)
 
-        mock_stack.log_audit.assert_called_once()
+        # memory.promoted + process summary = 2 calls
+        assert mock_stack.log_audit.call_count == 2
         details = mock_stack.log_audit.call_args[1]["details"]
         assert details["created_count"] == 1
         assert details["suggestion_count"] == 0

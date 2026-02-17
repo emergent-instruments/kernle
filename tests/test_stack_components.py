@@ -49,6 +49,7 @@ def _make_mock_storage() -> MagicMock:
     storage.get_current_epoch.return_value = None
     storage.list_raw.return_value = []
     storage.save_suggestion.return_value = "suggestion-id"
+    storage.get_stack_setting.return_value = None
     return storage
 
 

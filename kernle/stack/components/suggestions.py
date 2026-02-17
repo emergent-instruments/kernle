@@ -201,8 +201,32 @@ class SuggestionComponent:
 
     # ---- Core Logic ----
 
+    def _use_legacy_heuristics(self) -> bool:
+        """Check if legacy heuristics mode is enabled."""
+        if self._storage is None:
+            return True  # Default to legacy if no storage
+        setting = self._storage.get_stack_setting("use_legacy_heuristics")
+        if setting is None:
+            return True
+        return setting.lower() == "true"
+
     def _extract_suggestions(self, raw_entry: Any) -> List[MemorySuggestion]:
-        """Extract memory suggestions from a raw entry."""
+        """Extract memory suggestions from a raw entry.
+
+        Gating:
+        - ``use_legacy_heuristics=true``: pattern-based extraction (unchanged)
+        - ``use_legacy_heuristics=false`` + no inference: empty list
+        - ``use_legacy_heuristics=false`` + inference: inference-based extraction
+        """
+        if not self._use_legacy_heuristics():
+            if self._inference is None:
+                return []
+            return self._extract_suggestions_inference(raw_entry)
+
+        return self._extract_suggestions_keywords(raw_entry)
+
+    def _extract_suggestions_keywords(self, raw_entry: Any) -> List[MemorySuggestion]:
+        """Extract suggestions using keyword patterns (legacy)."""
         content = (
             getattr(raw_entry, "blob", None) or getattr(raw_entry, "content", None) or ""
         ).lower()
@@ -225,6 +249,54 @@ class SuggestionComponent:
 
         if note_score >= threshold and episode_score < threshold and belief_score < threshold:
             suggestion = self._make_suggestion(raw_entry, "note", note_score)
+            if suggestion:
+                suggestions.append(suggestion)
+
+        return suggestions
+
+    def _extract_suggestions_inference(self, raw_entry: Any) -> List[MemorySuggestion]:
+        """Extract suggestions using inference (non-legacy path)."""
+        from kernle.core.inference_utils import parse_inference_json
+
+        content = getattr(raw_entry, "blob", None) or getattr(raw_entry, "content", None) or ""
+        if not content.strip():
+            return []
+
+        prompt = (
+            "Classify this text and suggest what type of memory it represents.\n\n"
+            f"Text: {content[:500]}\n\n"
+            'Return JSON: {"suggestions": [{"memory_type": "episode"|"belief"|"note", '
+            '"confidence": float 0-1, "reason": string}]}\n'
+            "Only include suggestions with confidence >= 0.5."
+        )
+        try:
+            raw = self._inference.infer(
+                prompt=prompt,
+                system="You are a memory classification system. Return only valid JSON.",
+            )
+        except Exception:
+            logger.debug("SuggestionComponent: inference call failed", exc_info=True)
+            return []
+
+        result = parse_inference_json(
+            raw,
+            required_fields=["suggestions"],
+            fallback={"suggestions": []},
+            logger=logger,
+        )
+
+        if result.fallback_used:
+            return []
+
+        suggestions = []
+        for item in result.data.get("suggestions", []):
+            memory_type = item.get("memory_type", "note")
+            confidence = float(item.get("confidence", 0.5))
+            if memory_type not in ("episode", "belief", "note"):
+                memory_type = "note"
+            if confidence < 0.5:
+                continue
+            suggestion = self._make_suggestion(raw_entry, memory_type, confidence)
             if suggestion:
                 suggestions.append(suggestion)
 
