@@ -15,6 +15,8 @@ Tests:
 - _save_from_cloud dispatch for all table types
 - is_online caching and outer exception
 - clear_sync_conflicts with before parameter
+- apply_pull_operation for all table types
+- _record_from_pull_data field mapping and provenance
 """
 
 import logging
@@ -2791,3 +2793,382 @@ class TestDeadLetterSemantics:
         storage.clear_failed_sync_records(older_than_days=7)
         status = storage.get_sync_status()
         assert status["dead_letter"] == 1
+
+
+# ============================================================================
+# apply_pull_operation — per-table dispatch
+# ============================================================================
+
+
+class TestApplyPullOperation:
+    """Tests for SyncEngine.apply_pull_operation — the unified pull apply path."""
+
+    def test_apply_pull_operation_episode(self, storage):
+        """Applying an episode pull operation saves locally."""
+        op = {
+            "table": "episodes",
+            "record_id": "ep-pull-1",
+            "operation": "upsert",
+            "data": {
+                "objective": "Test episode from cloud",
+                "outcome_description": "It worked",
+                "outcome_type": "success",
+                "lessons_learned": ["lesson1"],
+                "tags": ["cloud"],
+            },
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+        assert count == 1
+        assert error is None
+
+        ep = storage.get_episode("ep-pull-1")
+        assert ep is not None
+        assert ep.objective == "Test episode from cloud"
+        assert ep.outcome == "It worked"
+        assert ep.lessons == ["lesson1"]
+        assert ep.source_type == "external"
+        assert ep.source_entity == "kernle:sync"
+
+    def test_apply_pull_operation_note(self, storage):
+        """Applying a note pull operation saves locally."""
+        op = {
+            "table": "notes",
+            "record_id": "note-pull-1",
+            "operation": "upsert",
+            "data": {
+                "content": "Note from cloud",
+                "note_type": "insight",
+                "tags": ["synced"],
+            },
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+        assert count == 1
+        assert error is None
+
+        notes = storage.get_notes(limit=20)
+        note = next(n for n in notes if n.id == "note-pull-1")
+        assert note.content == "Note from cloud"
+        assert note.note_type == "insight"
+        assert note.source_type == "external"
+
+    def test_apply_pull_operation_belief(self, storage):
+        """Applying a belief pull operation saves locally."""
+        op = {
+            "table": "beliefs",
+            "record_id": "bel-pull-1",
+            "operation": "upsert",
+            "data": {
+                "statement": "The sky is blue",
+                "belief_type": "fact",
+                "confidence": 0.9,
+            },
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+        assert count == 1
+        assert error is None
+
+        with storage._connect() as conn:
+            row = conn.execute("SELECT * FROM beliefs WHERE id = ?", ("bel-pull-1",)).fetchone()
+        assert row is not None
+        assert row["statement"] == "The sky is blue"
+
+    def test_apply_pull_operation_goal(self, storage):
+        """Applying a goal pull operation saves locally."""
+        op = {
+            "table": "goals",
+            "record_id": "goal-pull-1",
+            "operation": "upsert",
+            "data": {
+                "title": "Ship the feature",
+                "goal_type": "task",
+                "priority": "high",
+            },
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+        assert count == 1
+        assert error is None
+
+        with storage._connect() as conn:
+            row = conn.execute("SELECT * FROM goals WHERE id = ?", ("goal-pull-1",)).fetchone()
+        assert row is not None
+        assert row["title"] == "Ship the feature"
+
+    def test_apply_pull_operation_drive(self, storage):
+        """Applying a drive pull operation saves locally."""
+        op = {
+            "table": "drives",
+            "record_id": "drv-pull-1",
+            "operation": "upsert",
+            "data": {
+                "drive_type": "curiosity",
+                "intensity": 0.8,
+                "focus_areas": ["learning"],
+            },
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+        assert count == 1
+        assert error is None
+
+        drive = storage.get_drive("curiosity")
+        assert drive is not None
+        assert drive.intensity == 0.8
+
+    def test_apply_pull_operation_relationship(self, storage):
+        """Applying a relationship pull operation saves locally."""
+        op = {
+            "table": "relationships",
+            "record_id": "rel-pull-1",
+            "operation": "upsert",
+            "data": {
+                "entity_name": "Alice",
+                "entity_type": "person",
+                "relationship_type": "collaborator",
+                "sentiment": 0.5,
+            },
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+        assert count == 1
+        assert error is None
+
+        rel = storage.get_relationship("Alice")
+        assert rel is not None
+        assert rel.relationship_type == "collaborator"
+
+    def test_apply_pull_operation_value(self, storage):
+        """Applying an agent_values pull operation saves locally."""
+        op = {
+            "table": "agent_values",
+            "record_id": "val-pull-1",
+            "operation": "upsert",
+            "data": {
+                "name": "honesty",
+                "statement": "Be honest always",
+                "priority": 90,
+            },
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+        assert count == 1
+        assert error is None
+
+        with storage._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM agent_values WHERE id = ?", ("val-pull-1",)
+            ).fetchone()
+        assert row is not None
+        assert row["name"] == "honesty"
+
+    def test_apply_pull_operation_playbook(self, storage):
+        """Applying a playbook pull operation saves locally."""
+        op = {
+            "table": "playbooks",
+            "record_id": "pb-pull-1",
+            "operation": "upsert",
+            "data": {
+                "name": "Deploy procedure",
+                "description": "How to deploy",
+                "trigger_conditions": ["deploy requested"],
+                "steps": [{"action": "run tests"}],
+                "failure_modes": ["tests fail"],
+            },
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+        assert count == 1
+        assert error is None
+
+        pb = storage.get_playbook("pb-pull-1")
+        assert pb is not None
+        assert pb.name == "Deploy procedure"
+
+    # --- Operation type tests ---
+
+    def test_apply_pull_operation_upsert_accepted(self, storage):
+        """'upsert' is accepted as a valid operation."""
+        op = {
+            "table": "notes",
+            "record_id": "note-upsert",
+            "operation": "upsert",
+            "data": {"content": "Upsert note"},
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+
+    def test_apply_pull_operation_insert_accepted(self, storage):
+        """'insert' is accepted as a valid operation."""
+        op = {
+            "table": "notes",
+            "record_id": "note-insert",
+            "operation": "insert",
+            "data": {"content": "Insert note"},
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+
+    def test_apply_pull_operation_update_accepted(self, storage):
+        """'update' is accepted as a valid operation."""
+        op = {
+            "table": "notes",
+            "record_id": "note-update",
+            "operation": "update",
+            "data": {"content": "Update note"},
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+
+    # --- Error contract tests ---
+
+    def test_apply_pull_operation_unknown_table(self, storage):
+        """Unknown table returns failure with descriptive error."""
+        op = {
+            "table": "unicorns",
+            "record_id": "x",
+            "operation": "upsert",
+            "data": {"foo": "bar"},
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is False
+        assert count == 0
+        assert "unsupported table" in error
+
+    def test_apply_pull_operation_delete_rejected(self, storage):
+        """Delete operations are explicitly rejected."""
+        op = {
+            "table": "notes",
+            "record_id": "n1",
+            "operation": "delete",
+            "data": {},
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is False
+        assert count == 0
+        assert "delete" in error.lower()
+
+    def test_apply_pull_operation_missing_required_field(self, storage):
+        """Missing required field (e.g. drive_type for drives) returns failure."""
+        op = {
+            "table": "drives",
+            "record_id": "drv-bad",
+            "operation": "upsert",
+            "data": {"intensity": 0.5},  # missing drive_type
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is False
+        assert count == 0
+        assert error == "missing required field: drive_type"
+
+    def test_apply_pull_operation_unsupported_operation(self, storage):
+        """Unsupported operation type returns failure."""
+        op = {
+            "table": "notes",
+            "record_id": "n1",
+            "operation": "purge",
+            "data": {"content": "x"},
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is False
+        assert count == 0
+        assert "unsupported operation" in error.lower()
+
+    # --- Table name normalization ---
+
+    def test_apply_pull_operation_values_alias(self, storage):
+        """'values' is normalized to 'agent_values'."""
+        op = {
+            "table": "values",
+            "record_id": "val-alias-1",
+            "operation": "upsert",
+            "data": {"name": "respect", "statement": "Show respect"},
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+        assert count == 1
+
+        with storage._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM agent_values WHERE id = ?", ("val-alias-1",)
+            ).fetchone()
+        assert row is not None
+
+    def test_apply_pull_operation_agent_values_direct(self, storage):
+        """'agent_values' table name works directly."""
+        op = {
+            "table": "agent_values",
+            "record_id": "val-direct-1",
+            "operation": "upsert",
+            "data": {"name": "courage", "statement": "Be brave"},
+        }
+        success, count, error = storage.apply_pull_operation(op)
+        assert success is True
+
+
+# ============================================================================
+# _record_from_pull_data — field mapping & provenance
+# ============================================================================
+
+
+class TestRecordFromPullData:
+    """Tests for SyncEngine._record_from_pull_data — record factory."""
+
+    def test_record_from_pull_data_episode_field_mapping(self, storage):
+        """Episode field mapping: lessons_learned -> lessons, outcome_description -> outcome."""
+        record = storage._record_from_pull_data(
+            "episodes",
+            "ep-map-1",
+            {
+                "objective": "Test",
+                "lessons_learned": ["a", "b"],
+                "outcome_description": "desc",
+                "outcome_type": "success",
+            },
+        )
+        assert record.lessons == ["a", "b"]
+        assert record.outcome == "desc"
+        assert record.objective == "Test"
+
+    def test_record_from_pull_data_sets_sync_provenance(self, storage):
+        """All records get source_type=external and source_entity=kernle:sync."""
+        record = storage._record_from_pull_data("notes", "note-prov-1", {"content": "Test note"})
+        assert record.source_type == "external"
+        assert record.source_entity == "kernle:sync"
+        assert record.stack_id == storage.stack_id
+
+    def test_record_from_pull_data_remaps_stack_id(self, storage):
+        """stack_id in data is overridden by storage.stack_id."""
+        record = storage._record_from_pull_data(
+            "notes", "note-stack-1", {"content": "Test", "stack_id": "foreign-stack"}
+        )
+        assert record.stack_id == storage.stack_id
+
+    def test_record_from_pull_data_parses_timestamps(self, storage):
+        """ISO timestamp strings in data are parsed to datetime."""
+        record = storage._record_from_pull_data(
+            "notes",
+            "note-ts-1",
+            {
+                "content": "Test",
+                "local_updated_at": "2025-01-15T10:00:00+00:00",
+                "cloud_synced_at": "2025-01-15T11:00:00+00:00",
+            },
+        )
+        assert isinstance(record.local_updated_at, datetime)
+        assert isinstance(record.cloud_synced_at, datetime)
+
+    def test_record_from_pull_data_default_timestamps(self, storage):
+        """When timestamps are missing, they default to None."""
+        record = storage._record_from_pull_data("notes", "note-notime-1", {"content": "Test"})
+        # Should not raise — timestamps are optional
+        assert record.local_updated_at is None or isinstance(record.local_updated_at, datetime)
+
+    def test_record_from_pull_data_preserves_version(self, storage):
+        """Version from data is preserved on the record."""
+        record = storage._record_from_pull_data(
+            "notes", "note-ver-1", {"content": "Test", "version": 5}
+        )
+        assert record.version == 5

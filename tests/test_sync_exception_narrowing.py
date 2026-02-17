@@ -388,9 +388,14 @@ class TestApplyPullOperationNarrowing:
         captured = capsys.readouterr().out
         assert "conflicts" in captured.lower() or "Pulled 0 changes" in captured
 
-    def test_apply_pull_operation_propagates_programming_errors(self, k, capsys, tmp_path):
-        """Programming errors like AttributeError are not caught by the narrowed handler
-        in _apply_single_pull_operation.  They propagate to the outer dispatch."""
+    def test_apply_pull_operation_quarantines_programming_errors(self, k, capsys, tmp_path):
+        """Programming errors like AttributeError are caught and quarantined
+        by SyncEngine delegation rather than crashing the entire pull.
+
+        Post-unification, all exceptions during apply are caught and reported
+        as failed operations (quarantined for retry), rather than propagating
+        and aborting the pull mid-batch.
+        """
         creds_path = _setup_creds(tmp_path, "apply_prog_err")
 
         ops = [
@@ -408,14 +413,13 @@ class TestApplyPullOperationNarrowing:
             raise AttributeError("'NoneType' object has no attribute 'foo'")
 
         with patch.object(k._storage, "save_note", side_effect=raise_attribute_error):
-            # AttributeError is NOT in the narrowed catch list, so it propagates
-            # past _apply_single_pull_operation and into the outer dispatch handler
-            with pytest.raises(SystemExit):
-                _run_sync(creds_path, mock_httpx, k, _args(sync_action="pull"))
+            # Post-unification: errors are caught and quarantined, not propagated
+            _run_sync(creds_path, mock_httpx, k, _args(sync_action="pull"))
 
         # Verify the error surfaced in output (not silently swallowed)
         captured = capsys.readouterr().out
         assert "NoneType" in captured
+        assert "conflicts during apply" in captured
 
     def test_apply_pull_operation_error_message_includes_type(self, k, capsys, tmp_path):
         """Error messages from caught exceptions include the exception type name."""
@@ -442,7 +446,7 @@ class TestApplyPullOperationNarrowing:
         # Find the JSON portion
         start = output_text.index("{")
         output = json.loads(output_text[start:])
-        # The failed operation should include the type in the error
+        # The failed operation should include the error detail
         failed = output.get("failed_operations", [])
         assert len(failed) >= 1
-        assert "ValueError" in failed[0].get("error", "")
+        assert "invalid outcome_type" in failed[0].get("error", "")

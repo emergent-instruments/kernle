@@ -2862,6 +2862,14 @@ class SQLiteStorage:
         """Pull changes from cloud since the given timestamp."""
         return self._sync_engine.pull_changes(since)
 
+    def apply_pull_operation(self, op: dict):
+        """Apply a single HTTP pull operation via SyncEngine."""
+        return self._sync_engine.apply_pull_operation(op)
+
+    def _record_from_pull_data(self, table: str, record_id: str, data: dict):
+        """Convert HTTP pull data dict to typed record via SyncEngine."""
+        return self._sync_engine._record_from_pull_data(table, record_id, data)
+
     def _merge_array_fields(self, table: str, winner, loser):
         """Merge array fields from loser into winner using set union."""
         return self._sync_engine._merge_array_fields(table, winner, loser)

@@ -1386,3 +1386,211 @@ class TestJsonVersionField:
         from datetime import datetime as dt
 
         dt.fromisoformat(ts)  # will raise if not valid ISO 8601
+
+
+# ============================================================================
+# sync pull — new table types and SyncEngine delegation
+# ============================================================================
+
+
+class TestSyncPullNewTables:
+    """Tests for pulling beliefs, goals, drives, relationships via SyncEngine delegation."""
+
+    def _run_pull(self, k, tmp_path, ops, capsys, json_output=False):
+        """Helper to run a pull with given operations."""
+        creds = {"backend_url": "https://api.test.com", "auth_token": "tok", "user_id": "u1"}
+        creds_path = tmp_path / f"pull_{id(ops)}"
+        creds_path.mkdir(exist_ok=True)
+        (creds_path / "credentials.json").write_text(json.dumps(creds))
+
+        pull_resp = _make_response(200, json_data={"operations": ops, "has_more": False})
+        mock_httpx = _mock_httpx_module(post_response=pull_resp)
+
+        with patch.dict(os.environ, {"KERNLE_DATA_DIR": str(creds_path)}):
+            with patch.dict("sys.modules", {"httpx": mock_httpx}):
+                cmd_sync(_args(sync_action="pull", json=json_output), k)
+
+        return capsys.readouterr().out
+
+    def test_pull_applies_beliefs(self, k, capsys, tmp_path):
+        """Beliefs pulled from backend are applied locally."""
+        ops = [
+            {
+                "table": "beliefs",
+                "record_id": "bel-remote-1",
+                "operation": "upsert",
+                "data": {"statement": "Testing is good", "belief_type": "principle"},
+            }
+        ]
+        output = self._run_pull(k, tmp_path, ops, capsys)
+        assert "Pulled 1 changes" in output
+
+        with k._storage._connect() as conn:
+            row = conn.execute("SELECT * FROM beliefs WHERE id = ?", ("bel-remote-1",)).fetchone()
+        assert row is not None
+        assert row["statement"] == "Testing is good"
+
+    def test_pull_applies_goals(self, k, capsys, tmp_path):
+        """Goals pulled from backend are applied locally."""
+        ops = [
+            {
+                "table": "goals",
+                "record_id": "goal-remote-1",
+                "operation": "upsert",
+                "data": {"title": "Release v1.0", "goal_type": "aspiration"},
+            }
+        ]
+        output = self._run_pull(k, tmp_path, ops, capsys)
+        assert "Pulled 1 changes" in output
+
+        with k._storage._connect() as conn:
+            row = conn.execute("SELECT * FROM goals WHERE id = ?", ("goal-remote-1",)).fetchone()
+        assert row is not None
+        assert row["title"] == "Release v1.0"
+
+    def test_pull_applies_drives(self, k, capsys, tmp_path):
+        """Drives pulled from backend are applied locally."""
+        ops = [
+            {
+                "table": "drives",
+                "record_id": "drv-remote-1",
+                "operation": "upsert",
+                "data": {"drive_type": "curiosity", "intensity": 0.7},
+            }
+        ]
+        output = self._run_pull(k, tmp_path, ops, capsys)
+        assert "Pulled 1 changes" in output
+
+        drive = k._storage.get_drive("curiosity")
+        assert drive is not None
+        assert drive.intensity == 0.7
+
+    def test_pull_applies_relationships(self, k, capsys, tmp_path):
+        """Relationships pulled from backend are applied locally."""
+        ops = [
+            {
+                "table": "relationships",
+                "record_id": "rel-remote-1",
+                "operation": "upsert",
+                "data": {
+                    "entity_name": "Bob",
+                    "entity_type": "person",
+                    "relationship_type": "mentor",
+                },
+            }
+        ]
+        output = self._run_pull(k, tmp_path, ops, capsys)
+        assert "Pulled 1 changes" in output
+
+        rel = k._storage.get_relationship("Bob")
+        assert rel is not None
+        assert rel.relationship_type == "mentor"
+
+    def test_pull_delegates_to_sync_engine(self, k, capsys, tmp_path):
+        """Pull path delegates to SyncEngine.apply_pull_operation."""
+        ops = [
+            {
+                "table": "notes",
+                "record_id": "note-delegate-1",
+                "operation": "upsert",
+                "data": {"content": "Delegated note"},
+            }
+        ]
+        with patch.object(
+            k._storage._sync_engine, "apply_pull_operation", return_value=(True, 1, None)
+        ) as mock_apply:
+            self._run_pull(k, tmp_path, ops, capsys)
+            mock_apply.assert_called_once()
+            call_op = mock_apply.call_args[0][0]
+            assert call_op["table"] == "notes"
+            assert call_op["record_id"] == "note-delegate-1"
+
+    def test_pull_quarantines_failed_operations(self, k, capsys, tmp_path):
+        """Failed operations are quarantined as pull conflicts."""
+        ops = [
+            {
+                "table": "drives",
+                "record_id": "drv-bad-1",
+                "operation": "upsert",
+                "data": {"intensity": 0.5},  # missing drive_type
+            }
+        ]
+        output = self._run_pull(k, tmp_path, ops, capsys)
+        assert "1 conflicts during apply" in output
+
+    def test_pull_noop_not_quarantined(self, k, capsys, tmp_path):
+        """No-op results (True, 0, None) are not quarantined."""
+        # Pre-save a note, then pull the same one — merge yields no-op
+        from kernle.storage import Note
+
+        k._storage.save_note(Note(id="note-noop-1", stack_id="test-sync", content="Existing"))
+        # Clear the sync queue so pull doesn't fight it
+        with k._storage._connect() as conn:
+            conn.execute("DELETE FROM sync_queue")
+            conn.commit()
+
+        ops = [
+            {
+                "table": "notes",
+                "record_id": "note-noop-1",
+                "operation": "upsert",
+                "data": {"content": "Existing"},
+            }
+        ]
+        output = self._run_pull(k, tmp_path, ops, capsys)
+        # Should not show "conflicts during apply"
+        assert "conflicts during apply" not in output
+
+    def test_pull_noop_not_overcounted(self, k, capsys, tmp_path):
+        """No-ops contribute 0 to pull count, not 1."""
+        with patch.object(
+            k._storage._sync_engine, "apply_pull_operation", return_value=(True, 0, None)
+        ):
+            output = self._run_pull(
+                k,
+                tmp_path,
+                [
+                    {
+                        "table": "notes",
+                        "record_id": "note-nocount",
+                        "operation": "upsert",
+                        "data": {"content": "x"},
+                    }
+                ],
+                capsys,
+            )
+        # 0 applied, should say "up to date"
+        assert "Already up to date" in output or "Pulled 0 changes" in output
+
+    def test_pull_noop_success_not_quarantined(self, k, capsys, tmp_path):
+        """A (True, 0, None) result is success; not treated as failure."""
+        with patch.object(
+            k._storage._sync_engine, "apply_pull_operation", return_value=(True, 0, None)
+        ):
+            output = self._run_pull(
+                k,
+                tmp_path,
+                [
+                    {
+                        "table": "notes",
+                        "record_id": "note-ok-noop",
+                        "operation": "upsert",
+                        "data": {"content": "x"},
+                    }
+                ],
+                capsys,
+            )
+        assert "conflicts" not in output.lower() or "0 conflicts" in output.lower()
+
+    def test_pull_upsert_operation_accepted(self, k, capsys, tmp_path):
+        """The 'upsert' operation type is accepted in pull."""
+        ops = [
+            {
+                "table": "episodes",
+                "record_id": "ep-upsert-1",
+                "operation": "upsert",
+                "data": {"objective": "Upserted episode", "outcome": "done"},
+            }
+        ]
+        output = self._run_pull(k, tmp_path, ops, capsys)
+        assert "Pulled 1 changes" in output
