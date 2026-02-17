@@ -1660,6 +1660,22 @@ Typical usage:
     )
     audit_cognitive.add_argument("--json", "-j", action="store_true", help="Output as JSON")
 
+    audit_export = audit_sub.add_parser("export", help="Export audit log")
+    audit_export.add_argument(
+        "--format",
+        "-f",
+        choices=["jsonl"],
+        default="jsonl",
+        help="Export format (default: jsonl)",
+    )
+    audit_export.add_argument("--since", help="Filter entries created at or after this ISO date")
+    audit_export.add_argument("--until", help="Filter entries created before this ISO date")
+    audit_export.add_argument("--memory-type", dest="memory_type", help="Filter by memory type")
+    audit_export.add_argument("--operation", help="Filter by operation type")
+    audit_export.add_argument(
+        "--correlation-id", dest="correlation_id", help="Filter by correlation ID"
+    )
+
     # stats (compliance and analytics)
     p_stats = subparsers.add_parser("stats", help="Compliance and analytics stats")
     stats_sub = p_stats.add_subparsers(dest="stats_action", required=True)

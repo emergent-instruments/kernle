@@ -2686,9 +2686,12 @@ class SQLiteStorage:
         operation: str,
         actor: str,
         details: Optional[Dict[str, Any]] = None,
+        correlation_id: Optional[str] = None,
     ) -> str:
         """Log an audit entry for a memory operation."""
-        return self._memory_ops.log_audit(memory_type, memory_id, operation, actor, details)
+        return self._memory_ops.log_audit(
+            memory_type, memory_id, operation, actor, details, correlation_id
+        )
 
     def get_audit_log(
         self,
@@ -2696,12 +2699,21 @@ class SQLiteStorage:
         memory_type: Optional[str] = None,
         memory_id: Optional[str] = None,
         operation: Optional[str] = None,
+        correlation_id: Optional[str] = None,
         limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """Get audit log entries."""
         return self._memory_ops.get_audit_log(
-            memory_type=memory_type, memory_id=memory_id, operation=operation, limit=limit
+            memory_type=memory_type,
+            memory_id=memory_id,
+            operation=operation,
+            correlation_id=correlation_id,
+            limit=limit,
         )
+
+    def export_audit_jsonl(self, **kwargs):
+        """Export audit log entries as JSONL lines."""
+        return self._memory_ops.export_audit_jsonl(**kwargs)
 
     def weaken_memory(self, memory_type: str, memory_id: str, amount: float) -> bool:
         """Reduce a memory's strength by a given amount."""

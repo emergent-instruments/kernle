@@ -1788,8 +1788,16 @@ class SQLiteStack(
         *,
         actor: str = "system",
         details: Optional[Any] = None,
+        correlation_id: Optional[str] = None,
     ) -> str:
-        return self._backend.log_audit(memory_type, memory_id, operation, actor, details)
+        return self._backend.log_audit(
+            memory_type,
+            memory_id,
+            operation,
+            actor,
+            details,
+            correlation_id,
+        )
 
     def get_audit_log(
         self,
@@ -1797,12 +1805,14 @@ class SQLiteStack(
         memory_type: Optional[str] = None,
         memory_id: Optional[str] = None,
         operation: Optional[str] = None,
+        correlation_id: Optional[str] = None,
         limit: int = 50,
     ) -> List[Any]:
         return self._backend.get_audit_log(
             memory_type=memory_type,
             memory_id=memory_id,
             operation=operation,
+            correlation_id=correlation_id,
             limit=limit,
         )
 

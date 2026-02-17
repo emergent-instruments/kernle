@@ -1013,6 +1013,7 @@ class StackMetaMemoryProtocol(Protocol):
         *,
         actor: str = "system",
         details: Optional[Any] = None,
+        correlation_id: Optional[str] = None,
     ) -> str:
         """Log an audit entry for a memory operation."""
         ...
@@ -1023,6 +1024,7 @@ class StackMetaMemoryProtocol(Protocol):
         memory_type: Optional[MemoryType] = None,
         memory_id: Optional[str] = None,
         operation: Optional[str] = None,
+        correlation_id: Optional[str] = None,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """Get audit log entries."""

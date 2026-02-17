@@ -688,6 +688,10 @@ class MemoryProcessor:
         results = []
         promote = auto_promote if auto_promote is not None else self._auto_promote
 
+        # Generate a correlation_id for this entire process() run so all
+        # audit entries from one invocation can be linked together.
+        correlation_id = str(uuid.uuid4())
+
         transitions = [transition] if transition else list(VALID_TRANSITION_ORDER)
 
         for t in transitions:
@@ -704,7 +708,13 @@ class MemoryProcessor:
             if not force and not self.check_triggers(t):
                 continue
 
-            result = self._process_layer(t, config, auto_promote=promote, batch_size=batch_size)
+            result = self._process_layer(
+                t,
+                config,
+                auto_promote=promote,
+                batch_size=batch_size,
+                correlation_id=correlation_id,
+            )
             results.append(result)
 
         return results
@@ -958,6 +968,7 @@ class MemoryProcessor:
         *,
         auto_promote: bool = False,
         batch_size: Optional[int] = None,
+        correlation_id: Optional[str] = None,
     ) -> ProcessingResult:
         """Run one processing pass for a specific layer transition."""
         prompts = LAYER_PROMPTS.get(transition)
@@ -1102,6 +1113,7 @@ class MemoryProcessor:
                 "gate_details": result.gate_details,
                 "errors": result.errors,
             },
+            correlation_id=correlation_id,
         )
 
         return result
