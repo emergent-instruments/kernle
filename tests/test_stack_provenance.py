@@ -805,11 +805,14 @@ class TestStackSettings:
         stack.set_stack_setting("a", "1")
         stack.set_stack_setting("b", "2")
         settings = stack.get_all_stack_settings()
-        assert settings == {"a": "1", "b": "2"}
+        assert settings["a"] == "1"
+        assert settings["b"] == "2"
 
     def test_get_all_empty(self, tmp_path):
         stack = SQLiteStack("test", db_path=tmp_path / "test.db", components=[])
-        assert stack.get_all_stack_settings() == {}
+        settings = stack.get_all_stack_settings()
+        # New stacks auto-set use_legacy_heuristics=false
+        assert settings.get("use_legacy_heuristics") == "false"
 
 
 # ==============================================================================
@@ -1195,8 +1198,12 @@ class TestStackScopedSettings:
         stack_a.set_stack_setting("a", "1")
         stack_b.set_stack_setting("b", "2")
 
-        assert stack_a.get_all_stack_settings() == {"a": "1"}
-        assert stack_b.get_all_stack_settings() == {"b": "2"}
+        settings_a = stack_a.get_all_stack_settings()
+        settings_b = stack_b.get_all_stack_settings()
+        assert settings_a["a"] == "1"
+        assert "b" not in settings_a
+        assert settings_b["b"] == "2"
+        assert "a" not in settings_b
 
     def test_set_enforce_provenance_live(self, tmp_path):
         """set_stack_setting('enforce_provenance', 'true') takes effect immediately."""

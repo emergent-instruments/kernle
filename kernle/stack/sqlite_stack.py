@@ -281,6 +281,11 @@ class SQLiteStack(
         # Bootstrap self-trust if missing (e.g. after migration creates the table)
         self._ensure_self_trust()
 
+        # Set use_legacy_heuristics=false for new stacks (existing stacks get
+        # "true" via migration). New stacks default to inference-or-nothing.
+        if self._backend.get_stack_setting("use_legacy_heuristics") is None:
+            self._backend.set_stack_setting("use_legacy_heuristics", "false")
+
     def _ensure_self_trust(self) -> None:
         """Bootstrap self-trust assessment if missing after migration."""
         existing = self._backend.get_trust_assessment("identity")
