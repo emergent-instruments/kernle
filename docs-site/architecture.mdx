@@ -279,6 +279,19 @@ graph TB
 - **Model** is interchangeable. Swapping from Claude to Llama changes how the entity thinks. The model is wrapped in an `InferenceService` for stack components.
 - **Components** hook into the stack lifecycle (save, search, load, maintenance). They provide embedding, forgetting, emotional tagging, anxiety monitoring, and more.
 
+### Model Binding (Inference Passthrough)
+
+As of v0.14.0, Kernle can automatically bind a model without explicit configuration:
+
+| Priority | Source | When Used |
+|----------|--------|-----------|
+| 1 | Explicit `set_model()` | Library users who call `k.entity.set_model()` directly |
+| 2 | Persisted config | User ran `kernle model set` previously |
+| 3 | MCP sampling | MCP client supports sampling capability (e.g. Claude Code) |
+| 4 | Capture-only | No model available; memory capture works, inference skipped |
+
+For MCP deployments, the host agent's model is the natural inference source — no separate model configuration needed. For library embedding, wrap any callable with `CallableModelAdapter`. See the [Inference Passthrough guide](/integration/inference-passthrough) for details.
+
 <Note>
 As of v0.10.0, `strict=True` is the default for Kernle initialization. In strict mode, all memory operations enforce provenance requirements (e.g., `source_type`, `derived_from`). Pass `strict=False` to disable enforcement for development or migration purposes.
 </Note>

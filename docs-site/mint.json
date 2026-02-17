@@ -116,7 +116,8 @@
         "integration/claude-code",
         "integration/openclaw",
         "integration/claude-desktop",
-        "integration/mcp"
+        "integration/mcp",
+        "integration/inference-passthrough"
       ]
     },
     {

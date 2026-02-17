@@ -6,6 +6,7 @@ Memory sovereignty for synthetic intelligences.
 
 from .core import Kernle
 from .entity import Entity
+from .models.adapters import CallableModelAdapter
 
 try:
     from importlib.metadata import version
@@ -14,4 +15,4 @@ try:
 except Exception:
     __version__ = "0.0.0"
 
-__all__ = ["Kernle", "Entity"]
+__all__ = ["CallableModelAdapter", "Entity", "Kernle"]
