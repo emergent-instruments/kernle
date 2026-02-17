@@ -154,22 +154,22 @@ kernle identity drift --days 30
 ```
 
 This analyzes:
-- Belief revisions over the period (traced via `belief.revised` / `belief.deactivated` audit entries)
-- New vs inactive beliefs (checked via `is_active` flag)
+- Belief revisions over the period
+- New vs deactivated beliefs
 - Value priority changes
 - Goal completions and additions
 
 <Info>
-**v0.14+ change**: Revision history is now tracked via audit log entries rather than supersession chain fields (`supersedes`/`superseded_by`). Drift analysis reads audit events to reconstruct the revision timeline.
+**v0.14+**: Revision history is tracked via audit log entries (`belief.revised`, `belief.deactivated`) rather than the old `supersedes`/`superseded_by` chain fields. Drift analysis reads these events to reconstruct the revision timeline.
 </Info>
 
-### Contradiction Detection and the `use_legacy_heuristics` Flag
+### Contradiction Detection
 
-The `use_legacy_heuristics` flag (see [Pipeline Glossary](/concepts/pipeline-glossary#the-use_legacy_heuristics-flag)) controls how contradiction detection works during belief revision:
+Contradiction detection during belief revision is controlled by the `use_legacy_heuristics` flag (see [Pipeline Glossary](/concepts/pipeline-glossary#the-use_legacy_heuristics-flag)):
 
-- **`use_legacy_heuristics=true`**: Word overlap and opposition-pair heuristics identify potential contradictions. This is the default for stacks migrated from pre-v0.14.
-- **`use_legacy_heuristics=false` with a bound model**: Inference-based contradiction detection evaluates semantic relationships using embeddings and LLM analysis.
-- **`use_legacy_heuristics=false` without a model**: Identity operations return safe defaults -- contradiction detection returns an empty list, and belief revision analysis returns `{reinforced: [], contradicted: [], suggested_new: []}`. No unreliable heuristic results are produced.
+- **Legacy mode** (`use_legacy_heuristics=true`, the default for pre-v0.14 stacks): Uses word overlap and opposition-pair heuristics.
+- **Inference mode** (`use_legacy_heuristics=false` with a bound model): Uses your model to evaluate semantic relationships between beliefs.
+- **No model** (`use_legacy_heuristics=false` without a model): Returns safe defaults (empty contradiction list, empty revision results) rather than unreliable heuristic guesses.
 
 ## Philosophy
 

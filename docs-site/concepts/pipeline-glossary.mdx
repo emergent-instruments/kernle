@@ -34,7 +34,13 @@ belief_to_value       → Derive values from belief clusters (identity layer)
 episode_to_drive      → Derive drives from episode patterns (identity layer)
 ```
 
-**Identity-layer transitions** (`episode_to_belief`, `episode_to_goal`, `episode_to_relationship`, `episode_to_drive`, `belief_to_value`) always require inference. Without a bound model, these transitions are blocked — bad data in the identity layer is costly to fix.
+All transitions require a bound model by default. Without one, processing is blocked.
+
+**Identity-layer transitions** (`episode_to_belief`, `episode_to_goal`, `episode_to_relationship`, `episode_to_drive`, `belief_to_value`) have additional safety rules:
+
+- `belief_to_value` is **never** overridable — values sit at the top of the identity layer, so malformed values are costly to fix.
+- The other four identity transitions can be overridden with `force=True` and `allow_no_inference_override=True`. Even with overrides, the transition's configured safety gates (minimum confidence, minimum evidence count) still apply.
+- Without those overrides, they are blocked like any other transition.
 
 ## Processing Modes
 
@@ -100,7 +106,7 @@ Every heuristic-dependent function follows the same gating logic:
 | `extract_suggestions()` | Pattern scoring (episode/belief/note regex) | `[]` (empty list) | LLM classifies memory type |
 | `detect_significance()` | Keyword weight scoring | `{significant: false, score: 0, signals: []}` | LLM evaluates significance |
 | `find_contradictions()` | Word overlap + opposition pairs | `[]` (empty list) | LLM evaluates contradiction with embedding candidates |
-| `find_semantic_contradictions()` | Embedding search + opposition detection | `[]` (empty list) | Delegates to inference contradiction path |
+| `find_semantic_contradictions()` | Embedding search + legacy opposition heuristics | `[]` (empty list) | Delegates to inference contradiction path |
 | `revise_beliefs_from_episode()` | Word overlap + outcome type heuristic | `{reinforced: [], contradicted: [], suggested_new: []}` | LLM analyzes episode-belief relationships |
 
 ### Why This Matters
@@ -168,7 +174,7 @@ All memory operations are logged in the `memory_audit` table with:
 |-------|-------------|
 | `raw.ingested` | A raw entry is captured (via CLI, API, or MCP) |
 | `suggestion.created` | Processing creates a suggestion for SI review |
-| `suggestion.resolved` | A suggestion is accepted, dismissed, or expired. The `details.resolution` field records which: `"accepted"`, `"dismissed"`, or `"expired"`. This is the single canonical operation for all suggestion outcomes. |
+| `suggestion.resolved` | A suggestion is accepted, dismissed, or expired. The `details.resolution` field records which (`"accepted"`, `"dismissed"`, `"expired"`, or `"lint_rejected"`). |
 | `memory.promoted` | A memory is directly written (auto-promote path) |
 | `belief.revised` | A new belief replaces an old one via revision |
 | `belief.deactivated` | An old belief is marked inactive during revision |
