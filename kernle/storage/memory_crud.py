@@ -355,6 +355,8 @@ def _row_to_relationship(row: sqlite3.Row) -> Relationship:
         consent_grants=_from_json(_safe_get(row, "consent_grants", None)),
         access_grants=_from_json(_safe_get(row, "access_grants", None)),
         subject_ids=_from_json(_safe_get(row, "subject_ids", None)),
+        # Entity-neutral sourcing
+        source_entity=_safe_get(row, "source_entity", None),
         # Epoch tracking
         epoch_id=_safe_get(row, "epoch_id", None),
     )

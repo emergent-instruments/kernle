@@ -201,7 +201,8 @@ def save_relationship(
                 UPDATE relationships SET
                     entity_type = ?, relationship_type = ?, notes = ?,
                     sentiment = ?, interaction_count = ?, last_interaction = ?,
-                    confidence = ?, source_type = ?, source_episodes = ?,
+                    confidence = ?, source_type = ?, source_entity = ?,
+                    source_episodes = ?,
                     derived_from = ?, last_verified = ?, verification_count = ?,
                     confidence_history = ?, context = ?, context_tags = ?,
                     subject_ids = ?, access_grants = ?, consent_grants = ?,
@@ -221,6 +222,7 @@ def save_relationship(
                     ),
                     relationship.confidence,
                     relationship.source_type,
+                    relationship.source_entity,
                     to_json(relationship.source_episodes),
                     to_json(relationship.derived_from),
                     (
@@ -245,14 +247,14 @@ def save_relationship(
                 INSERT INTO relationships
                 (id, stack_id, entity_name, entity_type, relationship_type, notes,
                  sentiment, interaction_count, last_interaction, created_at,
-                 confidence, source_type, source_episodes, derived_from,
+                 confidence, source_type, source_entity, source_episodes, derived_from,
                  last_verified, verification_count, confidence_history,
                  strength,
                  context, context_tags,
                  subject_ids, access_grants, consent_grants,
                  epoch_id,
                  local_updated_at, cloud_synced_at, version, deleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     relationship.id,
@@ -271,6 +273,7 @@ def save_relationship(
                     now,
                     relationship.confidence,
                     relationship.source_type,
+                    relationship.source_entity,
                     to_json(relationship.source_episodes),
                     to_json(relationship.derived_from),
                     (

@@ -1367,6 +1367,7 @@ class SQLiteStorage:
                     last_interaction = ?,
                     confidence = ?,
                     source_type = ?,
+                    source_entity = COALESCE(?, source_entity),
                     source_episodes = ?,
                     derived_from = ?,
                     last_verified = ?,
@@ -1391,6 +1392,7 @@ class SQLiteStorage:
                     ),
                     relationship.confidence,
                     relationship.source_type,
+                    relationship.source_entity,
                     self._to_json(relationship.source_episodes),
                     self._to_json(relationship.derived_from),
                     (
