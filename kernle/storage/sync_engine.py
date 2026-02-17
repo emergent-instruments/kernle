@@ -1221,13 +1221,13 @@ class SyncEngine:
         try:
             record = self._record_from_pull_data(table, record_id, data)
         except (ValueError, KeyError, TypeError) as e:
-            return (False, 0, f"{type(e).__name__}: {e}")
+            return (False, 0, str(e))
 
         merge_method = getattr(self, merge_method_name)
         try:
             pull_count, _conflict = merge_method(record)
         except Exception as e:
-            return (False, 0, f"{type(e).__name__}: {e}")
+            return (False, 0, f"failed to merge record: {e}")
 
         return (True, pull_count, None)
 
@@ -1324,7 +1324,7 @@ class SyncEngine:
         if table == "drives":
             drive_type = data.get("drive_type")
             if not drive_type:
-                raise ValueError("drive_type is required for drives")
+                raise ValueError("missing required field: drive_type")
             return Drive(
                 **common,
                 **provenance,
@@ -1336,7 +1336,7 @@ class SyncEngine:
         if table == "relationships":
             entity_name = data.get("entity_name")
             if not entity_name:
-                raise ValueError("entity_name is required for relationships")
+                raise ValueError("missing required field: entity_name")
             return Relationship(
                 **common,
                 **provenance,
@@ -1350,7 +1350,7 @@ class SyncEngine:
         if table == "playbooks":
             name = data.get("name")
             if not name:
-                raise ValueError("name is required for playbooks")
+                raise ValueError("missing required field: name")
             # Playbook has no source_type/source_entity fields
             return Playbook(
                 **common,

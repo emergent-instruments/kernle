@@ -446,7 +446,7 @@ class TestApplyPullOperationNarrowing:
         # Find the JSON portion
         start = output_text.index("{")
         output = json.loads(output_text[start:])
-        # The failed operation should include the type in the error
+        # The failed operation should include the error detail
         failed = output.get("failed_operations", [])
         assert len(failed) >= 1
-        assert "ValueError" in failed[0].get("error", "")
+        assert "invalid outcome_type" in failed[0].get("error", "")

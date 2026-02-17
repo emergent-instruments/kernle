@@ -3061,7 +3061,7 @@ class TestApplyPullOperation:
         success, count, error = storage.apply_pull_operation(op)
         assert success is False
         assert count == 0
-        assert error is not None
+        assert error == "missing required field: drive_type"
 
     def test_apply_pull_operation_unsupported_operation(self, storage):
         """Unsupported operation type returns failure."""
