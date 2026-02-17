@@ -793,41 +793,50 @@ class TestCmdRawClean:
 
 
 class TestCmdRawPromote:
-    """Test raw promote command."""
+    """Test raw promote command — should delegate to process_raw (#835)."""
 
-    def test_promote_to_episode(self, capsys):
-        """Promote to episode."""
+    def test_promote_delegates_to_process_raw(self, capsys):
+        """Promote should call k.process_raw(), not manual k.episode/note/belief."""
         k = MagicMock()
-        k.get_raw.side_effect = [
-            {"id": "abc12345", "content": "test"},  # For resolve
-            {"id": "abc12345", "content": "Episode content", "tags": []},
-        ]
-        k.episode.return_value = "ep123456"
-        k._storage.mark_raw_processed.return_value = True
+        k.get_raw.return_value = {"id": "abc12345", "content": "test"}
+        k.process_raw.return_value = "ep123456"
 
         args = Namespace(
             raw_action="promote",
             id="abc12345",
             type="episode",
-            objective=None,
-            outcome=None,
+            objective="Test obj",
+            outcome="Test out",
         )
 
         cmd_raw(args, k)
 
-        k.episode.assert_called_once()
-        captured = capsys.readouterr()
-        assert "✓ Promoted to episode" in captured.out
+        # Should delegate to process_raw
+        k.process_raw.assert_called_once()
+        call_kwargs = k.process_raw.call_args
+        assert (
+            call_kwargs.kwargs.get("raw_id") == "abc12345"
+            or call_kwargs[1].get("raw_id") == "abc12345"
+        )
+        assert (
+            call_kwargs.kwargs.get("as_type") == "episode"
+            or call_kwargs[1].get("as_type") == "episode"
+        )
+        # Should NOT call manual creation methods
+        k.episode.assert_not_called()
+        k.note.assert_not_called()
+        k.belief.assert_not_called()
+        # Should NOT call mark_raw_processed manually
+        k._storage.mark_raw_processed.assert_not_called()
 
-    def test_promote_to_note(self, capsys):
-        """Promote to note."""
+        captured = capsys.readouterr()
+        assert "Promoted to episode" in captured.out
+
+    def test_promote_note_delegates_to_process_raw(self, capsys):
+        """Promote to note should also delegate to process_raw."""
         k = MagicMock()
-        k.get_raw.side_effect = [
-            {"id": "abc12345", "content": "test"},
-            {"id": "abc12345", "content": "Note content", "tags": []},
-        ]
-        k.note.return_value = "note123"
-        k._storage.mark_raw_processed.return_value = True
+        k.get_raw.return_value = {"id": "abc12345", "content": "test"}
+        k.process_raw.return_value = "note123"
 
         args = Namespace(
             raw_action="promote",
@@ -839,19 +848,17 @@ class TestCmdRawPromote:
 
         cmd_raw(args, k)
 
-        k.note.assert_called_once()
+        k.process_raw.assert_called_once()
+        k.note.assert_not_called()
+        k._storage.mark_raw_processed.assert_not_called()
         captured = capsys.readouterr()
-        assert "✓ Promoted to note" in captured.out
+        assert "Promoted to note" in captured.out
 
-    def test_promote_to_belief(self, capsys):
-        """Promote to belief."""
+    def test_promote_belief_delegates_to_process_raw(self, capsys):
+        """Promote to belief should also delegate to process_raw."""
         k = MagicMock()
-        k.get_raw.side_effect = [
-            {"id": "abc12345", "content": "test"},
-            {"id": "abc12345", "content": "Belief statement", "tags": []},
-        ]
-        k.belief.return_value = "belief123"
-        k._storage.mark_raw_processed.return_value = True
+        k.get_raw.return_value = {"id": "abc12345", "content": "test"}
+        k.process_raw.return_value = "belief123"
 
         args = Namespace(
             raw_action="promote",
@@ -863,15 +870,75 @@ class TestCmdRawPromote:
 
         cmd_raw(args, k)
 
-        k.belief.assert_called_once()
+        k.process_raw.assert_called_once()
+        k.belief.assert_not_called()
+        k._storage.mark_raw_processed.assert_not_called()
         captured = capsys.readouterr()
-        assert "✓ Promoted to belief" in captured.out
+        assert "Promoted to belief" in captured.out
 
-    def test_promote_not_found(self, capsys):
-        """Promote non-existent entry."""
+    def test_promote_episode_passes_objective_and_outcome(self, capsys):
+        """Episode promote should pass objective and outcome kwargs."""
+        k = MagicMock()
+        k.get_raw.return_value = {"id": "abc12345", "content": "test"}
+        k.process_raw.return_value = "ep123456"
+
+        args = Namespace(
+            raw_action="promote",
+            id="abc12345",
+            type="episode",
+            objective="My objective",
+            outcome="My outcome",
+        )
+
+        cmd_raw(args, k)
+
+        call_kwargs = k.process_raw.call_args[1]
+        assert call_kwargs.get("objective") == "My objective"
+        assert call_kwargs.get("outcome") == "My outcome"
+
+    def test_promote_already_processed_fails(self, capsys):
+        """Already-processed raw entry should show error message."""
+        k = MagicMock()
+        k.get_raw.return_value = {"id": "abc12345", "content": "test"}
+        k.process_raw.side_effect = ValueError("Raw entry abc12345 already processed")
+
+        args = Namespace(
+            raw_action="promote",
+            id="abc12345",
+            type="note",
+            objective=None,
+            outcome=None,
+        )
+
+        cmd_raw(args, k)
+
+        captured = capsys.readouterr()
+        assert "already processed" in captured.out
+
+    def test_promote_unknown_type_fails(self, capsys):
+        """Unknown target type should show error from process_raw."""
+        k = MagicMock()
+        k.get_raw.return_value = {"id": "abc12345", "content": "test"}
+        k.process_raw.side_effect = ValueError("Invalid as_type: bogus")
+
+        args = Namespace(
+            raw_action="promote",
+            id="abc12345",
+            type="bogus",
+            objective=None,
+            outcome=None,
+        )
+
+        cmd_raw(args, k)
+
+        captured = capsys.readouterr()
+        assert "Invalid as_type" in captured.out
+
+    def test_promote_missing_raw_entry_fails(self, capsys):
+        """Nonexistent ID should show resolve error."""
         k = MagicMock()
         k.get_raw.return_value = None
-        k.list_raw.return_value = []
+        k._storage.find_raw_by_prefix.return_value = []
 
         args = Namespace(
             raw_action="promote",
@@ -884,8 +951,26 @@ class TestCmdRawPromote:
         cmd_raw(args, k)
 
         captured = capsys.readouterr()
-        assert "✗" in captured.out
         assert "not found" in captured.out
+
+    def test_promote_shows_processed_status(self, capsys):
+        """Successful promote should show that raw entry was marked as processed."""
+        k = MagicMock()
+        k.get_raw.return_value = {"id": "abc12345", "content": "test"}
+        k.process_raw.return_value = "note12345"
+
+        args = Namespace(
+            raw_action="promote",
+            id="abc12345",
+            type="note",
+            objective=None,
+            outcome=None,
+        )
+
+        cmd_raw(args, k)
+
+        captured = capsys.readouterr()
+        assert "Raw entry marked as processed" in captured.out
 
 
 class TestCmdRawTriage:
