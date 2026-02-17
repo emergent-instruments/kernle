@@ -1170,6 +1170,201 @@ class SyncEngine:
             logger.debug(f"Failed to serialize record, using fallback: {e}", exc_info=True)
             return {"id": getattr(record, "id", "unknown")}
 
+    # === Pull Apply (CLI delegation target) ===
+
+    # Table name aliases: HTTP pull payloads may use "values" instead of "agent_values".
+    _TABLE_ALIASES = {"values": "agent_values"}
+
+    # Dispatch table: canonical table name -> merge method name
+    _MERGE_DISPATCH = {
+        "episodes": "_merge_episode",
+        "notes": "_merge_note",
+        "beliefs": "_merge_belief",
+        "agent_values": "_merge_value",
+        "goals": "_merge_goal",
+        "drives": "_merge_drive",
+        "relationships": "_merge_relationship",
+        "playbooks": "_merge_playbook",
+    }
+
+    def apply_pull_operation(self, op: dict) -> tuple[bool, int, Optional[str]]:
+        """Apply a single HTTP pull operation dict to local storage.
+
+        Args:
+            op: Dict with keys "table", "record_id", "operation", "data".
+
+        Returns:
+            (success, pull_count, error_message):
+              - (True, 1, None)  = applied
+              - (True, 0, None)  = no-op (identical record)
+              - (False, 0, msg)  = failure
+        """
+        table = op.get("table", "")
+        record_id = op.get("record_id", "")
+        operation = op.get("operation", "")
+        data = op.get("data", {})
+
+        # Normalize table aliases
+        table = self._TABLE_ALIASES.get(table, table)
+
+        # Validate operation type
+        if operation == "delete":
+            return (False, 0, "delete operations not supported")
+        if operation not in ("upsert", "insert", "update"):
+            return (False, 0, f"unsupported operation type: {operation}")
+
+        # Validate table
+        merge_method_name = self._MERGE_DISPATCH.get(table)
+        if not merge_method_name:
+            return (False, 0, f"unsupported table: {table}")
+
+        try:
+            record = self._record_from_pull_data(table, record_id, data)
+        except (ValueError, KeyError, TypeError) as e:
+            return (False, 0, f"{type(e).__name__}: {e}")
+
+        merge_method = getattr(self, merge_method_name)
+        try:
+            pull_count, _conflict = merge_method(record)
+        except Exception as e:
+            return (False, 0, f"{type(e).__name__}: {e}")
+
+        return (True, pull_count, None)
+
+    def _record_from_pull_data(self, table: str, record_id: str, data: dict) -> Any:
+        """Convert HTTP pull data dict to a typed dataclass record.
+
+        Sets provenance fields: source_type='external', source_entity='kernle:sync',
+        stack_id=self._host.stack_id. Parses sync timestamps from ISO strings.
+
+        Raises:
+            ValueError: If required fields are missing for the table type.
+        """
+        from kernle.types import parse_datetime
+
+        # Parse sync metadata timestamps
+        local_updated_at = None
+        cloud_synced_at = None
+        version = data.get("version", 1)
+
+        raw_lua = data.get("local_updated_at")
+        if raw_lua:
+            parsed = parse_datetime(raw_lua)
+            if isinstance(parsed, datetime):
+                local_updated_at = parsed
+
+        raw_csa = data.get("cloud_synced_at")
+        if raw_csa:
+            parsed = parse_datetime(raw_csa)
+            if isinstance(parsed, datetime):
+                cloud_synced_at = parsed
+
+        # Common sync metadata (all tables have these)
+        common = {
+            "id": record_id,
+            "stack_id": self._host.stack_id,
+            "local_updated_at": local_updated_at,
+            "cloud_synced_at": cloud_synced_at,
+            "version": version,
+        }
+        # Provenance fields (only tables with source_type/source_entity fields)
+        provenance = {
+            "source_type": "external",
+            "source_entity": "kernle:sync",
+        }
+
+        if table == "episodes":
+            return Episode(
+                **common,
+                **provenance,
+                objective=data.get("objective", ""),
+                outcome=data.get("outcome", data.get("outcome_description", "")),
+                outcome_type=data.get("outcome_type", "neutral"),
+                lessons=data.get("lessons", data.get("lessons_learned", [])),
+                tags=data.get("tags", []),
+            )
+
+        if table == "notes":
+            return Note(
+                **common,
+                **provenance,
+                content=data.get("content", ""),
+                note_type=data.get("note_type", "note"),
+                tags=data.get("tags", []),
+            )
+
+        if table == "beliefs":
+            return Belief(
+                **common,
+                **provenance,
+                statement=data.get("statement", ""),
+                belief_type=data.get("belief_type", "fact"),
+                confidence=data.get("confidence", 0.8),
+            )
+
+        if table == "agent_values":
+            return Value(
+                **common,
+                **provenance,
+                name=data.get("name", ""),
+                statement=data.get("statement", ""),
+                priority=data.get("priority", 50),
+            )
+
+        if table == "goals":
+            return Goal(
+                **common,
+                **provenance,
+                title=data.get("title", ""),
+                goal_type=data.get("goal_type", "task"),
+                priority=data.get("priority", "medium"),
+                status=data.get("status", "active"),
+            )
+
+        if table == "drives":
+            drive_type = data.get("drive_type")
+            if not drive_type:
+                raise ValueError("drive_type is required for drives")
+            return Drive(
+                **common,
+                **provenance,
+                drive_type=drive_type,
+                intensity=data.get("intensity", 0.5),
+                focus_areas=data.get("focus_areas"),
+            )
+
+        if table == "relationships":
+            entity_name = data.get("entity_name")
+            if not entity_name:
+                raise ValueError("entity_name is required for relationships")
+            return Relationship(
+                **common,
+                **provenance,
+                entity_name=entity_name,
+                entity_type=data.get("entity_type", "unknown"),
+                relationship_type=data.get("relationship_type", "unknown"),
+                sentiment=data.get("sentiment", 0.0),
+                interaction_count=data.get("interaction_count", 0),
+            )
+
+        if table == "playbooks":
+            name = data.get("name")
+            if not name:
+                raise ValueError("name is required for playbooks")
+            # Playbook has no source_type/source_entity fields
+            return Playbook(
+                **common,
+                name=name,
+                description=data.get("description", ""),
+                trigger_conditions=data.get("trigger_conditions", []),
+                steps=data.get("steps", []),
+                failure_modes=data.get("failure_modes", []),
+                recovery_steps=data.get("recovery_steps"),
+                tags=data.get("tags"),
+            )
+
+        raise ValueError(f"unsupported table: {table}")
+
     def _save_from_cloud(self, table: str, record: Any):
         """Save a record that came from cloud."""
         if table == "episodes":

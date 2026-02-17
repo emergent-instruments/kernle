@@ -500,74 +500,26 @@ def cmd_sync(args, k: "Kernle"):
             )
 
     def _apply_single_pull_operation(op):
-        """Apply a single pulled operation; return (applied, error_message)."""
+        """Apply a single pulled operation; return (applied, error_message).
+
+        Delegates to SyncEngine.apply_pull_operation which handles all 8 table
+        types, record construction, merge logic, and atomic mark-synced + queue
+        cleanup.
+        """
         table = op.get("table")
         record_id = op.get("record_id")
         operation = op.get("operation")
-        data = op.get("data", {})
+
+        if not table or not record_id or not operation:
+            return False, "invalid payload (missing table/record_id/operation)"
 
         try:
-            if not table or not record_id or not operation:
-                return False, "invalid payload (missing table/record_id/operation)"
-
-            if operation == "delete":
-                # Delete merge behavior is not implemented in this CLI path yet.
-                return False, "delete pull operations are not supported in CLI sync"
-
-            if operation not in ("upsert", "insert", "update"):
-                return False, f"unsupported operation type: {operation}"
-
-            # Upsert known record types
-            if table == "episodes" and data:
-                from kernle.storage import Episode
-
-                ep = Episode(
-                    id=record_id,
-                    stack_id=k.stack_id,
-                    objective=data.get("objective", ""),
-                    outcome_type=data.get("outcome_type", "neutral"),
-                    outcome=data.get("outcome", data.get("outcome_description", "")),
-                    lessons=data.get("lessons", data.get("lessons_learned", [])),
-                    tags=data.get("tags", []),
-                    source_type="external",
-                    source_entity="kernle:sync",
-                )
-                k._storage.save_episode(ep)
-                # Mark as synced (don't queue for push)
-                with k._storage._connect() as conn:
-                    k._storage._mark_synced(conn, table, record_id)
-                    conn.execute(
-                        "DELETE FROM sync_queue WHERE table_name = ? AND record_id = ?",
-                        (table, record_id),
-                    )
-                    conn.commit()
+            success, pull_count, error = k._storage.apply_pull_operation(op)
+            if success:
                 return True, None
-
-            if table == "notes" and data:
-                from kernle.storage import Note
-
-                note = Note(
-                    id=record_id,
-                    stack_id=k.stack_id,
-                    content=data.get("content", ""),
-                    note_type=data.get("note_type", "note"),
-                    tags=data.get("tags", []),
-                    source_type="external",
-                    source_entity="kernle:sync",
-                )
-                k._storage.save_note(note)
-                with k._storage._connect() as conn:
-                    k._storage._mark_synced(conn, table, record_id)
-                    conn.execute(
-                        "DELETE FROM sync_queue WHERE table_name = ? AND record_id = ?",
-                        (table, record_id),
-                    )
-                    conn.commit()
-                return True, None
-
-            return False, f"unhandled pull operation for table={table}"
-
-        except (sqlite3.Error, KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
+            else:
+                return False, error
+        except Exception as e:
             return False, f"{type(e).__name__}: {e}"
 
     def _retry_poisoned_pull_operations(poison_records):
@@ -597,6 +549,10 @@ def cmd_sync(args, k: "Kernle"):
     def _apply_pull_operations(operations):
         """Apply pulled operations locally.
 
+        Uses SyncEngine.apply_pull_operation for accurate no-op tracking:
+        pull_count=0 means the record was identical and should not inflate
+        the applied counter.
+
         Returns:
             tuple[int, list[dict], set[str]]: applied count, failed op details, applied keys.
         """
@@ -606,17 +562,43 @@ def cmd_sync(args, k: "Kernle"):
 
         for op in operations:
             key = _pull_poison_key(op)
-            applied_ok, error = _apply_single_pull_operation(op)
-            if applied_ok:
-                applied += 1
+
+            table = op.get("table")
+            record_id = op.get("record_id")
+            operation = op.get("operation")
+
+            if not table or not record_id or not operation:
+                error = "invalid payload (missing table/record_id/operation)"
+                failed_ops.append(
+                    {
+                        "key": key,
+                        "operation": op,
+                        "error": error,
+                        "envelope": _build_conflict_envelope(
+                            op,
+                            error=error,
+                            resolution="pull_apply_failed",
+                            stage="pull_apply",
+                        ),
+                    }
+                )
+                continue
+
+            try:
+                success, pull_count, error = k._storage.apply_pull_operation(op)
+            except Exception as e:
+                success, pull_count, error = False, 0, f"{type(e).__name__}: {e}"
+
+            if success:
+                applied += pull_count
                 applied_keys.add(key)
                 continue
 
             logger.debug(
                 "Failed to apply pull operation for %s:%s (%s): %s",
-                op.get("table"),
-                op.get("record_id"),
-                op.get("operation"),
+                table,
+                record_id,
+                operation,
                 error,
             )
             failed_ops.append(
