@@ -13,6 +13,7 @@ import pytest
 
 from kernle.core import Kernle
 from kernle.storage import Drive, Goal, Relationship, SQLiteStorage, VersionConflictError
+from tests.conftest import bind_noop_model
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -276,6 +277,7 @@ class TestWritersUseAtomicMethods:
             checkpoint_dir=checkpoint_dir,
             strict=False,
         )
+        bind_noop_model(k)
         return k, storage
 
     def test_update_goal_uses_atomic(self, tmp_path):

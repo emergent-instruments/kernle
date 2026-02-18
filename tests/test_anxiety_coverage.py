@@ -25,6 +25,7 @@ import pytest
 
 from kernle import Kernle
 from kernle.storage import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -34,12 +35,14 @@ def k(temp_checkpoint_dir, temp_db_path):
         stack_id="test_anxiety_cov",
         db_path=temp_db_path,
     )
-    return Kernle(
+    inst = Kernle(
         stack_id="test_anxiety_cov",
         storage=storage,
         checkpoint_dir=temp_checkpoint_dir,
         strict=False,
     )
+    bind_noop_model(inst)
+    return inst
 
 
 class TestGetAnxietyLevelFallback:

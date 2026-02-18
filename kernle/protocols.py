@@ -190,6 +190,12 @@ class MaintenanceModeError(KernleError):
     pass
 
 
+class InferenceRequiredError(KernleError):
+    """Raised when an operation requires a bound inference model but none is available."""
+
+    pass
+
+
 # =============================================================================
 # SHARED TYPES
 # =============================================================================

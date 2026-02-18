@@ -37,6 +37,9 @@ def strict_kernle_no_stack():
     This IS the real runtime failure path — it fires when a caller
     passes a custom storage backend (not SQLiteStorage) while requesting
     strict=True. There is no other way stack returns None with Kernle.
+
+    Note: _require_inference is patched out because these tests verify
+    the strict-mode guard (ValueError), not the inference gate.
     """
     with tempfile.TemporaryDirectory() as tmp:
         mock_storage = MagicMock()
@@ -51,7 +54,8 @@ def strict_kernle_no_stack():
         )
         # Verify the precondition: stack IS None with non-SQLite storage
         assert k.stack is None
-        yield k
+        with patch.object(type(k), "_require_inference", lambda self, op: None):
+            yield k
 
 
 class TestStrictModeGuardFailures:
@@ -156,6 +160,9 @@ def mocked_kernle():
 
     Uses patch.object on the Kernle class to override the _write_backend
     property safely, ensuring cleanup even if the test fails.
+
+    Note: _require_inference is patched out because these tests verify
+    the write-backend routing, not the inference gate.
     """
     with tempfile.TemporaryDirectory() as tmp:
         # Create a real Kernle in non-strict mode (to avoid stack creation)
@@ -167,8 +174,14 @@ def mocked_kernle():
         k._storage = mock_storage
 
         # Patch the _write_backend property on the class; patch.object handles cleanup
-        with patch.object(
-            type(k), "_write_backend", new_callable=PropertyMock, return_value=mock_write_backend
+        with (
+            patch.object(
+                type(k),
+                "_write_backend",
+                new_callable=PropertyMock,
+                return_value=mock_write_backend,
+            ),
+            patch.object(type(k), "_require_inference", lambda self, op: None),
         ):
             yield k, mock_write_backend, mock_storage
 

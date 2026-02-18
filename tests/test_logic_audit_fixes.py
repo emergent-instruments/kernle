@@ -16,6 +16,7 @@ import pytest
 
 from kernle import Kernle
 from kernle.storage.sqlite import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -23,7 +24,9 @@ def kernle_fresh(tmp_path):
     """Create a fresh Kernle instance for testing."""
     db_path = tmp_path / "test_logic_audit.db"
     storage = SQLiteStorage(stack_id="test_agent", db_path=db_path)
-    return Kernle(stack_id="test_agent", storage=storage, strict=False)
+    k = Kernle(stack_id="test_agent", storage=storage, strict=False)
+    bind_noop_model(k)
+    return k
 
 
 class TestDivisionByZeroProtection:

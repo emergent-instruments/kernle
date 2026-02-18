@@ -8,12 +8,14 @@ import pytest
 from kernle import Kernle
 from kernle.cli.commands.relations import cmd_entity_model, cmd_relation
 from kernle.storage import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
 def k(tmp_path):
     storage = SQLiteStorage(stack_id="test-rel", db_path=tmp_path / "rel.db")
     inst = Kernle(stack_id="test-rel", storage=storage, strict=False)
+    bind_noop_model(inst)
     yield inst
     storage.close()
 

@@ -7,6 +7,7 @@ import pytest
 
 from kernle import Kernle
 from kernle.storage import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -20,6 +21,7 @@ def k(tmp_path):
     instance = Kernle(
         stack_id="test-export-full", storage=storage, checkpoint_dir=checkpoint_dir, strict=False
     )
+    bind_noop_model(instance)
     yield instance
     storage.close()
 
@@ -279,7 +281,8 @@ class TestExportFullJSON:
         k.trust_set("operator", domain="general", score=0.9)
         content = k.export_full(format="json")
         data = json.loads(content)
-        a = data["trust_assessments"][0]
+        # Find the operator assessment (stack may bootstrap an "identity" assessment)
+        a = next(t for t in data["trust_assessments"] if t["entity"] == "operator")
         assert a["entity"] == "operator"
         assert "dimensions" in a
         assert "general" in a["dimensions"]

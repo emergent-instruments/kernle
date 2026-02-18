@@ -8,6 +8,7 @@ import pytest
 
 from kernle import Kernle
 from kernle.storage.sqlite import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 
 class TestCLIIntegration:
@@ -34,6 +35,7 @@ class TestCLIIntegration:
             checkpoint_dir=checkpoint_dir,
             strict=False,
         )
+        bind_noop_model(k)
         yield k
         storage.close()
 
@@ -322,6 +324,7 @@ class TestAnxietyIntegration:
 
         storage = SQLiteStorage(stack_id=stack_id, db_path=db_path)
         k = Kernle(stack_id=stack_id, storage=storage, checkpoint_dir=checkpoint_dir, strict=False)
+        bind_noop_model(k)
 
         # Fresh state should have low anxiety
         report1 = k.get_anxiety_report()

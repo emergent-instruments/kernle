@@ -8,6 +8,7 @@ import pytest
 
 from kernle import Kernle
 from kernle.storage import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -21,6 +22,7 @@ def k(tmp_path):
     instance = Kernle(
         stack_id="test-export", storage=storage, checkpoint_dir=checkpoint_dir, strict=False
     )
+    bind_noop_model(instance)
     yield instance
     storage.close()
 

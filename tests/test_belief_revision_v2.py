@@ -15,6 +15,7 @@ import pytest
 from kernle import Kernle
 from kernle.storage import SQLiteStorage
 from kernle.types import Belief
+from tests.conftest import bind_noop_model
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -26,7 +27,9 @@ def k(tmp_path):
     """Create a Kernle instance for testing."""
     db_path = tmp_path / "test_revision_v2.db"
     storage = SQLiteStorage(stack_id="test-stack", db_path=db_path)
-    return Kernle(stack_id="test-stack", storage=storage, strict=False)
+    instance = Kernle(stack_id="test-stack", storage=storage, strict=False)
+    bind_noop_model(instance)
+    return instance
 
 
 @pytest.fixture

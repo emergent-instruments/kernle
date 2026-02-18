@@ -859,8 +859,7 @@ class TestPipelineGoldenInferenceOff:
             ), f"Identity-layer memory {memory_ref} should not exist without inference"
 
     def test_belief_to_value_always_blocked(self, entity_with_stack):
-        """belief_to_value should always be blocked without inference.
-        Values are in NO_OVERRIDE_TRANSITIONS — no force can bypass."""
+        """belief_to_value should always be blocked without inference."""
         entity, stack = entity_with_stack
         raw_ids, results = self._run_pipeline_no_model(entity, stack)
 
@@ -872,10 +871,8 @@ class TestPipelineGoldenInferenceOff:
             assert (
                 "cannot promote to identity layer" in r.skip_reason.lower()
                 or "value creation requires inference" in r.skip_reason.lower()
-            ), (
-                f"Skip reason should mention value creation requires inference: "
-                f"'{r.skip_reason}'"
-            )
+                or "inference unavailable" in r.skip_reason.lower()
+            ), (f"Skip reason should mention inference requirement: " f"'{r.skip_reason}'")
 
 
 # =============================================================================

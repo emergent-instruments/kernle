@@ -8,6 +8,7 @@ import pytest
 
 from kernle import Kernle
 from kernle.storage import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -15,7 +16,9 @@ def kernle_instance(tmp_path):
     """Create a Kernle instance with SQLite storage."""
     db_path = tmp_path / "test_semantic.db"
     storage = SQLiteStorage(stack_id="test_agent", db_path=db_path)
-    return Kernle(stack_id="test_agent", storage=storage, strict=False)
+    k = Kernle(stack_id="test_agent", storage=storage, strict=False)
+    bind_noop_model(k)
+    return k
 
 
 @pytest.fixture
@@ -24,6 +27,7 @@ def kernle_with_beliefs(tmp_path):
     db_path = tmp_path / "test_semantic_beliefs.db"
     storage = SQLiteStorage(stack_id="test_agent", db_path=db_path)
     k = Kernle(stack_id="test_agent", storage=storage, strict=False)
+    bind_noop_model(k)
 
     # Add beliefs covering various contradiction scenarios
     k.belief("Testing is essential for code quality", confidence=0.9)

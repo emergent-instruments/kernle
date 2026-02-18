@@ -11,6 +11,7 @@ import pytest
 
 from kernle.core import Kernle
 from kernle.types import SourceType
+from tests.conftest import bind_noop_model
 
 # =========================================================================
 # ValidationMixin edge cases
@@ -200,7 +201,9 @@ class TestWritersEdgeCases:
     def _make_kernle(self):
         """Create a non-strict Kernle for testing."""
         tmp = tempfile.mkdtemp()
-        return Kernle(stack_id="test-writers", checkpoint_dir=Path(tmp) / "cp", strict=False)
+        k = Kernle(stack_id="test-writers", checkpoint_dir=Path(tmp) / "cp", strict=False)
+        bind_noop_model(k)
+        return k
 
     def test_episode_with_repeat_and_avoid(self):
         """Episode correctly validates repeat and avoid params."""

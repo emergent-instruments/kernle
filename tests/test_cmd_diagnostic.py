@@ -21,6 +21,7 @@ from kernle.cli.commands.diagnostic import (
     cmd_temporal,
 )
 from kernle.storage import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -36,6 +37,7 @@ def k(tmp_path):
         strict=False,
         checkpoint_dir=tmp_path / "checkpoints",
     )
+    bind_noop_model(inst)
     yield inst
     storage.close()
 

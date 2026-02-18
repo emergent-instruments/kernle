@@ -15,6 +15,7 @@ import pytest
 from kernle import Kernle
 from kernle.storage import SQLiteStorage
 from kernle.types import Belief, SearchResult
+from tests.conftest import bind_noop_model
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -26,7 +27,9 @@ def k_inference(tmp_path):
     """Kernle without a bound model (safe defaults path)."""
     db_path = tmp_path / "test_contradiction_inference.db"
     storage = SQLiteStorage(stack_id="test-stack", db_path=db_path)
-    return Kernle(stack_id="test-stack", storage=storage, strict=False)
+    k = Kernle(stack_id="test-stack", storage=storage, strict=False)
+    bind_noop_model(k)
+    return k
 
 
 def _make_search_result(belief_id, statement, score=0.8, confidence=0.8):

@@ -19,6 +19,7 @@ import pytest
 
 from kernle import Kernle
 from kernle.mcp.server import call_tool
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -37,6 +38,7 @@ def real_kernle(temp_db):
 
     try:
         k = Kernle(stack_id="test-mcp-integration", strict=False)
+        bind_noop_model(k)
         yield k
     finally:
         if old_home:

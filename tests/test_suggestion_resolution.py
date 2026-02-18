@@ -14,6 +14,7 @@ import pytest
 from kernle import Kernle
 from kernle.storage.sqlite import SQLiteStorage
 from kernle.types import MemorySuggestion
+from tests.conftest import bind_noop_model
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -34,6 +35,7 @@ def kernle_instance(tmp_path):
     db_path = tmp_path / "test.db"
     s = SQLiteStorage(stack_id="test-stack", db_path=db_path)
     k = Kernle("test-stack", storage=s, strict=False)
+    bind_noop_model(k)
     return k
 
 

@@ -17,6 +17,7 @@ from kernle.types import (
     SUGGESTION_MEMORY_TYPES,
     MemorySuggestion,
 )
+from tests.conftest import bind_noop_model
 
 
 def _uid() -> str:
@@ -217,7 +218,9 @@ class TestSuggestionsMixinTypeResolution:
     def kernle_instance(self, tmp_path):
         db_path = tmp_path / "mixin_test.db"
         storage = SQLiteStorage("mixin-test", db_path=db_path)
-        return Kernle("mixin-test", storage=storage, strict=False)
+        k = Kernle("mixin-test", storage=storage, strict=False)
+        bind_noop_model(k)
+        return k
 
     def _save_and_promote(self, k, memory_type, content):
         """Helper: save a suggestion and promote it via the Kernle compat layer."""

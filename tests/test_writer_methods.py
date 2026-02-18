@@ -33,6 +33,7 @@ from kernle.core import Kernle
 from kernle.core.writers import WritersMixin
 from kernle.storage import Drive
 from kernle.types import SourceType
+from tests.conftest import bind_noop_model
 
 # =========================================================================
 # Helpers
@@ -65,6 +66,10 @@ def mocked_kernle():
             checkpoint_dir=Path(tmp) / "cp",
             strict=False,
         )
+
+        # Bind noop model BEFORE replacing storage — this caches
+        # the SQLiteStack (with _inference set) so _require_inference passes.
+        bind_noop_model(k)
 
         mock_storage = MagicMock()
         mock_storage.get_stack_setting.return_value = None

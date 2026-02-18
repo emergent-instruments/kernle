@@ -13,6 +13,7 @@ import pytest
 from kernle.core import Kernle
 from kernle.storage import RawEntry
 from kernle.storage.sqlite import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -38,7 +39,9 @@ def storage(temp_db):
 def kernle(temp_db):
     """Create a Kernle instance for testing."""
     storage = SQLiteStorage(stack_id="test_agent", db_path=temp_db)
-    return Kernle(stack_id="test_agent", storage=storage, strict=False)
+    k = Kernle(stack_id="test_agent", storage=storage, strict=False)
+    bind_noop_model(k)
+    return k
 
 
 class TestRawEntryDataclass:

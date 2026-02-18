@@ -19,6 +19,7 @@ from kernle.storage import (
     SQLiteStorage,
     Value,
 )
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -54,6 +55,7 @@ def kernle_instance(temp_db, temp_checkpoint_dir):
         checkpoint_dir=temp_checkpoint_dir,
         strict=False,
     )
+    bind_noop_model(kernle)
     yield kernle, storage
     storage.close()
 

@@ -13,6 +13,7 @@ from kernle.core import Kernle
 from kernle.stack import SQLiteStack
 from kernle.storage.sqlite import SQLiteStorage
 from kernle.types import Value
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -22,12 +23,14 @@ def k(tmp_path):
     checkpoint_dir = tmp_path / "checkpoints"
     checkpoint_dir.mkdir()
     storage = SQLiteStorage(stack_id="test-delegation", db_path=db_path)
-    return Kernle(
+    inst = Kernle(
         stack_id="test-delegation",
         storage=storage,
         checkpoint_dir=checkpoint_dir,
         strict=False,
     )
+    bind_noop_model(inst)
+    return inst
 
 
 @pytest.fixture

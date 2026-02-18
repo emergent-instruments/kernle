@@ -45,6 +45,7 @@ from kernle.cli.commands.migrate import (
     cmd_migrate,
 )
 from kernle.storage import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 # ============================================================================
 # Fixtures
@@ -56,6 +57,7 @@ def k(tmp_path):
     """Create a Kernle instance with temp storage."""
     storage = SQLiteStorage(stack_id="test-import", db_path=tmp_path / "import.db")
     inst = Kernle(stack_id="test-import", storage=storage, strict=False)
+    bind_noop_model(inst)
     yield inst
     storage.close()
 
@@ -65,6 +67,7 @@ def k2(tmp_path):
     """Create a second Kernle instance (for round-trip import tests)."""
     storage = SQLiteStorage(stack_id="test-import-2", db_path=tmp_path / "import2.db")
     inst = Kernle(stack_id="test-import-2", storage=storage, strict=False)
+    bind_noop_model(inst)
     yield inst
     storage.close()
 

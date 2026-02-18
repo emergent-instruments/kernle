@@ -270,30 +270,6 @@ IDENTITY_LAYER_TRANSITIONS = frozenset(
     }
 )
 
-# Transitions that are always blocked without inference — no override possible.
-# Values are the highest identity layer; malformed values corrupt the entity.
-NO_OVERRIDE_TRANSITIONS = frozenset(
-    {
-        "belief_to_value",
-    }
-)
-
-# Transitions that can be overridden without inference if strict conditions are met.
-# Beliefs require: force=True, explicit override flag, high confidence, evidence count.
-OVERRIDE_TRANSITIONS = frozenset(
-    {
-        "episode_to_belief",
-        "episode_to_goal",
-        "episode_to_relationship",
-        "episode_to_drive",
-    }
-)
-
-# Minimum evidence count required for no-inference belief override
-NO_INFERENCE_MIN_EVIDENCE = 3
-# Minimum confidence required for no-inference belief override
-NO_INFERENCE_MIN_CONFIDENCE = 0.9
-
 
 # =============================================================================
 # Prompts
@@ -573,9 +549,9 @@ class MemoryProcessor:
     Owned by Entity. Uses InferenceService to run layer-specific
     processing sessions that promote memories up the hierarchy.
 
-    Safety: When inference_available=False, identity-layer transitions
-    are blocked. Values cannot be created. Beliefs and other identity
-    layers require explicit override with evidence requirements.
+    Safety: When inference_available=False, all transitions are blocked.
+    No overrides are permitted — a bound inference model is required
+    to process memories.
     """
 
     def __init__(
@@ -675,9 +651,8 @@ class MemoryProcessor:
         Args:
             transition: Specific transition to process (None = check all)
             force: Process even if triggers aren't met
-            allow_no_inference_override: Allow identity-layer writes without
-                inference (except values). Requires force=True and only works
-                for transitions in OVERRIDE_TRANSITIONS.
+            allow_no_inference_override: Kept for backward compatibility; no longer
+                has any effect. All transitions now require inference.
             auto_promote: If True, directly write memories. If False (default),
                 create suggestions for review. None uses instance default.
             batch_size: Override the per-transition batch size (None = use config).
@@ -733,53 +708,14 @@ class MemoryProcessor:
         if self._inference_available:
             return None
 
-        if transition not in IDENTITY_LAYER_TRANSITIONS:
-            # Non-identity transitions (raw_to_episode, raw_to_note) require
-            # inference to generate output. Block them at the policy level
-            # with a clear message so callers (e.g. exhaust runner) can
-            # detect inference-blocked state cleanly.
-            return ProcessingResult(
-                layer_transition=transition,
-                source_count=0,
-                skipped=True,
-                skip_reason=(
-                    "Blocked: inference unavailable. " "Bind a model to process raw entries."
-                ),
-                inference_blocked=True,
-            )
-
-        # Values are never allowed without inference
-        if transition in NO_OVERRIDE_TRANSITIONS:
-            return ProcessingResult(
-                layer_transition=transition,
-                source_count=0,
-                skipped=True,
-                skip_reason=(
-                    "Blocked: inference unavailable. "
-                    "Value creation requires inference — "
-                    "cannot promote to identity layer without model."
-                ),
-                inference_blocked=True,
-            )
-
-        # Other identity-layer transitions can be overridden with explicit opt-in
-        if transition in OVERRIDE_TRANSITIONS:
-            if not (force and allow_override):
-                return ProcessingResult(
-                    layer_transition=transition,
-                    source_count=0,
-                    skipped=True,
-                    skip_reason=(
-                        "Blocked: inference unavailable. "
-                        "Use force=True with allow_no_inference_override=True "
-                        "to override for this transition."
-                    ),
-                    inference_blocked=True,
-                )
-            # Override allowed — log warning and proceed
-            logger.warning("Processing %s without inference (override enabled)", transition)
-
-        return None
+        # All transitions require inference — no overrides
+        return ProcessingResult(
+            layer_transition=transition,
+            source_count=0,
+            skipped=True,
+            skip_reason=("Blocked: inference unavailable. " "Bind a model to process memories."),
+            inference_blocked=True,
+        )
 
     def _get_inference_model_id(self) -> Optional[str]:
         model_id = getattr(self._inference, "model_id", None)
@@ -864,32 +800,6 @@ class MemoryProcessor:
                 f"Blocked: max_sessions_per_day reached for '{transition}' "
                 f"({sessions_today}/{max_sessions} for today)."
             )
-        return None
-
-    def _no_inference_override_reason(self, transition: str, sources: list) -> Optional[str]:
-        if transition not in OVERRIDE_TRANSITIONS:
-            return None
-
-        if len(sources) < NO_INFERENCE_MIN_EVIDENCE:
-            return (
-                f"Blocked: no-inference override requires at least "
-                f"{NO_INFERENCE_MIN_EVIDENCE} source memories for {transition}."
-            )
-
-        min_confidence = None
-        for source in sources:
-            confidence = _as_float(getattr(source, "confidence", None), default=1.0)
-            if min_confidence is None or confidence < min_confidence:
-                min_confidence = confidence
-
-        if min_confidence is None or min_confidence < NO_INFERENCE_MIN_CONFIDENCE:
-            current = 0.0 if min_confidence is None else min_confidence
-            return (
-                f"Blocked: no-inference override for {transition} requires minimum "
-                f"confidence {NO_INFERENCE_MIN_CONFIDENCE:.2f}; minimum observed is "
-                f"{current:.2f}."
-            )
-
         return None
 
     def _check_promotion_gate(self, transition: str, item: dict) -> PromotionGateResult:
@@ -1013,27 +923,6 @@ class MemoryProcessor:
             )
 
         # 2. Load context (existing memories for dedup)
-        if not self._inference_available and transition in OVERRIDE_TRANSITIONS:
-            override_reason = self._no_inference_override_reason(transition, sources)
-            if override_reason is not None:
-                return ProcessingResult(
-                    layer_transition=transition,
-                    source_count=len(sources),
-                    skipped=True,
-                    skip_reason=override_reason,
-                    inference_blocked=True,
-                )
-
-            return ProcessingResult(
-                layer_transition=transition,
-                source_count=len(sources),
-                skipped=True,
-                skip_reason=(
-                    "Blocked: no inference available for identity-layer override transitions."
-                ),
-                inference_blocked=True,
-            )
-
         context = self._gather_context(transition)
 
         # 3. Build prompt

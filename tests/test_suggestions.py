@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 from kernle import Kernle
 from kernle.storage import MemorySuggestion, RawEntry
+from tests.conftest import bind_noop_model
 
 
 class TestSuggestionExtraction:
@@ -317,6 +318,7 @@ class TestPromotionWorkflow:
 
         storage = SQLiteStorage("test-agent", db_path=tmp_path / "test.db")
         k = Kernle("test-agent", storage=storage, strict=False)
+        bind_noop_model(k)
 
         suggestion = MemorySuggestion(
             id="sug-modify",
@@ -486,6 +488,7 @@ class TestPromotionWorkflow:
 
         storage = SQLiteStorage("test-agent", db_path=tmp_path / "test.db")
         k = Kernle("test-agent", storage=storage, strict=False)
+        bind_noop_model(k)
 
         raw_id = storage.save_raw("raw content", source="test")
         suggestion = MemorySuggestion(

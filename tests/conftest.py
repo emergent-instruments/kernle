@@ -13,6 +13,36 @@ from kernle.core import Kernle
 from kernle.storage import Belief, Drive, Episode, Goal, Note, SQLiteStorage, Value
 
 
+class NoopModel:
+    """Satisfies inference requirement without doing anything.
+
+    Used in tests so that higher-tier writer methods (belief, value, goal,
+    drive, relationship) don't raise InferenceRequiredError.
+    """
+
+    model_id = "noop-test-model"
+
+    def generate(self, prompt, **kwargs):
+        return ""
+
+
+def bind_noop_model(k: Kernle) -> None:
+    """Bind a no-op model to a Kernle instance for testing.
+
+    This satisfies the inference gate on higher-tier writers without
+    requiring actual inference capability.
+    """
+    from kernle.stack.sqlite_stack import SQLiteStack
+
+    stack = k.stack
+    if stack is not None and isinstance(stack, SQLiteStack):
+        from kernle.inference import create_inference_service
+
+        model = NoopModel()
+        inference = create_inference_service(model)
+        stack.on_model_changed(inference)
+
+
 @pytest.fixture
 def temp_checkpoint_dir(tmp_path):
     """Temporary directory for checkpoint files."""
@@ -69,6 +99,7 @@ def kernle_instance(temp_checkpoint_dir, temp_db_path):
     kernle = Kernle(
         stack_id="test_agent", storage=storage, checkpoint_dir=temp_checkpoint_dir, strict=False
     )
+    bind_noop_model(kernle)
 
     yield kernle, storage
     storage.close()
