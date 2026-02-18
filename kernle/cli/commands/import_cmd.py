@@ -546,6 +546,7 @@ def _import_json(
                 description=import_item["description"],
                 priority=import_item["priority"],
                 derived_from=import_derived_from,
+                source_type="imported",
             )
             imported["value"] = imported.get("value", 0) + 1
             if skip_duplicates:
@@ -584,6 +585,7 @@ def _import_json(
                 type=import_item["belief_type"],
                 confidence=import_item["confidence"],
                 derived_from=import_derived_from,
+                source_type="imported",
             )
             imported["belief"] = imported.get("belief", 0) + 1
             if skip_duplicates:
@@ -621,6 +623,7 @@ def _import_json(
                 priority=import_item["priority"],
                 status=import_item["status"],
                 derived_from=import_derived_from,
+                source_type="imported",
             )
             imported["goal"] = imported.get("goal", 0) + 1
             if skip_duplicates:
@@ -730,6 +733,7 @@ def _import_json(
                 intensity=import_item["intensity"],
                 focus_areas=import_item["focus_areas"],
                 derived_from=import_derived_from,
+                source_type="imported",
             )
             imported["drive"] = imported.get("drive", 0) + 1
             if skip_duplicates:
@@ -772,6 +776,7 @@ def _import_json(
                 sentiment=import_item["sentiment"],
                 notes=import_item["notes"],
                 derived_from=import_derived_from,
+                source_type="imported",
             )
             imported["relationship"] = imported.get("relationship", 0) + 1
             if skip_duplicates:
@@ -1537,6 +1542,7 @@ def _import_item(
             confidence=item.get("confidence", 0.7),
             type=item.get("belief_type", "fact"),
             derived_from=merged_derived_from,
+            source_type="imported",
         )
     elif t == "value":
         k.value(
@@ -1544,6 +1550,7 @@ def _import_item(
             description=item.get("description", item["name"]),
             priority=item.get("priority", 50),
             derived_from=merged_derived_from,
+            source_type="imported",
         )
     elif t == "goal":
         goal_title = item.get("title") or item.get("description") or ""
@@ -1553,6 +1560,7 @@ def _import_item(
             status=item.get("status", "active"),
             priority=item.get("priority", "medium"),
             derived_from=merged_derived_from,
+            source_type="imported",
         )
     elif t == "raw":
         k.raw(blob=item["content"], source=item.get("source", "import"))

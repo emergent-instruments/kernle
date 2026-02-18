@@ -462,14 +462,22 @@ def _import_item(item: ImportItem, k: "Kernle") -> Optional[str]:
     elif t == "note":
         return k.note(content=item.content, type=item.note_type)
     elif t == "belief":
-        return k.belief(statement=item.statement, confidence=item.confidence)
+        return k.belief(
+            statement=item.statement, confidence=item.confidence, source_type="imported"
+        )
     elif t == "value":
-        return k.value(name=item.name, statement=item.description, priority=item.priority)
+        return k.value(
+            name=item.name,
+            statement=item.description,
+            priority=item.priority,
+            source_type="imported",
+        )
     elif t == "goal":
         return k.goal(
             title=item.description,
             description=item.description,
             priority=item.metadata.get("priority", "medium"),
+            source_type="imported",
         )
     elif t == "raw":
         return k.raw(item.content)

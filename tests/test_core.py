@@ -231,7 +231,6 @@ class TestProcessDelegation:
         result = kernle.process(
             transition="raw_to_episode",
             force=True,
-            allow_no_inference_override=True,
             auto_promote=True,
             batch_size=64,
         )
@@ -240,7 +239,6 @@ class TestProcessDelegation:
         ent.process.assert_called_once_with(
             transition="raw_to_episode",
             force=True,
-            allow_no_inference_override=True,
             auto_promote=True,
             batch_size=64,
         )

@@ -1258,18 +1258,15 @@ class Entity:
         promoting memories. Set auto_promote=True to directly write memories
         (opt-in only).
 
-        When no model is bound (inference unavailable), identity-layer
-        transitions are blocked by the no-inference safety policy.
-        Values can never be created without inference. Other identity
-        layers require explicit override with force=True and
-        allow_no_inference_override=True.
+        All transitions require a bound inference model (v0.14.01 #867).
+        Without one, processing is blocked.
 
         Args:
             transition: Specific layer transition to process (None = check all)
             force: Process even if triggers aren't met
             strict: Raise on configuration load/parse errors instead of using defaults.
-            allow_no_inference_override: Allow identity-layer writes without
-                inference (except values). Only effective with force=True.
+            allow_no_inference_override: Deprecated — no longer has any effect.
+                All transitions now require inference.
             auto_promote: If True, directly write memories. If False (default),
                 create suggestions for review.
             batch_size: Override the per-transition batch size (None = use config).
@@ -1350,7 +1347,6 @@ class Entity:
         return processor.process(
             transition,
             force=force,
-            allow_no_inference_override=allow_no_inference_override,
             auto_promote=auto_promote,
             batch_size=batch_size,
         )

@@ -321,6 +321,7 @@ def _import_json_item(
             statement=statement,
             type=data.get("type", "fact"),
             confidence=confidence,
+            source_type="imported",
         )
         return True
 
@@ -362,6 +363,7 @@ def _import_json_item(
             name=name,
             statement=data.get("statement", data.get("description", name)),
             priority=priority,
+            source_type="imported",
         )
         return True
 
@@ -377,6 +379,7 @@ def _import_json_item(
             title=data.get("title") or description,
             description=description,
             priority=data.get("priority", "medium"),
+            source_type="imported",
         )
         return True
 
@@ -409,6 +412,7 @@ def _import_json_item(
             drive_type=drive_type,
             intensity=intensity,
             focus_areas=data.get("focus_areas"),
+            source_type="imported",
         )
         return True
 
@@ -449,6 +453,7 @@ def _import_json_item(
             interaction_type=data.get("relationship_type", "knows"),
             trust_level=trust_level,
             notes=data.get("notes"),
+            source_type="imported",
         )
         return True
 

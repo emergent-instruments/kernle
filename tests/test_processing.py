@@ -2105,16 +2105,14 @@ class TestNoInferenceSafetyGating:
             inference_available=True,
         )
         for transition in VALID_TRANSITIONS:
-            result = processor._check_inference_safety(transition, force=True, allow_override=True)
+            result = processor._check_inference_safety(transition)
             assert result is None, f"{transition} should not be blocked when inference available"
 
     def test_no_inference_blocks_belief_to_value(self):
         """belief_to_value is blocked without inference."""
         mock_stack = _make_mock_stack()
         processor, _ = _make_no_inference_processor(mock_stack)
-        result = processor._check_inference_safety(
-            "belief_to_value", force=True, allow_override=True
-        )
+        result = processor._check_inference_safety("belief_to_value")
         assert result is not None
         assert result.inference_blocked
         assert result.skipped
@@ -2125,9 +2123,7 @@ class TestNoInferenceSafetyGating:
         mock_stack = _make_mock_stack()
         processor, _ = _make_no_inference_processor(mock_stack)
         for transition in IDENTITY_LAYER_TRANSITIONS:
-            result = processor._check_inference_safety(
-                transition, force=False, allow_override=False
-            )
+            result = processor._check_inference_safety(transition)
             assert result is not None, f"{transition} should be blocked"
             assert result.inference_blocked
             assert result.skipped
@@ -2137,7 +2133,7 @@ class TestNoInferenceSafetyGating:
         mock_stack = _make_mock_stack()
         processor, _ = _make_no_inference_processor(mock_stack)
         for transition in IDENTITY_LAYER_TRANSITIONS:
-            result = processor._check_inference_safety(transition, force=True, allow_override=True)
+            result = processor._check_inference_safety(transition)
             assert result is not None, f"{transition} should be blocked even with force"
             assert result.inference_blocked
 
@@ -2146,9 +2142,7 @@ class TestNoInferenceSafetyGating:
         mock_stack = _make_mock_stack()
         processor, _ = _make_no_inference_processor(mock_stack)
         for transition in ("raw_to_episode", "raw_to_note"):
-            result = processor._check_inference_safety(
-                transition, force=False, allow_override=False
-            )
+            result = processor._check_inference_safety(transition)
             assert result is not None, f"{transition} should be blocked"
             assert result.inference_blocked is True
             assert result.skipped is True

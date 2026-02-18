@@ -231,7 +231,6 @@ class Kernle(
         return self.entity.process(
             transition=transition,
             force=force,
-            allow_no_inference_override=allow_no_inference_override,
             auto_promote=auto_promote,
             batch_size=batch_size,
         )

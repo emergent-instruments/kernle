@@ -31,9 +31,6 @@ def validate_memory_process(arguments: Dict[str, Any]) -> Dict[str, Any]:
     sanitized["force"] = arguments.get("force", False)
     if not isinstance(sanitized["force"], bool):
         sanitized["force"] = False
-    sanitized["allow_no_inference_override"] = arguments.get("allow_no_inference_override", False)
-    if not isinstance(sanitized["allow_no_inference_override"], bool):
-        sanitized["allow_no_inference_override"] = False
     sanitized["auto_promote"] = arguments.get("auto_promote", False)
     if not isinstance(sanitized["auto_promote"], bool):
         sanitized["auto_promote"] = False
@@ -73,13 +70,11 @@ def validate_memory_process_exhaust(arguments: Dict[str, Any]) -> Dict[str, Any]
 def handle_memory_process(args: Dict[str, Any], k: Kernle) -> str:
     transition = args.get("transition")
     force = args.get("force", False)
-    allow_no_inference_override = args.get("allow_no_inference_override", False)
     auto_promote = args.get("auto_promote", False)
     try:
         results = k.process(
             transition=transition,
             force=force,
-            allow_no_inference_override=allow_no_inference_override,
             auto_promote=auto_promote,
         )
     except RuntimeError:

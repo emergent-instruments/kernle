@@ -777,11 +777,6 @@ TOOLS = [
                     "description": "Process even if trigger thresholds aren't met (default: false)",
                     "default": False,
                 },
-                "allow_no_inference_override": {
-                    "type": "boolean",
-                    "description": "Allow identity-layer writes without inference (except values, which are always blocked). Requires force=true. Use with caution.",
-                    "default": False,
-                },
                 "auto_promote": {
                     "type": "boolean",
                     "description": "Directly promote memories instead of creating suggestions for review (default: false). Use with caution -- auto-promotion bypasses human review.",

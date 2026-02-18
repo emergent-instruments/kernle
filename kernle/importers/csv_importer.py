@@ -596,6 +596,7 @@ def _import_csv_item(item: CsvImportItem, k: "Kernle", skip_duplicates: bool = T
             statement=statement,
             type=belief_type,
             confidence=data.get("confidence", 0.8),
+            source_type="imported",
         )
         return True
 
@@ -614,6 +615,7 @@ def _import_csv_item(item: CsvImportItem, k: "Kernle", skip_duplicates: bool = T
             name=name,
             statement=data.get("description", name),
             priority=data.get("priority", 50),
+            source_type="imported",
         )
         return True
 
@@ -642,6 +644,7 @@ def _import_csv_item(item: CsvImportItem, k: "Kernle", skip_duplicates: bool = T
             title=title or description,
             description=description,
             priority=data.get("priority", "medium"),
+            source_type="imported",
         )
 
         # goal() always creates with status="active"; update if needed

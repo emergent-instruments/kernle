@@ -675,7 +675,7 @@ class MemoryProcessor:
                 continue
 
             # Inference safety gate — checked even when force=True
-            blocked = self._check_inference_safety(t, force, allow_no_inference_override)
+            blocked = self._check_inference_safety(t)
             if blocked is not None:
                 results.append(blocked)
                 continue
@@ -697,8 +697,6 @@ class MemoryProcessor:
     def _check_inference_safety(
         self,
         transition: str,
-        force: bool,
-        allow_override: bool,
     ) -> Optional[ProcessingResult]:
         """Check if a transition is blocked by no-inference safety policy.
 

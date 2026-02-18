@@ -53,6 +53,7 @@ class TestSourceTypeEnum:
             "processing",
             "seed",
             "observation",
+            "imported",
             "unknown",
         }
         actual = {st.value for st in SourceType}

@@ -376,15 +376,14 @@ class WritersMixin:
         By default, creates suggestions for review rather than directly
         promoting memories. Set auto_promote=True to directly write memories.
 
-        When no model is bound, identity-layer transitions are blocked
-        by the no-inference safety policy. Values can never be created
-        without inference.
+        All transitions require a bound inference model (v0.14.01 #867).
+        Without one, processing is blocked.
 
         Args:
             transition: Specific layer transition to process (None = check all)
             force: Process even if triggers aren't met
-            allow_no_inference_override: Allow identity-layer writes without
-                inference (except values). Only effective with force=True.
+            allow_no_inference_override: Deprecated — no longer has any effect.
+                All transitions now require inference.
             auto_promote: If True, directly write memories. If False (default),
                 create suggestions for review.
             batch_size: Override the per-transition batch size (None = use config).
@@ -403,7 +402,6 @@ class WritersMixin:
         return entity.process(
             transition=transition,
             force=force,
-            allow_no_inference_override=allow_no_inference_override,
             auto_promote=auto_promote,
             batch_size=batch_size,
         )
@@ -688,7 +686,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if source_type != "imported":
+        if source_type not in ("imported", SourceType.IMPORTED):
             self._require_inference("belief")
         confidence = clamp_confidence(confidence)
         belief_id = str(uuid.uuid4())
@@ -736,7 +734,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if source_type != "imported":
+        if source_type not in ("imported", SourceType.IMPORTED):
             self._require_inference("value")
         value_id = str(uuid.uuid4())
 
@@ -783,7 +781,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if source_type != "imported":
+        if source_type not in ("imported", SourceType.IMPORTED):
             self._require_inference("goal")
         validate_goal_type(goal_type)
 
@@ -884,7 +882,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if source_type != "imported":
+        if source_type not in ("imported", SourceType.IMPORTED):
             self._require_inference("drive")
         validate_drive_type(drive_type)
 
@@ -974,7 +972,7 @@ class WritersMixin:
             source_type: How this memory was acquired (default: direct_experience)
             source_entity: Who/what created this memory
         """
-        if source_type != "imported":
+        if source_type not in ("imported", SourceType.IMPORTED):
             self._require_inference("relationship")
         resolved = self._normalize_source_type(source_type)
 

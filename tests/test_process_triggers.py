@@ -46,7 +46,6 @@ class TestKernleProcess:
         mock_entity.process.assert_called_once_with(
             transition="raw_to_episode",
             force=True,
-            allow_no_inference_override=False,
             auto_promote=False,
             batch_size=None,
         )
@@ -64,7 +63,6 @@ class TestKernleProcess:
         mock_entity.process.assert_called_once_with(
             transition=None,
             force=False,
-            allow_no_inference_override=False,
             auto_promote=False,
             batch_size=None,
         )

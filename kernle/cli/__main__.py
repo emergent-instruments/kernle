@@ -1114,11 +1114,6 @@ def main():
         "--force", "-f", action="store_true", help="Process even if thresholds aren't met"
     )
     process_run.add_argument(
-        "--allow-no-inference-override",
-        action="store_true",
-        help="Allow identity-layer writes without inference (except values). Requires --force.",
-    )
-    process_run.add_argument(
         "--auto-promote",
         action="store_true",
         help="Directly promote memories instead of creating suggestions for review",

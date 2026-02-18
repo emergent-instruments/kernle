@@ -34,23 +34,16 @@ belief_to_value       → Derive values from belief clusters (identity layer)
 episode_to_drive      → Derive drives from episode patterns (identity layer)
 ```
 
-All transitions require a bound model by default. Without one, processing is blocked.
-
-**Identity-layer transitions** (`episode_to_belief`, `episode_to_goal`, `episode_to_relationship`, `episode_to_drive`, `belief_to_value`) have additional safety rules:
-
-- `belief_to_value` is **never** overridable — values sit at the top of the identity layer, so malformed values are costly to fix.
-- The other four identity transitions can be overridden with `force=True` and `allow_no_inference_override=True`. Even with overrides, the transition's configured safety gates (minimum confidence, minimum evidence count) still apply.
-- Without those overrides, they are blocked like any other transition.
+All transitions require a bound model (v0.14.01). Without one, processing is blocked with `InferenceRequiredError`. No override path exists — the `force` flag only bypasses quantity thresholds, not the inference requirement.
 
 ## Processing Modes
 
-The `process()` function accepts three parameters that control behavior:
+The `process()` function accepts two parameters that control behavior:
 
 | Parameter | Default | Effect |
 |-----------|---------|--------|
 | `auto_promote` | `False` | When `True`, writes memories directly. When `False`, creates suggestions for SI review. |
-| `force` | `False` | When `True`, processes even if quantity thresholds aren't met. |
-| `allow_no_inference_override` | `False` | When `True` (requires `force=True`), allows identity-layer writes without inference for transitions that support it. `belief_to_value` is never overridable. |
+| `force` | `False` | When `True`, processes even if quantity thresholds aren't met. Does not bypass the inference requirement (v0.14.01). |
 
 ## Pipeline Diagram
 
