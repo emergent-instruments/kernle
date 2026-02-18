@@ -40,7 +40,7 @@ The MCP server detects sampling support at the first tool call and binds it tran
 INFO: Bound MCP sampling model (via host agent)
 ```
 
-If the client doesn't support sampling, Kernle operates in capture-only mode — memory operations (episodes, notes, beliefs) still work, but inference-dependent features like emotion detection and contradiction finding are skipped.
+If the client doesn't support sampling, Kernle operates in capture-only mode — capture-tier operations (episodes, notes, raw) still work, but identity-tier operations (beliefs, values, goals, drives, relationships) raise `InferenceRequiredError`, and inference-dependent features like emotion detection and contradiction finding are skipped.
 
 ## Library Embedding (CallableModelAdapter)
 
@@ -77,15 +77,21 @@ USER: follow-up
 
 This is intentionally simple. If you need full message-structure fidelity (tool calls, structured content), implement `ModelProtocol` directly instead.
 
-## No Model? No Problem
+## No Model? Capture Still Works
 
-Kernle works without a model. Memory capture (`raw()`, `episode()`, `note()`, `belief()`) always works. Inference-dependent features return safe defaults:
+Kernle operates in two tiers when no model is bound:
+
+- **Capture tier** — `raw()`, `episode()`, `note()` always work without a model
+- **Identity tier** — `belief()`, `value()`, `goal()`, `drive()`, `relationship()` require a bound inference model and raise `InferenceRequiredError` without one
+
+Inference-dependent features return safe defaults:
 
 | Feature | Without Model |
 |---------|--------------|
 | `raw()` | Works normally |
 | `episode()` | Works normally |
-| `note()`, `belief()`, `value()` | Works normally |
+| `note()` | Works normally |
+| `belief()`, `value()`, `goal()`, `drive()`, `relationship()` | Raises `InferenceRequiredError` |
 | Emotion detection | Returns neutral (valence=0, arousal=0) |
 | Contradiction detection | Returns empty list |
 | Suggestion extraction | Returns empty list |
