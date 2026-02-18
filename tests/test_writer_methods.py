@@ -1075,38 +1075,6 @@ class TestProcessRawBlobUsage:
         saved_note = mock_wb.save_note.call_args[0][0]
         assert "Legacy content value" in saved_note.content
 
-    def test_process_raw_belief_uses_blob(self, mocked_kernle):
-        """When a raw entry has blob set, process_raw should use blob as belief statement."""
-        k, mock_wb, mock_storage = mocked_kernle
-
-        raw_entry = MagicMock()
-        raw_entry.blob = "Testing always improves quality"
-        raw_entry.content = "Old content"
-        raw_entry.processed = False
-        raw_entry.tags = []
-        mock_storage.get_raw.return_value = raw_entry
-
-        k.process_raw(raw_id="raw-123", as_type="belief")
-
-        saved_belief = mock_wb.save_belief.call_args[0][0]
-        assert saved_belief.statement == "Testing always improves quality"
-
-    def test_process_raw_belief_falls_back_to_content(self, mocked_kernle):
-        """When blob is None, process_raw should fall back to content for beliefs."""
-        k, mock_wb, mock_storage = mocked_kernle
-
-        raw_entry = MagicMock()
-        raw_entry.blob = None
-        raw_entry.content = "Legacy belief statement"
-        raw_entry.processed = False
-        raw_entry.tags = []
-        mock_storage.get_raw.return_value = raw_entry
-
-        k.process_raw(raw_id="raw-123", as_type="belief")
-
-        saved_belief = mock_wb.save_belief.call_args[0][0]
-        assert saved_belief.statement == "Legacy belief statement"
-
     def test_process_raw_episode_uses_blob(self, mocked_kernle):
         """Episode path should already use blob - verify it works correctly."""
         k, mock_wb, mock_storage = mocked_kernle

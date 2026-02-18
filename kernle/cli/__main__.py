@@ -1265,7 +1265,7 @@ def main():
         "--type",
         "-t",
         required=True,
-        choices=["episode", "note", "belief"],
+        choices=["episode", "note"],
         help="Target memory type",
     )
     raw_process.add_argument("--objective", help="Episode objective (for episodes)")
@@ -1304,7 +1304,7 @@ def main():
         "--type",
         "-t",
         required=True,
-        choices=["episode", "note", "belief"],
+        choices=["episode", "note"],
         help="Target memory type",
     )
     raw_promote.add_argument("--objective", help="Episode objective (for episodes)")

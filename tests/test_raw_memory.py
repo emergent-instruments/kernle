@@ -255,16 +255,12 @@ class TestKernleRaw:
         assert entry["processed"] is True
         assert f"episode:{episode_id}" in entry["processed_into"]
 
-    def test_process_raw_to_belief(self, kernle):
-        """Test process_raw converts to belief."""
+    def test_process_raw_to_belief_raises_error(self, kernle):
+        """process_raw rejects belief as target type."""
         raw_id = kernle.raw("Testing is essential for quality software")
 
-        belief_id = kernle.process_raw(raw_id, "belief", confidence=0.9)
-
-        assert belief_id is not None
-
-        entry = kernle.get_raw(raw_id)
-        assert entry["processed"] is True
+        with pytest.raises(ValueError, match="Must be one of: episode, note"):
+            kernle.process_raw(raw_id, "belief")
 
     def test_process_raw_not_found(self, kernle):
         """Test process_raw raises for non-existent entry."""

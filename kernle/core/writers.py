@@ -402,7 +402,7 @@ class WritersMixin:
 
         Args:
             raw_id: ID of the raw entry to process
-            as_type: Type to convert to (episode, note, belief)
+            as_type: Type to convert to (episode, note)
             **kwargs: Additional arguments for the target type
 
         Returns:
@@ -463,22 +463,8 @@ class WritersMixin:
             )
             memory_ref = f"note:{memory_id}"
 
-        elif as_type == "belief":
-            content = entry.blob or entry.content or ""
-            confidence = kwargs.get("confidence", 0.7)
-            belief_type = kwargs.get("type", "observation")
-
-            memory_id = self.belief(
-                statement=content,
-                type=belief_type,
-                confidence=confidence,
-                source="raw-processing",
-                derived_from=[raw_ref],
-            )
-            memory_ref = f"belief:{memory_id}"
-
         else:
-            raise ValueError(f"Invalid as_type: {as_type}. Must be one of: episode, note, belief")
+            raise ValueError(f"Invalid as_type: {as_type}. Must be one of: episode, note")
 
         # Mark the raw entry as processed
         self._storage.mark_raw_processed(raw_id, [memory_ref])
