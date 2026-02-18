@@ -1989,12 +1989,6 @@ Typical usage:
         help="Confirm each item before importing (markdown only)",
     )
     p_import.add_argument(
-        "--layer",
-        "-l",
-        choices=["episode", "note", "belief", "value", "goal", "raw"],
-        help="Force all items to a specific memory type (overrides auto-detection)",
-    )
-    p_import.add_argument(
         "--skip-duplicates",
         "-s",
         action="store_true",

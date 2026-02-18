@@ -15,8 +15,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from kernle.core.writers import IMPORT_TOKEN
-
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -76,23 +74,36 @@ class MarkdownImporter:
         self.items = parse_markdown(content, origin_file=str(self.file_path))
         return self.items
 
-    def import_to(self, k: "Kernle", dry_run: bool = False) -> Dict[str, int]:
+    def import_to(self, k: "Kernle", dry_run: bool = False) -> Dict[str, Any]:
         """Import parsed items into a Kernle instance.
+
+        Only raw entries are imported from markdown files. Non-raw items
+        are skipped with a count in the return dict.
 
         Args:
             k: Kernle instance to import into
             dry_run: If True, don't actually import, just return counts
 
         Returns:
-            Dict with counts of items imported by type
+            Dict with counts of items imported by type and skipped non-raw count
         """
         if not self.items:
             self.parse()
 
+        if not dry_run and k.has_user_content():
+            raise ValueError(
+                "Cannot import into a stack with existing content. "
+                "Import is only supported on empty stacks."
+            )
+
+        # Filter to raw-only
+        raw_items = [item for item in self.items if item.type == "raw"]
+        skipped_non_raw = len(self.items) - len(raw_items)
+
         counts: Dict[str, int] = {}
         errors: List[str] = []
 
-        for item in self.items:
+        for item in raw_items:
             try:
                 if not dry_run:
                     _import_item(item, k)
@@ -101,7 +112,7 @@ class MarkdownImporter:
                 logger.debug("Markdown import item %s failed: %s", item.type, e, exc_info=True)
                 errors.append(f"{item.type}: {str(e)[:50]}")
 
-        return counts
+        return {**counts, "skipped_non_raw": skipped_non_raw}
 
 
 def parse_markdown(
@@ -468,7 +479,6 @@ def _import_item(item: ImportItem, k: "Kernle") -> Optional[str]:
             statement=item.statement,
             confidence=item.confidence,
             source_type="imported",
-            _import_token=IMPORT_TOKEN,
         )
     elif t == "value":
         return k.value(
@@ -476,7 +486,6 @@ def _import_item(item: ImportItem, k: "Kernle") -> Optional[str]:
             statement=item.description,
             priority=item.priority,
             source_type="imported",
-            _import_token=IMPORT_TOKEN,
         )
     elif t == "goal":
         return k.goal(
@@ -484,7 +493,6 @@ def _import_item(item: ImportItem, k: "Kernle") -> Optional[str]:
             description=item.description,
             priority=item.metadata.get("priority", "medium"),
             source_type="imported",
-            _import_token=IMPORT_TOKEN,
         )
     elif t == "raw":
         return k.raw(item.content)

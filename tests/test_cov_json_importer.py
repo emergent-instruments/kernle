@@ -28,7 +28,7 @@ class TestImportJsonItemDuplicateEpisode:
             data={"objective": "Existing objective", "outcome": "Existing outcome"},
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is False
+        assert result is None
 
     def test_episode_import_when_no_duplicate(self, kernle_instance):
         """Import episode when no duplicate exists."""
@@ -44,7 +44,7 @@ class TestImportJsonItemDuplicateEpisode:
             },
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is True
+        assert result is not None
 
 
 class TestImportJsonItemDuplicateNote:
@@ -62,7 +62,7 @@ class TestImportJsonItemDuplicateNote:
             data={"content": "Existing note content"},
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is False
+        assert result is None
 
     def test_note_import_when_no_duplicate(self, kernle_instance):
         """Import note when no duplicate exists."""
@@ -79,7 +79,7 @@ class TestImportJsonItemDuplicateNote:
             },
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is True
+        assert result is not None
 
 
 class TestImportJsonItemDuplicateValue:
@@ -98,7 +98,7 @@ class TestImportJsonItemDuplicateValue:
             data={"name": "Quality", "statement": "Different statement"},
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is False
+        assert result is None
 
     def test_value_import_when_no_duplicate(self, kernle_instance):
         """Import value when no duplicate exists."""
@@ -113,7 +113,7 @@ class TestImportJsonItemDuplicateValue:
             },
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is True
+        assert result is not None
 
 
 class TestImportJsonItemDuplicateGoal:
@@ -132,7 +132,7 @@ class TestImportJsonItemDuplicateGoal:
             data={"title": "Ship v1.0", "description": "Same goal"},
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is False
+        assert result is None
 
     def test_goal_skip_duplicate_by_description(self, kernle_instance):
         """Skip goal import when duplicate found by description."""
@@ -145,7 +145,7 @@ class TestImportJsonItemDuplicateGoal:
             data={"title": "Completely new title", "description": "Release first version"},
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is False
+        assert result is None
 
     def test_goal_import_when_no_duplicate(self, kernle_instance):
         """Import goal when no duplicate exists."""
@@ -160,7 +160,7 @@ class TestImportJsonItemDuplicateGoal:
             },
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is True
+        assert result is not None
 
 
 class TestImportJsonItemDuplicateDrive:
@@ -179,7 +179,7 @@ class TestImportJsonItemDuplicateDrive:
             data={"drive_type": "curiosity", "intensity": 0.5},
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is False
+        assert result is None
 
     def test_drive_import_when_no_duplicate(self, kernle_instance):
         """Import drive when no duplicate exists."""
@@ -194,7 +194,7 @@ class TestImportJsonItemDuplicateDrive:
             },
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is True
+        assert result is not None
 
 
 class TestImportJsonItemDuplicateRelationship:
@@ -222,7 +222,7 @@ class TestImportJsonItemDuplicateRelationship:
             },
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is False
+        assert result is None
 
     def test_relationship_import_when_no_duplicate(self, kernle_instance):
         """Import relationship when no duplicate exists."""
@@ -239,7 +239,7 @@ class TestImportJsonItemDuplicateRelationship:
             },
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is True
+        assert result is not None
 
 
 class TestImportJsonItemDuplicateRaw:
@@ -258,7 +258,7 @@ class TestImportJsonItemDuplicateRaw:
             data={"content": "Existing raw content", "source": "import"},
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is False
+        assert result is None
 
     def test_raw_import_when_no_duplicate(self, kernle_instance):
         """Import raw when no duplicate exists."""
@@ -269,14 +269,14 @@ class TestImportJsonItemDuplicateRaw:
             data={"content": "Unique raw content", "source": "json-import"},
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is True
+        assert result is not None
 
 
 class TestImportJsonItemUnknownType:
     """Test unknown type handling — covers line 313."""
 
-    def test_unknown_type_returns_false(self, kernle_instance):
-        """Unknown memory type returns False (not imported)."""
+    def test_unknown_type_returns_none(self, kernle_instance):
+        """Unknown memory type returns None (not imported)."""
         k, storage = kernle_instance
 
         item = JsonImportItem(
@@ -284,7 +284,7 @@ class TestImportJsonItemUnknownType:
             data={"content": "something"},
         )
         result = _import_json_item(item, k, skip_duplicates=True)
-        assert result is False
+        assert result is None
 
 
 class TestImportToErrorHandling:
@@ -294,11 +294,26 @@ class TestImportToErrorHandling:
         """Errors during import are captured, not raised."""
         k, storage = kernle_instance
 
+        # Build a JSON file with valid provenance: raw -> episode
         json_file = tmp_path / "errors.json"
         json_file.write_text(
             json.dumps(
                 {
-                    "beliefs": [{"statement": "Valid belief", "confidence": 0.9}],
+                    "raw_entries": [{"id": "r1", "content": "raw entry"}],
+                    "episodes": [
+                        {
+                            "id": "e1",
+                            "objective": "good objective",
+                            "outcome": "good outcome",
+                            "derived_from": ["raw:r1"],
+                        },
+                        {
+                            "id": "e2",
+                            "objective": "",
+                            "outcome": "will error",
+                            "derived_from": ["raw:r1"],
+                        },
+                    ],
                 }
             )
         )
@@ -306,10 +321,7 @@ class TestImportToErrorHandling:
         importer = JsonImporter(str(json_file))
         importer.parse()
 
-        # Inject a bad item that will cause an error
-        importer.items.append(JsonImportItem(type="episode", data={}))
-
-        # Monkey-patch k.episode to raise
+        # Monkey-patch k.episode to raise on empty objectives
         original_episode = k.episode
 
         def error_episode(**kwargs):
@@ -321,8 +333,9 @@ class TestImportToErrorHandling:
 
         result = importer.import_to(k, dry_run=False, skip_duplicates=False)
 
-        # The belief should import fine
-        assert result["imported"].get("belief", 0) == 1
-        # The episode should have an error
+        # The raw entry and good episode should import fine
+        assert result["imported"].get("raw", 0) == 1
+        assert result["imported"].get("episode", 0) == 1
+        # The bad episode should have an error
         assert len(result["errors"]) >= 1
         assert "episode" in result["errors"][0]

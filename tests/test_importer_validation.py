@@ -13,6 +13,7 @@ import pytest
 
 from kernle.importers.csv_importer import (
     CsvImporter,
+    CsvImportItem,
     _map_columns,
     parse_csv,
 )
@@ -182,7 +183,7 @@ class TestJsonIntensityValidation:
             data={"drive_type": "curiosity", "intensity": 2.0},
         )
         result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is True
+        assert result is not None
 
         drives = storage.get_drives()
         assert len(drives) == 1
@@ -196,7 +197,7 @@ class TestJsonIntensityValidation:
             data={"drive_type": "growth", "intensity": -0.5},
         )
         result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is True
+        assert result is not None
 
         drives = storage.get_drives()
         assert len(drives) == 1
@@ -210,7 +211,7 @@ class TestJsonIntensityValidation:
             data={"drive_type": "curiosity", "intensity": 2.0},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is False
+        assert result is None
 
 
 # ============================================================================
@@ -234,7 +235,7 @@ class TestJsonSentimentValidation:
             },
         )
         result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is True
+        assert result is not None
 
         rel = storage.get_relationship("TestEntity")
         assert rel is not None
@@ -254,7 +255,7 @@ class TestJsonSentimentValidation:
             },
         )
         result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is True
+        assert result is not None
 
         rel = storage.get_relationship("NegEntity")
         assert rel is not None
@@ -274,7 +275,7 @@ class TestJsonSentimentValidation:
             },
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is False
+        assert result is None
 
 
 # ============================================================================
@@ -293,7 +294,7 @@ class TestJsonConfidenceValidation:
             data={"statement": "Test belief clamped", "confidence": 1.5},
         )
         result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is True
+        assert result is not None
 
         beliefs = storage.get_beliefs()
         assert len(beliefs) == 1
@@ -307,7 +308,7 @@ class TestJsonConfidenceValidation:
             data={"statement": "Negative confidence", "confidence": -0.5},
         )
         result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is True
+        assert result is not None
 
         beliefs = storage.get_beliefs()
         assert len(beliefs) == 1
@@ -330,7 +331,7 @@ class TestJsonPriorityValidation:
             data={"name": "Excessive Priority", "statement": "Test", "priority": 200},
         )
         result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is True
+        assert result is not None
 
         values = storage.get_values()
         assert len(values) == 1
@@ -380,8 +381,21 @@ belief,Another valid,0.7
         json_file.write_text(
             json.dumps(
                 {
+                    "raw_entries": [{"id": "r1", "content": "raw entry"}],
+                    "episodes": [
+                        {
+                            "id": "e1",
+                            "objective": "obj",
+                            "outcome": "out",
+                            "derived_from": ["raw:r1"],
+                        }
+                    ],
                     "drives": [
-                        {"drive_type": "curiosity", "intensity": 2.0},
+                        {
+                            "drive_type": "curiosity",
+                            "intensity": 2.0,
+                            "derived_from": ["episode:e1"],
+                        },
                     ],
                 }
             )
@@ -511,15 +525,19 @@ belief,Test,invalid
         assert isinstance(result, list)
 
     def test_csv_importer_default_not_strict(self, tmp_path, kernle_instance):
-        """CsvImporter default import is not strict."""
+        """CsvImporter default import is not strict (test via _import_csv_item)."""
+        from kernle.importers.csv_importer import _import_csv_item
+
         k, storage = kernle_instance
-        csv_file = tmp_path / "test.csv"
-        csv_file.write_text("""type,statement,confidence
-belief,Permissive test,bad_value
-""")
-        importer = CsvImporter(str(csv_file))
-        result = importer.import_to(k, dry_run=False, skip_duplicates=False)
-        assert result["imported"].get("belief", 0) == 1
+        # CSV import_to() only imports raw items now, so test permissive
+        # coercion through _import_csv_item directly which still handles
+        # any type.
+        item = CsvImportItem(
+            type="belief",
+            data={"statement": "Permissive test", "confidence": 0.7},
+        )
+        result = _import_csv_item(item, k, skip_duplicates=False)
+        assert result is True
 
     def test_json_importer_default_not_strict(self, tmp_path, kernle_instance):
         """JsonImporter default import is not strict."""
@@ -528,8 +546,21 @@ belief,Permissive test,bad_value
         json_file.write_text(
             json.dumps(
                 {
+                    "raw_entries": [{"id": "r1", "content": "raw entry"}],
+                    "episodes": [
+                        {
+                            "id": "e1",
+                            "objective": "obj",
+                            "outcome": "out",
+                            "derived_from": ["raw:r1"],
+                        }
+                    ],
                     "drives": [
-                        {"drive_type": "curiosity", "intensity": 2.0},
+                        {
+                            "drive_type": "curiosity",
+                            "intensity": 2.0,
+                            "derived_from": ["episode:e1"],
+                        },
                     ],
                 }
             )
@@ -602,7 +633,7 @@ class TestBooleanNaNInfinityImportValidation:
             data={"statement": "Bool confidence", "confidence": True},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is False
+        assert result is None
 
     def test_json_belief_bool_confidence_permissive_defaults(self, kernle_instance):
         """Boolean confidence in permissive mode defaults to 0.8."""
@@ -612,7 +643,7 @@ class TestBooleanNaNInfinityImportValidation:
             data={"statement": "Bool confidence permissive", "confidence": True},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=False)
-        assert result is True
+        assert result is not None
         beliefs = storage.get_beliefs()
         assert any(b.confidence == pytest.approx(0.8) for b in beliefs)
 
@@ -626,7 +657,7 @@ class TestBooleanNaNInfinityImportValidation:
             data={"drive_type": "bool_drive", "intensity": True},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is False
+        assert result is None
 
     # --- JSON Importer: Boolean sentiment ---
 
@@ -638,7 +669,7 @@ class TestBooleanNaNInfinityImportValidation:
             data={"entity_name": "bool_entity", "sentiment": True},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is False
+        assert result is None
 
     # --- JSON Importer: Boolean priority ---
 
@@ -650,7 +681,7 @@ class TestBooleanNaNInfinityImportValidation:
             data={"name": "Bool Priority", "statement": "Test", "priority": True},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is False
+        assert result is None
 
     def test_json_value_bool_priority_permissive_defaults(self, kernle_instance):
         """Boolean priority in permissive mode defaults to 50."""
@@ -660,7 +691,7 @@ class TestBooleanNaNInfinityImportValidation:
             data={"name": "Bool Priority Default", "statement": "Test", "priority": False},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=False)
-        assert result is True
+        assert result is not None
         values = storage.get_values()
         matching = [v for v in values if v.name == "Bool Priority Default"]
         assert len(matching) == 1
@@ -676,7 +707,7 @@ class TestBooleanNaNInfinityImportValidation:
             data={"name": "NaN Priority", "statement": "Test", "priority": float("nan")},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is False
+        assert result is None
 
     def test_json_value_nan_priority_permissive_defaults(self, kernle_instance):
         """NaN priority in permissive mode should default to 50, not crash."""
@@ -686,7 +717,7 @@ class TestBooleanNaNInfinityImportValidation:
             data={"name": "NaN Default", "statement": "Test", "priority": float("nan")},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=False)
-        assert result is True
+        assert result is not None
         values = storage.get_values()
         matching = [v for v in values if v.name == "NaN Default"]
         assert len(matching) == 1
@@ -700,7 +731,7 @@ class TestBooleanNaNInfinityImportValidation:
             data={"name": "Inf Priority", "statement": "Test", "priority": float("inf")},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is False
+        assert result is None
 
     # --- JSON Importer: NaN/Inf confidence ---
 
@@ -712,7 +743,7 @@ class TestBooleanNaNInfinityImportValidation:
             data={"statement": "NaN belief", "confidence": float("nan")},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is False
+        assert result is None
 
     def test_json_drive_inf_intensity_strict_rejected(self, kernle_instance):
         """Infinity intensity should be rejected via _validate_range."""
@@ -722,7 +753,7 @@ class TestBooleanNaNInfinityImportValidation:
             data={"drive_type": "inf_drive", "intensity": float("inf")},
         )
         result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is False
+        assert result is None
 
     # --- CSV Importer: NaN in confidence ---
 

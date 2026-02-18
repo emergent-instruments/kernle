@@ -26,11 +26,6 @@ from kernle.types import SourceType
 
 logger = logging.getLogger(__name__)
 
-# Private sentinel for import bypass.  Only importer internals should pass
-# this value as ``_import_token`` to skip the inference gate.  It is NOT a
-# public API surface — external callers must not use it.
-IMPORT_TOKEN = object()
-
 
 class WritersMixin:
     """Memory write operations for Kernle."""
@@ -681,7 +676,6 @@ class WritersMixin:
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
         source_type: Optional[Union[str, SourceType]] = None,
-        _import_token: object = None,
     ) -> str:
         """Add or update a belief.
 
@@ -692,7 +686,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if _import_token is not IMPORT_TOKEN:
+        if source_type not in ("imported", SourceType.IMPORTED):
             self._require_inference("belief")
         confidence = clamp_confidence(confidence)
         belief_id = str(uuid.uuid4())
@@ -730,7 +724,6 @@ class WritersMixin:
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
         source_type: Optional[Union[str, SourceType]] = None,
-        _import_token: object = None,
     ) -> str:
         """Add or affirm a value.
 
@@ -741,7 +734,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if _import_token is not IMPORT_TOKEN:
+        if source_type not in ("imported", SourceType.IMPORTED):
             self._require_inference("value")
         value_id = str(uuid.uuid4())
 
@@ -777,7 +770,6 @@ class WritersMixin:
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
         source_type: Optional[Union[str, SourceType]] = None,
-        _import_token: object = None,
     ) -> str:
         """Add a goal.
 
@@ -789,7 +781,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if _import_token is not IMPORT_TOKEN:
+        if source_type not in ("imported", SourceType.IMPORTED):
             self._require_inference("goal")
         validate_goal_type(goal_type)
 
@@ -880,7 +872,6 @@ class WritersMixin:
         source: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
         source_type: Optional[Union[str, SourceType]] = None,
-        _import_token: object = None,
     ) -> str:
         """Set or update a drive.
 
@@ -891,7 +882,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if _import_token is not IMPORT_TOKEN:
+        if source_type not in ("imported", SourceType.IMPORTED):
             self._require_inference("drive")
         validate_drive_type(drive_type)
 
@@ -968,7 +959,6 @@ class WritersMixin:
         derived_from: Optional[List[str]] = None,
         source_type: Optional[Union[str, SourceType]] = None,
         source_entity: Optional[str] = None,
-        _import_token: object = None,
     ) -> str:
         """Update relationship model for another entity.
 
@@ -982,7 +972,7 @@ class WritersMixin:
             source_type: How this memory was acquired (default: direct_experience)
             source_entity: Who/what created this memory
         """
-        if _import_token is not IMPORT_TOKEN:
+        if source_type not in ("imported", SourceType.IMPORTED):
             self._require_inference("relationship")
         resolved = self._normalize_source_type(source_type)
 
