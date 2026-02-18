@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union, overl
 if TYPE_CHECKING:
     from kernle import Kernle
 
+from kernle.core.writers import IMPORT_TOKEN
+
 logger = logging.getLogger(__name__)
 
 
@@ -597,6 +599,7 @@ def _import_csv_item(item: CsvImportItem, k: "Kernle", skip_duplicates: bool = T
             type=belief_type,
             confidence=data.get("confidence", 0.8),
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
         return True
 
@@ -616,6 +619,7 @@ def _import_csv_item(item: CsvImportItem, k: "Kernle", skip_duplicates: bool = T
             statement=data.get("description", name),
             priority=data.get("priority", 50),
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
         return True
 
@@ -645,6 +649,7 @@ def _import_csv_item(item: CsvImportItem, k: "Kernle", skip_duplicates: bool = T
             description=description,
             priority=data.get("priority", "medium"),
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
 
         # goal() always creates with status="active"; update if needed

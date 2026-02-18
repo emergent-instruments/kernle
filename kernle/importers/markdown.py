@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from kernle.core.writers import IMPORT_TOKEN
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -463,7 +465,10 @@ def _import_item(item: ImportItem, k: "Kernle") -> Optional[str]:
         return k.note(content=item.content, type=item.note_type)
     elif t == "belief":
         return k.belief(
-            statement=item.statement, confidence=item.confidence, source_type="imported"
+            statement=item.statement,
+            confidence=item.confidence,
+            source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
     elif t == "value":
         return k.value(
@@ -471,6 +476,7 @@ def _import_item(item: ImportItem, k: "Kernle") -> Optional[str]:
             statement=item.description,
             priority=item.priority,
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
     elif t == "goal":
         return k.goal(
@@ -478,6 +484,7 @@ def _import_item(item: ImportItem, k: "Kernle") -> Optional[str]:
             description=item.description,
             priority=item.metadata.get("priority", "medium"),
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
     elif t == "raw":
         return k.raw(item.content)

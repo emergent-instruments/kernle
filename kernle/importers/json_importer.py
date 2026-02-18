@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 if TYPE_CHECKING:
     from kernle import Kernle
 
+from kernle.core.writers import IMPORT_TOKEN
+
 logger = logging.getLogger(__name__)
 
 
@@ -322,6 +324,7 @@ def _import_json_item(
             type=data.get("type", "fact"),
             confidence=confidence,
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
         return True
 
@@ -364,6 +367,7 @@ def _import_json_item(
             statement=data.get("statement", data.get("description", name)),
             priority=priority,
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
         return True
 
@@ -380,6 +384,7 @@ def _import_json_item(
             description=description,
             priority=data.get("priority", "medium"),
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
         return True
 
@@ -413,6 +418,7 @@ def _import_json_item(
             intensity=intensity,
             focus_areas=data.get("focus_areas"),
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
         return True
 
@@ -454,6 +460,7 @@ def _import_json_item(
             trust_level=trust_level,
             notes=data.get("notes"),
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
         return True
 

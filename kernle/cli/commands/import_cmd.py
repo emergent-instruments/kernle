@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+from kernle.core.writers import IMPORT_TOKEN
 from kernle.dedup import load_raw_content_hashes, strip_corpus_header
 from kernle.processing import compute_content_hash
 
@@ -547,6 +548,7 @@ def _import_json(
                 priority=import_item["priority"],
                 derived_from=import_derived_from,
                 source_type="imported",
+                _import_token=IMPORT_TOKEN,
             )
             imported["value"] = imported.get("value", 0) + 1
             if skip_duplicates:
@@ -586,6 +588,7 @@ def _import_json(
                 confidence=import_item["confidence"],
                 derived_from=import_derived_from,
                 source_type="imported",
+                _import_token=IMPORT_TOKEN,
             )
             imported["belief"] = imported.get("belief", 0) + 1
             if skip_duplicates:
@@ -624,6 +627,7 @@ def _import_json(
                 status=import_item["status"],
                 derived_from=import_derived_from,
                 source_type="imported",
+                _import_token=IMPORT_TOKEN,
             )
             imported["goal"] = imported.get("goal", 0) + 1
             if skip_duplicates:
@@ -734,6 +738,7 @@ def _import_json(
                 focus_areas=import_item["focus_areas"],
                 derived_from=import_derived_from,
                 source_type="imported",
+                _import_token=IMPORT_TOKEN,
             )
             imported["drive"] = imported.get("drive", 0) + 1
             if skip_duplicates:
@@ -777,6 +782,7 @@ def _import_json(
                 notes=import_item["notes"],
                 derived_from=import_derived_from,
                 source_type="imported",
+                _import_token=IMPORT_TOKEN,
             )
             imported["relationship"] = imported.get("relationship", 0) + 1
             if skip_duplicates:
@@ -1543,6 +1549,7 @@ def _import_item(
             type=item.get("belief_type", "fact"),
             derived_from=merged_derived_from,
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
     elif t == "value":
         k.value(
@@ -1551,6 +1558,7 @@ def _import_item(
             priority=item.get("priority", 50),
             derived_from=merged_derived_from,
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
     elif t == "goal":
         goal_title = item.get("title") or item.get("description") or ""
@@ -1561,6 +1569,7 @@ def _import_item(
             priority=item.get("priority", "medium"),
             derived_from=merged_derived_from,
             source_type="imported",
+            _import_token=IMPORT_TOKEN,
         )
     elif t == "raw":
         k.raw(blob=item["content"], source=item.get("source", "import"))
