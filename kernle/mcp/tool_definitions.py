@@ -198,54 +198,6 @@ TOOLS = [
         },
     ),
     Tool(
-        name="memory_belief",
-        description="Add or update a belief.",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "statement": {
-                    "type": "string",
-                    "description": "Belief statement",
-                },
-                "type": {
-                    "type": "string",
-                    "enum": ["fact", "rule", "preference", "constraint", "learned"],
-                    "description": "Type of belief",
-                    "default": "fact",
-                },
-                "confidence": {
-                    "type": "number",
-                    "description": "Confidence level (0.0-1.0)",
-                    "default": 0.8,
-                },
-                "context": {
-                    "type": "string",
-                    "description": "Project/scope context (e.g., 'project:api-service', 'repo:myorg/myrepo')",
-                },
-                "context_tags": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Additional context tags for filtering",
-                },
-                "source": {
-                    "type": "string",
-                    "description": "Source context (e.g., 'consolidation', 'told by X', 'raw-processing')",
-                },
-                "derived_from": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Memory IDs this was derived from (format: type:id, e.g., 'raw:abc123')",
-                },
-                "source_type": {
-                    "type": "string",
-                    "enum": VALID_SOURCE_TYPES,
-                    "description": "How this memory was acquired (default: auto-derived from source)",
-                },
-            },
-            "required": ["statement"],
-        },
-    ),
-    Tool(
         name="memory_value",
         description="Add or affirm a core value.",
         inputSchema={

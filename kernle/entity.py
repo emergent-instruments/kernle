@@ -188,29 +188,6 @@ class _PluginContextImpl:
             source_type=source_type,
         )
 
-    def belief(
-        self,
-        statement: str,
-        *,
-        belief_type: str = "fact",
-        confidence: float = 0.8,
-        derived_from: Optional[list[str]] = None,
-        context: Optional[str] = None,
-        source_type: Optional[Union[str, SourceType]] = None,
-    ) -> Optional[str]:
-        stack = self._entity.active_stack
-        if stack is None:
-            return None
-        return self._entity.belief(
-            statement,
-            type=belief_type,
-            confidence=confidence,
-            derived_from=derived_from,
-            source=f"plugin:{self._plugin_name}",
-            context=context,
-            source_type=source_type,
-        )
-
     def value(
         self,
         name: str,

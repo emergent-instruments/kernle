@@ -138,7 +138,7 @@ def handle_memory_consolidate(args: Dict[str, Any], k: Kernle) -> str:
     lines.append("   - Any beliefs contradicted by recent outcomes?")
     lines.append("")
     lines.append("3. **New Insights**: What have you learned that isn't captured yet?")
-    lines.append("   - Consider adding new beliefs with `memory_belief`")
+    lines.append("   - Beliefs emerge from episodes — add experiences with `memory_episode`")
     lines.append("   - Update existing beliefs with `memory_belief_update`")
     lines.append("")
     lines.append("**Kernle provides the data. You do the reasoning.**")
