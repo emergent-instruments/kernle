@@ -144,6 +144,11 @@ class JsonImporter:
                 "Import is only supported on empty stacks."
             )
 
+        if not dry_run:
+            from kernle.importers.import_model import bind_import_model
+
+            bind_import_model(k)
+
         # Build flat item list for provenance validation
         flat_items = []
         for item in self.items:

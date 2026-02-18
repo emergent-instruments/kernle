@@ -686,8 +686,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if source_type not in ("imported", SourceType.IMPORTED):
-            self._require_inference("belief")
+        self._require_inference("belief")
         confidence = clamp_confidence(confidence)
         belief_id = str(uuid.uuid4())
 
@@ -734,8 +733,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if source_type not in ("imported", SourceType.IMPORTED):
-            self._require_inference("value")
+        self._require_inference("value")
         value_id = str(uuid.uuid4())
 
         resolved = self._normalize_source_type(source_type)
@@ -781,8 +779,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if source_type not in ("imported", SourceType.IMPORTED):
-            self._require_inference("goal")
+        self._require_inference("goal")
         validate_goal_type(goal_type)
 
         goal_id = str(uuid.uuid4())
@@ -882,8 +879,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
-        if source_type not in ("imported", SourceType.IMPORTED):
-            self._require_inference("drive")
+        self._require_inference("drive")
         validate_drive_type(drive_type)
 
         resolved = self._normalize_source_type(source_type)
@@ -972,8 +968,7 @@ class WritersMixin:
             source_type: How this memory was acquired (default: direct_experience)
             source_entity: Who/what created this memory
         """
-        if source_type not in ("imported", SourceType.IMPORTED):
-            self._require_inference("relationship")
+        self._require_inference("relationship")
         resolved = self._normalize_source_type(source_type)
 
         # Check existing — use write backend for consistent strict-mode path

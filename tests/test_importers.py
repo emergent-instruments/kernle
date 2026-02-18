@@ -302,20 +302,17 @@ raw,CSV imported raw entry,import
         csv_file = tmp_path / "test.csv"
         csv_file.write_text("""type,content
 raw,Unique raw content
+raw,Unique raw content
 """)
         k, storage = kernle_instance
 
-        # First import into empty stack
+        # Import CSV with duplicate raw entries; second should be skipped
         importer = CsvImporter(str(csv_file))
-        result1 = importer.import_to(k, dry_run=False, skip_duplicates=True)
-        assert result1["imported"]["raw"] == 1
-
-        # Verify duplicate is detected at item level (import guard
-        # prevents a second import_to() on a non-empty stack)
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
-        dup_item = CsvImportItem(type="raw", data={"content": "Unique raw content"})
-        assert _import_csv_item(dup_item, k, skip_duplicates=True) is False
+        result = importer.import_to(k, dry_run=False, skip_duplicates=True)
+        assert result["imported"]["raw"] == 1
+        assert result["skipped"].get("raw", 0) == 1
+        raws = storage.list_raw(limit=10)
+        assert len(raws) == 1
 
     def test_importer_auto_parse_on_import(self, tmp_path, kernle_instance):
         """import_to() calls parse() if items is empty."""
@@ -405,172 +402,282 @@ raw,
 
 
 class TestCsvImporterGoalStatusMapping:
-    """Test goal status value mapping."""
+    """Test that CSV goal items are correctly skipped as non-raw.
+
+    Goal status normalization was previously tested via _import_csv_item,
+    but CsvImporter.import_to() only imports raw entries. Goals with
+    various status values are all skipped.
+    """
 
     @pytest.mark.parametrize(
-        "status_input,expected_status",
+        "status_input",
         [
-            ("done", "completed"),
-            ("complete", "completed"),
-            ("completed", "completed"),
-            ("true", "completed"),
-            ("1", "completed"),
-            ("yes", "completed"),
-            ("paused", "paused"),
-            ("hold", "paused"),
-            ("on hold", "paused"),
-            ("active", "active"),
-            ("in progress", "active"),
-            ("other", "active"),
+            "done",
+            "complete",
+            "completed",
+            "true",
+            "1",
+            "yes",
+            "paused",
+            "hold",
+            "on hold",
+            "active",
+            "in progress",
+            "other",
         ],
     )
-    def test_goal_status_mapping(self, tmp_path, kernle_instance, status_input, expected_status):
-        """Goal status values are normalized via _import_csv_item."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
+    def test_goal_with_status_skipped_as_non_raw(self, tmp_path, kernle_instance, status_input):
+        """Goal items with any status are skipped by CsvImporter.import_to()."""
+        csv_file = tmp_path / "goals.csv"
+        csv_file.write_text(f"""type,title,description,status,priority
+goal,Test goal {status_input},A test goal,{status_input},high
+""")
         k, storage = kernle_instance
-        item = CsvImportItem(
-            type="goal",
-            data={
-                "title": f"Test goal {status_input}",
-                "status": status_input,
-            },
-        )
-        result = _import_csv_item(item, k, skip_duplicates=False)
-        assert result is True
+        importer = CsvImporter(str(csv_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=False)
+        assert result["skipped_non_raw"] == 1
+        assert result["imported"].get("goal", 0) == 0
         goals = storage.get_goals(status=None, limit=10)
-        assert len(goals) == 1
-        assert goals[0].status == expected_status
+        assert len(goals) == 0
 
 
 class TestCsvImporterSkipDuplicates:
-    """Test skip_duplicates for each memory type."""
+    """Test skip_duplicates for each memory type.
+
+    Non-raw types (note, value, goal, episode) are tested via JsonImporter
+    since CsvImporter.import_to() only handles raw entries.
+    """
 
     def test_skip_duplicate_note(self, tmp_path, kernle_instance):
-        """Duplicate notes are skipped when skip_duplicates=True."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
-        k, storage = kernle_instance
-        # First import via _import_csv_item (notes are non-raw, skipped by import_to)
-        item = CsvImportItem(
-            type="note",
-            data={
-                "content": "This is a very unique and distinctive note about quantum computing research methodology and its applications in modern technology"
-            },
+        """Duplicate notes are skipped when skip_duplicates=True via JSON import."""
+        note_content = "This is a very unique and distinctive note about quantum computing research methodology and its applications in modern technology"
+        json_file = tmp_path / "notes.json"
+        json_file.write_text(
+            json.dumps(
+                {
+                    "raw_entries": [{"id": "r1", "content": "raw observation"}],
+                    "notes": [
+                        {
+                            "id": "n1",
+                            "content": note_content,
+                            "type": "note",
+                            "derived_from": ["raw:r1"],
+                        },
+                        {
+                            "id": "n2",
+                            "content": note_content,
+                            "type": "note",
+                            "derived_from": ["raw:r1"],
+                        },
+                    ],
+                }
+            )
         )
-        assert _import_csv_item(item, k, skip_duplicates=False) is True
-        assert len(storage.get_notes()) == 1
-
-        # Verify duplicate is detected at item level
-        assert _import_csv_item(item, k, skip_duplicates=True) is False
+        k, storage = kernle_instance
+        importer = JsonImporter(str(json_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=True)
+        assert result["imported"]["note"] == 1
+        assert result["skipped"].get("note", 0) == 1
         assert len(storage.get_notes()) == 1
 
     def test_skip_duplicate_value(self, tmp_path, kernle_instance):
-        """Duplicate values are skipped when skip_duplicates=True."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
-        k, storage = kernle_instance
-        # First import via _import_csv_item (values are non-raw, skipped by import_to)
-        item = CsvImportItem(
-            type="value", data={"name": "Integrity", "description": "Be honest always"}
+        """Duplicate values are skipped when skip_duplicates=True via JSON import."""
+        json_file = tmp_path / "values.json"
+        json_file.write_text(
+            json.dumps(
+                {
+                    "raw_entries": [{"id": "r1", "content": "raw observation"}],
+                    "notes": [
+                        {"id": "n1", "content": "processed note", "derived_from": ["raw:r1"]}
+                    ],
+                    "beliefs": [
+                        {
+                            "id": "b1",
+                            "statement": "Integrity matters",
+                            "confidence": 0.9,
+                            "derived_from": ["note:n1"],
+                        }
+                    ],
+                    "values": [
+                        {
+                            "id": "v1",
+                            "name": "Integrity",
+                            "statement": "Be honest always",
+                            "priority": 80,
+                            "derived_from": ["belief:b1"],
+                        },
+                        {
+                            "id": "v2",
+                            "name": "Integrity",
+                            "statement": "Be honest always",
+                            "priority": 80,
+                            "derived_from": ["belief:b1"],
+                        },
+                    ],
+                }
+            )
         )
-        assert _import_csv_item(item, k, skip_duplicates=False) is True
-        assert len(storage.get_values()) == 1
-
-        # Verify duplicate is detected at item level
-        assert _import_csv_item(item, k, skip_duplicates=True) is False
+        k, storage = kernle_instance
+        importer = JsonImporter(str(json_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=True)
+        assert result["imported"]["value"] == 1
+        assert result["skipped"].get("value", 0) == 1
         assert len(storage.get_values()) == 1
 
     def test_skip_duplicate_goal(self, tmp_path, kernle_instance):
-        """Duplicate goals are skipped when skip_duplicates=True."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
-        k, storage = kernle_instance
-        # First import via _import_csv_item (goals are non-raw, skipped by import_to)
-        item = CsvImportItem(
-            type="goal", data={"title": "Learn Python", "description": "Master Python programming"}
+        """Duplicate goals are skipped when skip_duplicates=True via JSON import."""
+        json_file = tmp_path / "goals.json"
+        json_file.write_text(
+            json.dumps(
+                {
+                    "raw_entries": [{"id": "r1", "content": "raw observation"}],
+                    "episodes": [
+                        {
+                            "id": "e1",
+                            "objective": "Did task",
+                            "outcome": "Done",
+                            "derived_from": ["raw:r1"],
+                        }
+                    ],
+                    "goals": [
+                        {
+                            "id": "g1",
+                            "title": "Learn Python",
+                            "description": "Master Python programming",
+                            "derived_from": ["episode:e1"],
+                        },
+                        {
+                            "id": "g2",
+                            "title": "Learn Python",
+                            "description": "Master Python programming",
+                            "derived_from": ["episode:e1"],
+                        },
+                    ],
+                }
+            )
         )
-        assert _import_csv_item(item, k, skip_duplicates=False) is True
-        assert len(storage.get_goals(status=None, limit=10)) == 1
-
-        # Verify duplicate is detected at item level
-        assert _import_csv_item(item, k, skip_duplicates=True) is False
+        k, storage = kernle_instance
+        importer = JsonImporter(str(json_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=True)
+        assert result["imported"]["goal"] == 1
+        assert result["skipped"].get("goal", 0) == 1
         assert len(storage.get_goals(status=None, limit=10)) == 1
 
     def test_skip_duplicate_raw(self, tmp_path, kernle_instance):
         """Duplicate raw entries are skipped when skip_duplicates=True."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
         csv_file = tmp_path / "raw.csv"
         csv_file.write_text("""memory_type,content
+raw,Some raw content here
 raw,Some raw content here
 """)
         k, storage = kernle_instance
         importer = CsvImporter(str(csv_file))
-        importer.import_to(k, dry_run=False, skip_duplicates=False)
-        assert len(storage.list_raw(limit=10)) == 1
-
-        dup_item = CsvImportItem(type="raw", data={"content": "Some raw content here"})
-        assert _import_csv_item(dup_item, k, skip_duplicates=True) is False
+        result = importer.import_to(k, dry_run=False, skip_duplicates=True)
+        assert result["imported"]["raw"] == 1
+        assert result["skipped"].get("raw", 0) == 1
         assert len(storage.list_raw(limit=10)) == 1
 
     def test_skip_duplicate_episode(self, tmp_path, kernle_instance):
-        """Duplicate episodes are skipped when skip_duplicates=True."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
+        """Duplicate episodes are skipped when skip_duplicates=True via JSON import."""
+        json_file = tmp_path / "episodes.json"
+        json_file.write_text(
+            json.dumps(
+                {
+                    "raw_entries": [{"id": "r1", "content": "raw observation"}],
+                    "episodes": [
+                        {
+                            "id": "e1",
+                            "objective": "Build the comprehensive quantum computing feature for distributed systems",
+                            "outcome": "Feature was built successfully with all integration tests passing",
+                            "derived_from": ["raw:r1"],
+                        },
+                        {
+                            "id": "e2",
+                            "objective": "Build the comprehensive quantum computing feature for distributed systems",
+                            "outcome": "Feature was built successfully with all integration tests passing",
+                            "derived_from": ["raw:r1"],
+                        },
+                    ],
+                }
+            )
+        )
         k, storage = kernle_instance
-        # First import via _import_csv_item (episodes are non-raw, skipped by import_to)
-        item = CsvImportItem(
-            type="episode",
-            data={
-                "objective": "Build the comprehensive quantum computing feature for distributed systems",
-                "outcome": "Feature was built successfully with all integration tests passing",
-            },
-        )
-        assert _import_csv_item(item, k, skip_duplicates=False) is True
-        assert len(storage.get_episodes()) == 1
-
-        # Verify duplicate is detected at item level
-        dup_item = CsvImportItem(
-            type="episode",
-            data={
-                "objective": "Build the comprehensive quantum computing feature for distributed systems"
-            },
-        )
-        assert _import_csv_item(dup_item, k, skip_duplicates=True) is False
+        importer = JsonImporter(str(json_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=True)
+        assert result["imported"]["episode"] == 1
+        assert result["skipped"].get("episode", 0) == 1
         assert len(storage.get_episodes()) == 1
 
     def test_note_dedup_ignores_non_note_search_hits(self, tmp_path, kernle_instance):
-        """A belief with matching content should not block note import dedup."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
+        """A belief with matching content should not block note import dedup.
 
+        Tests via JsonImporter: import a belief and a note with matching text.
+        The note should still be imported since dedup is per-type.
+        """
         note_content = "Shared sentence used in both note and belief for dedup safety validation."
+        json_file = tmp_path / "mixed.json"
+        json_file.write_text(
+            json.dumps(
+                {
+                    "raw_entries": [{"id": "r1", "content": "raw observation"}],
+                    "notes": [
+                        {
+                            "id": "n1",
+                            "content": note_content,
+                            "type": "note",
+                            "derived_from": ["raw:r1"],
+                        }
+                    ],
+                    "beliefs": [
+                        {
+                            "id": "b1",
+                            "statement": note_content,
+                            "confidence": 0.8,
+                            "derived_from": ["note:n1"],
+                        }
+                    ],
+                }
+            )
+        )
         k, storage = kernle_instance
-        # Pre-populate with a belief (not a note) that has the same text
-        k.belief(statement=note_content, confidence=0.8, source_type="imported")
-
-        # Note import should succeed despite the belief having the same content
-        note_item = CsvImportItem(type="note", data={"content": note_content})
-        assert _import_csv_item(note_item, k, skip_duplicates=True) is True
+        importer = JsonImporter(str(json_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=True)
+        # Both belief and note should be imported (dedup is per-type)
+        assert result["imported"]["note"] == 1
+        assert result["imported"]["belief"] == 1
         assert len(storage.get_notes()) == 1
 
     def test_episode_dedup_allows_same_prefix_different_objective(self, tmp_path, kernle_instance):
         """Episodes sharing first 60 chars should not be considered duplicates."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
         shared_prefix = "A" * 60
         objective_one = f"{shared_prefix}-first-objective"
         objective_two = f"{shared_prefix}-second-objective"
+        json_file = tmp_path / "episodes.json"
+        json_file.write_text(
+            json.dumps(
+                {
+                    "raw_entries": [{"id": "r1", "content": "raw observation"}],
+                    "episodes": [
+                        {
+                            "id": "e1",
+                            "objective": objective_one,
+                            "outcome": "Outcome one",
+                            "derived_from": ["raw:r1"],
+                        },
+                        {
+                            "id": "e2",
+                            "objective": objective_two,
+                            "outcome": "Outcome two",
+                            "derived_from": ["raw:r1"],
+                        },
+                    ],
+                }
+            )
+        )
         k, storage = kernle_instance
-        # Import via _import_csv_item (episodes are non-raw, skipped by import_to)
-        item1 = CsvImportItem(
-            type="episode", data={"objective": objective_one, "outcome": "Outcome one"}
-        )
-        item2 = CsvImportItem(
-            type="episode", data={"objective": objective_two, "outcome": "Outcome two"}
-        )
-        assert _import_csv_item(item1, k, skip_duplicates=True) is True
-        assert _import_csv_item(item2, k, skip_duplicates=True) is True
+        importer = JsonImporter(str(json_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=True)
+        assert result["imported"]["episode"] == 2
         episodes = storage.get_episodes()
         assert len(episodes) == 2
         assert {ep.objective for ep in episodes} == {objective_one, objective_two}
@@ -579,29 +686,41 @@ raw,Some raw content here
 class TestCsvImporterEmptyAndMissingFields:
     """Test handling of empty/missing required fields per type."""
 
-    def test_note_empty_content_skipped(self, tmp_path, kernle_instance):
-        """Note with empty content returns False via _import_csv_item."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
+    def test_note_empty_content_skipped_as_non_raw(self, tmp_path, kernle_instance):
+        """Note with empty content is skipped as non-raw by CsvImporter."""
+        csv_file = tmp_path / "empty_note.csv"
+        csv_file.write_text("""memory_type,content
+note,
+""")
         k, storage = kernle_instance
-        item = CsvImportItem(type="note", data={"content": ""})
-        assert _import_csv_item(item, k, skip_duplicates=False) is False
+        importer = CsvImporter(str(csv_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=False)
+        assert result["skipped_non_raw"] == 0  # empty row filtered at parse level
+        assert result["imported"].get("note", 0) == 0
 
-    def test_value_empty_name_skipped(self, tmp_path, kernle_instance):
-        """Value with empty name returns False via _import_csv_item."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
+    def test_value_empty_name_skipped_as_non_raw(self, tmp_path, kernle_instance):
+        """Value with empty name is skipped as non-raw by CsvImporter."""
+        csv_file = tmp_path / "empty_value.csv"
+        csv_file.write_text("""memory_type,name,description
+value,,Some description
+""")
         k, storage = kernle_instance
-        item = CsvImportItem(type="value", data={"name": "", "description": "Some description"})
-        assert _import_csv_item(item, k, skip_duplicates=False) is False
+        importer = CsvImporter(str(csv_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=False)
+        assert result["skipped_non_raw"] == 1
+        assert result["imported"].get("value", 0) == 0
 
-    def test_goal_empty_title_and_description_skipped(self, tmp_path, kernle_instance):
-        """Goal with empty title and description returns False via _import_csv_item."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
+    def test_goal_empty_title_and_description_skipped_as_non_raw(self, tmp_path, kernle_instance):
+        """Goal with empty title and description is skipped as non-raw by CsvImporter."""
+        csv_file = tmp_path / "empty_goal.csv"
+        csv_file.write_text("""memory_type,title,description
+goal,,
+""")
         k, storage = kernle_instance
-        item = CsvImportItem(type="goal", data={"title": "", "description": ""})
-        assert _import_csv_item(item, k, skip_duplicates=False) is False
+        importer = CsvImporter(str(csv_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=False)
+        assert result["skipped_non_raw"] == 0  # empty row filtered at parse level
+        assert result["imported"].get("goal", 0) == 0
 
     def test_raw_empty_content_skipped(self, tmp_path, kernle_instance):
         """Raw entry with empty content returns False."""
@@ -660,35 +779,61 @@ value,TestVal,Test description,75
 
 
 class TestCsvImporterUnknownType:
-    """Test handling of unknown memory types in _import_csv_item."""
+    """Test handling of unknown memory types in CSV import."""
 
-    def test_unknown_type_returns_false(self, kernle_instance):
-        """Unknown type returns False from _import_csv_item."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
+    def test_unknown_type_skipped_in_parse(self):
+        """Unknown types are filtered out during parse_csv."""
+        csv_content = """type,content
+unknown_type,test content
+raw,valid raw content
+"""
+        items = parse_csv(csv_content)
+        assert len(items) == 1
+        assert items[0].type == "raw"
 
+    def test_unknown_type_not_imported(self, tmp_path, kernle_instance):
+        """CSV with unknown type results in zero imports for that type."""
+        csv_file = tmp_path / "unknown.csv"
+        csv_file.write_text("""type,content
+unknown_type,test content
+""")
         k, storage = kernle_instance
-        item = CsvImportItem(type="unknown_type", data={"content": "test"})
-        result = _import_csv_item(item, k, skip_duplicates=False)
-        assert result is False
+        importer = CsvImporter(str(csv_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=False)
+        assert result["imported"] == {}
+        assert len(storage.list_raw(limit=10)) == 0
 
 
 class TestCsvImporterEpisodeOutcomeType:
-    """Test episode outcome_type tag folding."""
+    """Test episode outcome_type tag folding via JSON import path.
+
+    Episode outcome_type folding into tags is exercised through
+    the JSON import path since CSV import only handles raw entries.
+    """
 
     def test_episode_with_outcome_type(self, tmp_path, kernle_instance):
-        """Episode outcome_type is folded into tags via _import_csv_item."""
-        from kernle.importers.csv_importer import CsvImportItem, _import_csv_item
-
-        k, storage = kernle_instance
-        item = CsvImportItem(
-            type="episode",
-            data={
-                "objective": "Test objective",
-                "outcome": "It worked",
-                "outcome_type": "success",
-            },
+        """Episode outcome_type is folded into tags via JsonImporter.import_to()."""
+        json_file = tmp_path / "episode_outcome.json"
+        json_file.write_text(
+            json.dumps(
+                {
+                    "raw_entries": [{"id": "r1", "content": "raw observation"}],
+                    "episodes": [
+                        {
+                            "id": "e1",
+                            "objective": "Test objective",
+                            "outcome": "It worked",
+                            "outcome_type": "success",
+                            "derived_from": ["raw:r1"],
+                        }
+                    ],
+                }
+            )
         )
-        assert _import_csv_item(item, k, skip_duplicates=False) is True
+        k, storage = kernle_instance
+        importer = JsonImporter(str(json_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=False)
+        assert result["imported"]["episode"] == 1
         episodes = storage.get_episodes()
         assert len(episodes) == 1
         assert "outcome:success" in (episodes[0].tags or [])
@@ -865,27 +1010,23 @@ class TestJsonImporterClass:
         assert result["imported"]["raw"] == 1
 
     def test_importer_skip_duplicates(self, tmp_path, kernle_instance):
-        """Skip duplicate items."""
-        from kernle.importers.json_importer import JsonImportItem, _import_json_item
-
+        """Skip duplicate items within a single import."""
         json_file = tmp_path / "test.json"
         json_file.write_text(
             json.dumps(
                 {
-                    "raw_entries": [{"id": "r1", "content": "Unique JSON raw content"}],
+                    "raw_entries": [
+                        {"id": "r1", "content": "Unique JSON raw content"},
+                        {"id": "r2", "content": "Unique JSON raw content"},
+                    ],
                 }
             )
         )
         k, storage = kernle_instance
-
-        # First import into empty stack
         importer = JsonImporter(str(json_file))
-        result1 = importer.import_to(k, dry_run=False, skip_duplicates=True)
-        assert result1["imported"]["raw"] == 1
-
-        # Verify duplicate is detected at item level
-        dup_item = JsonImportItem(type="raw", data={"content": "Unique JSON raw content"})
-        assert _import_json_item(dup_item, k, skip_duplicates=True) is None
+        result = importer.import_to(k, dry_run=False, skip_duplicates=True)
+        assert result["imported"]["raw"] == 1
+        assert result["skipped"].get("raw", 0) == 1
 
     def test_importer_returns_source_stack_id(self, tmp_path, kernle_instance):
         """import_to returns source stack_id."""

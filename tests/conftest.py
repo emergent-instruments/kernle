@@ -13,34 +13,15 @@ from kernle.core import Kernle
 from kernle.storage import Belief, Drive, Episode, Goal, Note, SQLiteStorage, Value
 
 
-class NoopModel:
-    """Satisfies inference requirement without doing anything.
-
-    Used in tests so that higher-tier writer methods (belief, value, goal,
-    drive, relationship) don't raise InferenceRequiredError.
-    """
-
-    model_id = "noop-test-model"
-
-    def generate(self, prompt, **kwargs):
-        return ""
-
-
 def bind_noop_model(k: Kernle) -> None:
     """Bind a no-op model to a Kernle instance for testing.
 
     This satisfies the inference gate on higher-tier writers without
     requiring actual inference capability.
     """
-    from kernle.stack.sqlite_stack import SQLiteStack
+    from kernle.importers.import_model import bind_import_model
 
-    stack = k.stack
-    if stack is not None and isinstance(stack, SQLiteStack):
-        from kernle.inference import create_inference_service
-
-        model = NoopModel()
-        inference = create_inference_service(model)
-        stack.on_model_changed(inference)
+    bind_import_model(k)
 
 
 @pytest.fixture

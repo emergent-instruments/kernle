@@ -322,3 +322,77 @@ class TestProvenanceChainValidation:
         result = importer.import_to(k, dry_run=True)
         assert result["imported"] == {}
         assert len(result["errors"]) > 0
+
+
+class TestImportedSourceTypeNoBypass:
+    """Verify source_type='imported' does NOT bypass inference gating."""
+
+    def test_belief_requires_inference_even_with_imported_source_type(self, tmp_path):
+        """Calling k.belief() with source_type='imported' raises without a model."""
+        from kernle.core.kernle_class import Kernle
+        from kernle.protocols import InferenceRequiredError
+        from kernle.storage.sqlite import SQLiteStorage
+
+        storage = SQLiteStorage(stack_id="test", db_path=tmp_path / "test.db")
+        k = Kernle(
+            stack_id="test",
+            storage=storage,
+            checkpoint_dir=tmp_path / "cp",
+            strict=False,
+        )
+        # Do NOT bind a model
+        with pytest.raises(InferenceRequiredError):
+            k.belief("test belief", source_type="imported")
+        storage.close()
+
+    def test_drive_requires_inference_even_with_imported_source_type(self, tmp_path):
+        """Calling k.drive() with source_type='imported' raises without a model."""
+        from kernle.core.kernle_class import Kernle
+        from kernle.protocols import InferenceRequiredError
+        from kernle.storage.sqlite import SQLiteStorage
+
+        storage = SQLiteStorage(stack_id="test", db_path=tmp_path / "test.db")
+        k = Kernle(
+            stack_id="test",
+            storage=storage,
+            checkpoint_dir=tmp_path / "cp",
+            strict=False,
+        )
+        with pytest.raises(InferenceRequiredError):
+            k.drive("curiosity", source_type="imported")
+        storage.close()
+
+    def test_import_pipeline_binds_model_automatically(self, tmp_path):
+        """JsonImporter.import_to() succeeds without a pre-bound model."""
+        from kernle.core.kernle_class import Kernle
+        from kernle.storage.sqlite import SQLiteStorage
+
+        storage = SQLiteStorage(stack_id="test", db_path=tmp_path / "test.db")
+        k = Kernle(
+            stack_id="test",
+            storage=storage,
+            checkpoint_dir=tmp_path / "cp",
+            strict=False,
+        )
+        # Do NOT bind a model — import_to() should bind one itself
+        json_file = tmp_path / "import.json"
+        json_file.write_text(
+            json.dumps(
+                {
+                    "raw_entries": [{"id": "r1", "content": "test"}],
+                    "episodes": [
+                        {
+                            "id": "e1",
+                            "objective": "test",
+                            "outcome": "done",
+                            "derived_from": ["raw:r1"],
+                        }
+                    ],
+                }
+            )
+        )
+        importer = JsonImporter(str(json_file))
+        result = importer.import_to(k, dry_run=False)
+        assert result["imported"]["raw"] == 1
+        assert result["imported"]["episode"] == 1
+        storage.close()

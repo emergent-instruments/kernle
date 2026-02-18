@@ -13,15 +13,138 @@ import pytest
 
 from kernle.importers.csv_importer import (
     CsvImporter,
-    CsvImportItem,
     _map_columns,
     parse_csv,
 )
-from kernle.importers.json_importer import (
-    JsonImporter,
-    JsonImportItem,
-    _import_json_item,
-)
+from kernle.importers.json_importer import JsonImporter
+
+# ============================================================================
+# Helpers: JSON fixture builders with valid provenance chains
+# ============================================================================
+
+
+def _make_drive_fixture(intensity, *, drive_type="curiosity"):
+    """Build a JSON fixture for a drive with valid provenance chain.
+
+    Chain: raw -> episode -> drive
+    """
+    return {
+        "raw_entries": [{"id": "r1", "content": "raw entry"}],
+        "episodes": [
+            {
+                "id": "e1",
+                "objective": "test objective",
+                "outcome": "test outcome",
+                "derived_from": ["raw:r1"],
+            }
+        ],
+        "drives": [
+            {
+                "drive_type": drive_type,
+                "intensity": intensity,
+                "derived_from": ["episode:e1"],
+            }
+        ],
+    }
+
+
+def _make_relationship_fixture(sentiment, *, entity_name="TestEntity"):
+    """Build a JSON fixture for a relationship with valid provenance chain.
+
+    Chain: raw -> episode -> relationship
+    """
+    return {
+        "raw_entries": [{"id": "r1", "content": "raw entry"}],
+        "episodes": [
+            {
+                "id": "e1",
+                "objective": "test objective",
+                "outcome": "test outcome",
+                "derived_from": ["raw:r1"],
+            }
+        ],
+        "relationships": [
+            {
+                "entity_name": entity_name,
+                "entity_type": "person",
+                "relationship_type": "friend",
+                "sentiment": sentiment,
+                "derived_from": ["episode:e1"],
+            }
+        ],
+    }
+
+
+def _make_belief_fixture(confidence, *, statement="Test belief"):
+    """Build a JSON fixture for a belief with valid provenance chain.
+
+    Chain: raw -> episode -> belief
+    """
+    return {
+        "raw_entries": [{"id": "r1", "content": "raw entry"}],
+        "episodes": [
+            {
+                "id": "e1",
+                "objective": "test objective",
+                "outcome": "test outcome",
+                "derived_from": ["raw:r1"],
+            }
+        ],
+        "beliefs": [
+            {
+                "statement": statement,
+                "confidence": confidence,
+                "derived_from": ["episode:e1"],
+            }
+        ],
+    }
+
+
+def _make_value_fixture(priority, *, name="Test Value", statement="Test statement"):
+    """Build a JSON fixture for a value with valid provenance chain.
+
+    Chain: raw -> episode -> belief -> value
+    """
+    return {
+        "raw_entries": [{"id": "r1", "content": "raw entry"}],
+        "episodes": [
+            {
+                "id": "e1",
+                "objective": "test objective",
+                "outcome": "test outcome",
+                "derived_from": ["raw:r1"],
+            }
+        ],
+        "beliefs": [
+            {
+                "id": "b1",
+                "statement": "supporting belief",
+                "confidence": 0.8,
+                "derived_from": ["episode:e1"],
+            }
+        ],
+        "values": [
+            {
+                "name": name,
+                "statement": statement,
+                "priority": priority,
+                "derived_from": ["belief:b1"],
+            }
+        ],
+    }
+
+
+def _write_and_import(fixture, tmp_path, kernle_instance, *, strict=False):
+    """Write a JSON fixture to disk and import via JsonImporter.import_to().
+
+    Returns the import result dict.
+    """
+    k, storage = kernle_instance
+    json_file = tmp_path / "test.json"
+    json_file.write_text(json.dumps(fixture))
+    importer = JsonImporter(str(json_file), strict=strict)
+    return importer.import_to(k, dry_run=False, skip_duplicates=False)
+
 
 # ============================================================================
 # CSV Importer: Confidence validation
@@ -168,171 +291,133 @@ class TestCsvIntensityValidation:
 
 
 # ============================================================================
-# JSON Importer: Intensity validation
+# JSON Importer: Intensity validation (via import_to)
 # ============================================================================
 
 
 class TestJsonIntensityValidation:
-    """Test intensity bounds validation in JSON importer."""
+    """Test intensity bounds validation in JSON importer via import_to()."""
 
-    def test_json_intensity_out_of_bounds_clamped(self, kernle_instance):
+    def test_json_intensity_out_of_bounds_clamped(self, tmp_path, kernle_instance):
         """intensity=2.0 should be clamped to 1.0 in permissive mode."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="drive",
-            data={"drive_type": "curiosity", "intensity": 2.0},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is not None
+        fixture = _make_drive_fixture(2.0)
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
 
+        assert result["imported"]["drive"] == 1
         drives = storage.get_drives()
         assert len(drives) == 1
         assert drives[0].intensity <= 1.0
 
-    def test_json_intensity_negative_clamped(self, kernle_instance):
+    def test_json_intensity_negative_clamped(self, tmp_path, kernle_instance):
         """intensity=-0.5 should be clamped to 0.0."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="drive",
-            data={"drive_type": "growth", "intensity": -0.5},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is not None
+        fixture = _make_drive_fixture(-0.5, drive_type="growth")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
 
+        assert result["imported"]["drive"] == 1
         drives = storage.get_drives()
         assert len(drives) == 1
         assert drives[0].intensity >= 0.0
 
-    def test_json_intensity_strict_rejects_out_of_bounds(self, kernle_instance):
+    def test_json_intensity_strict_rejects_out_of_bounds(self, tmp_path, kernle_instance):
         """intensity=2.0 in strict mode should reject the item."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="drive",
-            data={"drive_type": "curiosity", "intensity": 2.0},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is None
+        fixture = _make_drive_fixture(2.0)
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=True)
+
+        assert result["imported"].get("drive", 0) == 0
+        drives = storage.get_drives()
+        assert len(drives) == 0
 
 
 # ============================================================================
-# JSON Importer: Sentiment validation
+# JSON Importer: Sentiment validation (via import_to)
 # ============================================================================
 
 
 class TestJsonSentimentValidation:
-    """Test sentiment bounds validation in JSON importer."""
+    """Test sentiment bounds validation in JSON importer via import_to()."""
 
-    def test_json_sentiment_out_of_bounds_clamped(self, kernle_instance):
+    def test_json_sentiment_out_of_bounds_clamped(self, tmp_path, kernle_instance):
         """sentiment=5.0 should be clamped to 1.0 in permissive mode."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="relationship",
-            data={
-                "entity_name": "TestEntity",
-                "entity_type": "person",
-                "relationship_type": "friend",
-                "sentiment": 5.0,
-            },
-        )
-        result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is not None
+        fixture = _make_relationship_fixture(5.0)
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
 
+        assert result["imported"]["relationship"] == 1
         rel = storage.get_relationship("TestEntity")
         assert rel is not None
         # sentiment 5.0 clamped to 1.0, stored as sentiment on the object
         assert rel.sentiment <= 1.0
 
-    def test_json_sentiment_negative_out_of_bounds_clamped(self, kernle_instance):
+    def test_json_sentiment_negative_out_of_bounds_clamped(self, tmp_path, kernle_instance):
         """sentiment=-5.0 should be clamped to -1.0."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="relationship",
-            data={
-                "entity_name": "NegEntity",
-                "entity_type": "person",
-                "relationship_type": "rival",
-                "sentiment": -5.0,
-            },
-        )
-        result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is not None
+        fixture = _make_relationship_fixture(-5.0, entity_name="NegEntity")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
 
+        assert result["imported"]["relationship"] == 1
         rel = storage.get_relationship("NegEntity")
         assert rel is not None
         # sentiment -5.0 clamped to -1.0
         assert rel.sentiment >= -1.0
 
-    def test_json_sentiment_strict_rejects_out_of_bounds(self, kernle_instance):
+    def test_json_sentiment_strict_rejects_out_of_bounds(self, tmp_path, kernle_instance):
         """sentiment=5.0 in strict mode should reject the item."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="relationship",
-            data={
-                "entity_name": "TestEntity",
-                "entity_type": "person",
-                "relationship_type": "friend",
-                "sentiment": 5.0,
-            },
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is None
+        fixture = _make_relationship_fixture(5.0)
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=True)
+
+        assert result["imported"].get("relationship", 0) == 0
 
 
 # ============================================================================
-# JSON Importer: Confidence validation
+# JSON Importer: Confidence validation (via import_to)
 # ============================================================================
 
 
 class TestJsonConfidenceValidation:
-    """Test confidence bounds validation in JSON importer."""
+    """Test confidence bounds validation in JSON importer via import_to()."""
 
-    def test_json_confidence_out_of_bounds_clamped(self, kernle_instance):
+    def test_json_confidence_out_of_bounds_clamped(self, tmp_path, kernle_instance):
         """confidence=1.5 should be clamped to 1.0."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="belief",
-            data={"statement": "Test belief clamped", "confidence": 1.5},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is not None
+        fixture = _make_belief_fixture(1.5, statement="Test belief clamped")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
 
+        assert result["imported"]["belief"] == 1
         beliefs = storage.get_beliefs()
         assert len(beliefs) == 1
         assert beliefs[0].confidence <= 1.0
 
-    def test_json_confidence_negative_clamped(self, kernle_instance):
+    def test_json_confidence_negative_clamped(self, tmp_path, kernle_instance):
         """confidence=-0.5 should be clamped to 0.0."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="belief",
-            data={"statement": "Negative confidence", "confidence": -0.5},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is not None
+        fixture = _make_belief_fixture(-0.5, statement="Negative confidence")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
 
+        assert result["imported"]["belief"] == 1
         beliefs = storage.get_beliefs()
         assert len(beliefs) == 1
         assert beliefs[0].confidence >= 0.0
 
 
 # ============================================================================
-# JSON Importer: Priority validation
+# JSON Importer: Priority validation (via import_to)
 # ============================================================================
 
 
 class TestJsonPriorityValidation:
-    """Test priority bounds validation in JSON importer."""
+    """Test priority bounds validation in JSON importer via import_to()."""
 
-    def test_json_value_priority_out_of_bounds_clamped(self, kernle_instance):
+    def test_json_value_priority_out_of_bounds_clamped(self, tmp_path, kernle_instance):
         """priority=200 should be clamped to 100."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="value",
-            data={"name": "Excessive Priority", "statement": "Test", "priority": 200},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False)
-        assert result is not None
+        fixture = _make_value_fixture(200, name="Excessive Priority")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
 
+        assert result["imported"]["value"] == 1
         values = storage.get_values()
         assert len(values) == 1
         assert values[0].priority <= 100
@@ -376,32 +461,9 @@ belief,Another valid,0.7
 
     def test_json_coercion_warnings_in_import_result(self, tmp_path, kernle_instance):
         """JSON importer should include coercion_warnings in result."""
-        k, storage = kernle_instance
-        json_file = tmp_path / "test.json"
-        json_file.write_text(
-            json.dumps(
-                {
-                    "raw_entries": [{"id": "r1", "content": "raw entry"}],
-                    "episodes": [
-                        {
-                            "id": "e1",
-                            "objective": "obj",
-                            "outcome": "out",
-                            "derived_from": ["raw:r1"],
-                        }
-                    ],
-                    "drives": [
-                        {
-                            "drive_type": "curiosity",
-                            "intensity": 2.0,
-                            "derived_from": ["episode:e1"],
-                        },
-                    ],
-                }
-            )
-        )
-        importer = JsonImporter(str(json_file))
-        result = importer.import_to(k, dry_run=False, skip_duplicates=False)
+        fixture = _make_drive_fixture(2.0)
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
+
         assert result["imported"]["drive"] == 1
         assert "coercion_warnings" in result
         assert len(result["coercion_warnings"]) >= 1
@@ -525,48 +587,19 @@ belief,Test,invalid
         assert isinstance(result, list)
 
     def test_csv_importer_default_not_strict(self, tmp_path, kernle_instance):
-        """CsvImporter default import is not strict (test via _import_csv_item)."""
-        from kernle.importers.csv_importer import _import_csv_item
-
+        """CsvImporter default import is not strict — raw items import without error."""
+        csv_file = tmp_path / "permissive.csv"
+        csv_file.write_text("type,content\nraw,Permissive test\n")
         k, storage = kernle_instance
-        # CSV import_to() only imports raw items now, so test permissive
-        # coercion through _import_csv_item directly which still handles
-        # any type.
-        item = CsvImportItem(
-            type="belief",
-            data={"statement": "Permissive test", "confidence": 0.7},
-        )
-        result = _import_csv_item(item, k, skip_duplicates=False)
-        assert result is True
+        importer = CsvImporter(str(csv_file))
+        result = importer.import_to(k, dry_run=False, skip_duplicates=False)
+        assert result["imported"]["raw"] == 1
 
     def test_json_importer_default_not_strict(self, tmp_path, kernle_instance):
         """JsonImporter default import is not strict."""
-        k, storage = kernle_instance
-        json_file = tmp_path / "test.json"
-        json_file.write_text(
-            json.dumps(
-                {
-                    "raw_entries": [{"id": "r1", "content": "raw entry"}],
-                    "episodes": [
-                        {
-                            "id": "e1",
-                            "objective": "obj",
-                            "outcome": "out",
-                            "derived_from": ["raw:r1"],
-                        }
-                    ],
-                    "drives": [
-                        {
-                            "drive_type": "curiosity",
-                            "intensity": 2.0,
-                            "derived_from": ["episode:e1"],
-                        },
-                    ],
-                }
-            )
-        )
-        importer = JsonImporter(str(json_file))
-        result = importer.import_to(k, dry_run=False, skip_duplicates=False)
+        fixture = _make_drive_fixture(2.0)
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
+
         assert result["imported"]["drive"] == 1
 
 
@@ -623,75 +656,59 @@ class TestBooleanNaNInfinityImportValidation:
         val, rejected = _validate_import_numeric(float("-inf"), 0.0, 1.0, 0.8, strict=True)
         assert rejected is True
 
-    # --- JSON Importer: Boolean confidence ---
+    # --- JSON Importer: Boolean confidence (via import_to) ---
 
-    def test_json_belief_bool_confidence_strict_rejected(self, kernle_instance):
+    def test_json_belief_bool_confidence_strict_rejected(self, tmp_path, kernle_instance):
         """Boolean confidence in strict mode should reject the belief."""
-        k, storage = kernle_instance
-        item = JsonImportItem(
-            type="belief",
-            data={"statement": "Bool confidence", "confidence": True},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is None
+        fixture = _make_belief_fixture(True, statement="Bool confidence")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=True)
 
-    def test_json_belief_bool_confidence_permissive_defaults(self, kernle_instance):
+        assert result["imported"].get("belief", 0) == 0
+
+    def test_json_belief_bool_confidence_permissive_defaults(self, tmp_path, kernle_instance):
         """Boolean confidence in permissive mode defaults to 0.8."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="belief",
-            data={"statement": "Bool confidence permissive", "confidence": True},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=False)
-        assert result is not None
+        fixture = _make_belief_fixture(True, statement="Bool confidence permissive")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
+
+        assert result["imported"]["belief"] == 1
         beliefs = storage.get_beliefs()
         assert any(b.confidence == pytest.approx(0.8) for b in beliefs)
 
-    # --- JSON Importer: Boolean intensity ---
+    # --- JSON Importer: Boolean intensity (via import_to) ---
 
-    def test_json_drive_bool_intensity_strict_rejected(self, kernle_instance):
+    def test_json_drive_bool_intensity_strict_rejected(self, tmp_path, kernle_instance):
         """Boolean intensity in strict mode should reject the drive."""
-        k, storage = kernle_instance
-        item = JsonImportItem(
-            type="drive",
-            data={"drive_type": "bool_drive", "intensity": True},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is None
+        fixture = _make_drive_fixture(True, drive_type="bool_drive")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=True)
 
-    # --- JSON Importer: Boolean sentiment ---
+        assert result["imported"].get("drive", 0) == 0
 
-    def test_json_relationship_bool_sentiment_strict_rejected(self, kernle_instance):
+    # --- JSON Importer: Boolean sentiment (via import_to) ---
+
+    def test_json_relationship_bool_sentiment_strict_rejected(self, tmp_path, kernle_instance):
         """Boolean sentiment in strict mode should reject the relationship."""
-        k, storage = kernle_instance
-        item = JsonImportItem(
-            type="relationship",
-            data={"entity_name": "bool_entity", "sentiment": True},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is None
+        fixture = _make_relationship_fixture(True, entity_name="bool_entity")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=True)
 
-    # --- JSON Importer: Boolean priority ---
+        assert result["imported"].get("relationship", 0) == 0
 
-    def test_json_value_bool_priority_strict_rejected(self, kernle_instance):
+    # --- JSON Importer: Boolean priority (via import_to) ---
+
+    def test_json_value_bool_priority_strict_rejected(self, tmp_path, kernle_instance):
         """Boolean priority in strict mode should reject the value."""
-        k, storage = kernle_instance
-        item = JsonImportItem(
-            type="value",
-            data={"name": "Bool Priority", "statement": "Test", "priority": True},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is None
+        fixture = _make_value_fixture(True, name="Bool Priority")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=True)
 
-    def test_json_value_bool_priority_permissive_defaults(self, kernle_instance):
+        assert result["imported"].get("value", 0) == 0
+
+    def test_json_value_bool_priority_permissive_defaults(self, tmp_path, kernle_instance):
         """Boolean priority in permissive mode defaults to 50."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="value",
-            data={"name": "Bool Priority Default", "statement": "Test", "priority": False},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=False)
-        assert result is not None
+        fixture = _make_value_fixture(False, name="Bool Priority Default")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
+
+        assert result["imported"]["value"] == 1
         values = storage.get_values()
         matching = [v for v in values if v.name == "Bool Priority Default"]
         assert len(matching) == 1
@@ -699,61 +716,47 @@ class TestBooleanNaNInfinityImportValidation:
 
     # --- JSON Importer: NaN priority (was crashing with int(float('nan'))) ---
 
-    def test_json_value_nan_priority_strict_rejected(self, kernle_instance):
+    def test_json_value_nan_priority_strict_rejected(self, tmp_path, kernle_instance):
         """NaN priority in strict mode should reject, not crash."""
-        k, storage = kernle_instance
-        item = JsonImportItem(
-            type="value",
-            data={"name": "NaN Priority", "statement": "Test", "priority": float("nan")},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is None
+        fixture = _make_value_fixture(float("nan"), name="NaN Priority")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=True)
 
-    def test_json_value_nan_priority_permissive_defaults(self, kernle_instance):
+        assert result["imported"].get("value", 0) == 0
+
+    def test_json_value_nan_priority_permissive_defaults(self, tmp_path, kernle_instance):
         """NaN priority in permissive mode should default to 50, not crash."""
         k, storage = kernle_instance
-        item = JsonImportItem(
-            type="value",
-            data={"name": "NaN Default", "statement": "Test", "priority": float("nan")},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=False)
-        assert result is not None
+        fixture = _make_value_fixture(float("nan"), name="NaN Default")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=False)
+
+        assert result["imported"]["value"] == 1
         values = storage.get_values()
         matching = [v for v in values if v.name == "NaN Default"]
         assert len(matching) == 1
         assert matching[0].priority == 50
 
-    def test_json_value_inf_priority_strict_rejected(self, kernle_instance):
+    def test_json_value_inf_priority_strict_rejected(self, tmp_path, kernle_instance):
         """Infinity priority in strict mode should reject."""
-        k, storage = kernle_instance
-        item = JsonImportItem(
-            type="value",
-            data={"name": "Inf Priority", "statement": "Test", "priority": float("inf")},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is None
+        fixture = _make_value_fixture(float("inf"), name="Inf Priority")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=True)
 
-    # --- JSON Importer: NaN/Inf confidence ---
+        assert result["imported"].get("value", 0) == 0
 
-    def test_json_belief_nan_confidence_strict_rejected(self, kernle_instance):
+    # --- JSON Importer: NaN/Inf confidence (via import_to) ---
+
+    def test_json_belief_nan_confidence_strict_rejected(self, tmp_path, kernle_instance):
         """NaN confidence should be rejected via _validate_range."""
-        k, storage = kernle_instance
-        item = JsonImportItem(
-            type="belief",
-            data={"statement": "NaN belief", "confidence": float("nan")},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is None
+        fixture = _make_belief_fixture(float("nan"), statement="NaN belief")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=True)
 
-    def test_json_drive_inf_intensity_strict_rejected(self, kernle_instance):
+        assert result["imported"].get("belief", 0) == 0
+
+    def test_json_drive_inf_intensity_strict_rejected(self, tmp_path, kernle_instance):
         """Infinity intensity should be rejected via _validate_range."""
-        k, storage = kernle_instance
-        item = JsonImportItem(
-            type="drive",
-            data={"drive_type": "inf_drive", "intensity": float("inf")},
-        )
-        result = _import_json_item(item, k, skip_duplicates=False, strict=True)
-        assert result is None
+        fixture = _make_drive_fixture(float("inf"), drive_type="inf_drive")
+        result = _write_and_import(fixture, tmp_path, kernle_instance, strict=True)
+
+        assert result["imported"].get("drive", 0) == 0
 
     # --- CSV Importer: NaN in confidence ---
 

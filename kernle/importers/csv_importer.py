@@ -150,6 +150,11 @@ class CsvImporter:
                 "Import is only supported on empty stacks."
             )
 
+        if not dry_run:
+            from kernle.importers.import_model import bind_import_model
+
+            bind_import_model(k)
+
         # Filter to raw-only
         raw_items = [(i, item) for i, item in enumerate(self.items) if item.type == "raw"]
         skipped_non_raw = len(self.items) - len(raw_items)

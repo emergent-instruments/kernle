@@ -387,6 +387,11 @@ def cmd_import(args: "argparse.Namespace", k: "Kernle") -> None:
         )
         return
 
+    if not dry_run:
+        from kernle.importers.import_model import bind_import_model
+
+        bind_import_model(k)
+
     if file_format == "markdown":
         _import_markdown(file_path, k, dry_run, interactive, derived_from)
     elif file_format == "json":
