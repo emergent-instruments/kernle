@@ -235,7 +235,19 @@ kernle -s my-project belief supersede abc123 "New updated belief"
 
 ## Import from Flat Files
 
-Migrate from MEMORY.md or other flat files:
+Seed an **empty stack** from MEMORY.md, JSON exports, or CSV files.
+
+<Note>
+Import is a **one-shot, empty-stack-only** operation. It is designed for initial stack seeding — not incremental ingestion. If the stack already has content, import will refuse to run (dry-run mode still works for previewing).
+</Note>
+
+### Format Behavior
+
+| Format | What gets imported | Notes |
+|--------|-------------------|-------|
+| **JSON** (`.json`) | All types (raw, episode, note, belief, value, goal, drive, relationship) | Full provenance chains required — beliefs must reference episodes/notes, episodes must reference raw entries |
+| **Markdown** (`.md`) | Raw entries only | Non-raw sections are parsed but skipped at import time |
+| **CSV** (`.csv`) | Raw entries only | Non-raw rows are parsed but skipped at import time |
 
 ### Preview Import
 
@@ -244,17 +256,15 @@ kernle -s my-project import MEMORY.md --dry-run
 ```
 
 ```
-Found 6 items to import:
-  belief: 2
-  episode: 2
-  note: 2
+Found 4 items to import:
+  raw: 3
+  skipped_non_raw: 1
 
 === DRY RUN (no changes made) ===
 
-1. [note] Decided to use SQLite for local storage
-   Type: decision
-2. [episode] Memory continuity is essential
-   → Lesson: this enables long-term learning
+1. [raw] Decided to use SQLite for local storage
+2. [raw] Memory continuity is essential
+3. [raw] Always extract lessons from experiences
 ```
 
 ### Actually Import
@@ -262,6 +272,17 @@ Found 6 items to import:
 ```bash
 kernle -s my-project import MEMORY.md
 ```
+
+### JSON Import with Provenance
+
+For structured imports with full type support, use JSON (the format produced by `kernle export --format json`):
+
+```bash
+kernle -s my-project import export.json --dry-run
+kernle -s my-project import export.json
+```
+
+JSON imports validate provenance chains — every belief must trace back through episodes/notes to raw entries.
 
 ### Interactive Mode
 

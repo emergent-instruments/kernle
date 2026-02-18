@@ -166,18 +166,26 @@ If you were using the previous `kernle-load` bootstrap hook:
 
 ## Migrating from Native Files
 
-If you're migrating an existing OpenClaw SI from static files to Kernle:
+If you're migrating an existing OpenClaw SI from static files to Kernle, use the dedicated OpenClaw migration tool — **not** `kernle import` directly.
+
+The generic `kernle import` command is designed for structured data (JSON with provenance chains, or markdown/CSV as raw-only). OpenClaw workspaces have their own file conventions (SOUL.md, USER.md, daily notes) that need specialized parsing.
 
 ```bash
-# Import existing SOUL.md identity into Kernle values/beliefs
-kernle -s my-project import SOUL.md
+# Use the dedicated OpenClaw migration script
+python -m integrations.openclaw.migration.migrate_openclaw \
+  --stack my-project ~/workspace
 
-# Import USER.md into relationships
-kernle -s my-project import USER.md
-
-# Import daily notes as episodes
-kernle -s my-project import memory/
+# Preview first (dry-run)
+python -m integrations.openclaw.migration.migrate_openclaw \
+  --stack my-project --dry-run ~/workspace
 ```
+
+This handles:
+- `SOUL.md` — behavioral instructions (filtered, not raw identity)
+- `USER.md` — user context mapped to relationships
+- `IDENTITY.md` — core identity mapped to values/beliefs
+- `MEMORY.md` — curated memory mapped to mixed types
+- `memory/*.md` — daily session notes mapped to episodes
 
 After migration, remove the native files from the workspace (except `AGENTS.md`).
 
