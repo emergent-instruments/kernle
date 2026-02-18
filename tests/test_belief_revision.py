@@ -12,6 +12,7 @@ import pytest
 
 from kernle import Kernle
 from kernle.storage import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -20,6 +21,7 @@ def kernle_with_beliefs(tmp_path):
     db_path = tmp_path / "test_beliefs.db"
     storage = SQLiteStorage(stack_id="test_agent", db_path=db_path)
     k = Kernle(stack_id="test_agent", storage=storage, strict=False)
+    bind_noop_model(k)
 
     # Add some initial beliefs
     k.belief("I should always validate user input", type="principle", confidence=0.9)
@@ -36,7 +38,9 @@ def kernle_fresh(tmp_path):
     """Create a fresh Kernle instance."""
     db_path = tmp_path / "test_fresh.db"
     storage = SQLiteStorage(stack_id="test_agent", db_path=db_path)
-    return Kernle(stack_id="test_agent", storage=storage, strict=False)
+    k = Kernle(stack_id="test_agent", storage=storage, strict=False)
+    bind_noop_model(k)
+    return k
 
 
 class TestFindContradictions:
@@ -362,6 +366,7 @@ class TestBeliefDataclassFields:
         # Create and save belief
         storage1 = SQLiteStorage(stack_id="test_agent", db_path=db_path)
         k1 = Kernle(stack_id="test_agent", storage=storage1, strict=False)
+        bind_noop_model(k1)
 
         belief_id = k1.belief("Test belief", confidence=0.7)
         k1.reinforce_belief(belief_id)

@@ -979,17 +979,17 @@ class TestImportCommand:
 
         from kernle.cli.commands.import_cmd import cmd_import
 
-        # Create a test markdown file
+        # Create a test markdown file with raw content
         test_file = tmp_path / "test_import.md"
-        test_file.write_text("""## Decisions
-- Test decision 1
-- Test decision 2
+        test_file.write_text("""## Thoughts
+- Raw thought one
+- Raw thought two
 
-## Lessons
-- Test lesson → Important insight
+## Ideas
+- Another raw idea to explore
 """)
 
-        args = argparse.Namespace(file=str(test_file), dry_run=True, interactive=False, layer=None)
+        args = argparse.Namespace(file=str(test_file), dry_run=True, interactive=False)
 
         with patch("sys.stdout", new=StringIO()) as fake_out:
             cmd_import(args, mock_kernle)

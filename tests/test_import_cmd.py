@@ -45,6 +45,7 @@ from kernle.cli.commands.migrate import (
     cmd_migrate,
 )
 from kernle.storage import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 # ============================================================================
 # Fixtures
@@ -56,6 +57,7 @@ def k(tmp_path):
     """Create a Kernle instance with temp storage."""
     storage = SQLiteStorage(stack_id="test-import", db_path=tmp_path / "import.db")
     inst = Kernle(stack_id="test-import", storage=storage, strict=False)
+    bind_noop_model(inst)
     yield inst
     storage.close()
 
@@ -65,6 +67,7 @@ def k2(tmp_path):
     """Create a second Kernle instance (for round-trip import tests)."""
     storage = SQLiteStorage(stack_id="test-import-2", db_path=tmp_path / "import2.db")
     inst = Kernle(stack_id="test-import-2", storage=storage, strict=False)
+    bind_noop_model(inst)
     yield inst
     storage.close()
 
@@ -76,7 +79,6 @@ def _make_args(**kwargs):
         format=None,
         dry_run=False,
         interactive=False,
-        layer=None,
         skip_duplicates=True,
         derived_from=None,
         chunk_size=2000,
@@ -108,7 +110,23 @@ class TestCmdImport:
 
     def test_auto_detect_json(self, k, tmp_path, capsys):
         f = tmp_path / "data.json"
-        f.write_text(json.dumps({"beliefs": [{"statement": "Auto JSON", "confidence": 0.8}]}))
+        f.write_text(
+            json.dumps(
+                {
+                    "raw_entries": [{"id": "r1", "content": "raw obs"}],
+                    "notes": [{"id": "n1", "content": "note", "derived_from": ["raw:r1"]}],
+                    "beliefs": [
+                        {
+                            "id": "b1",
+                            "statement": "Auto JSON",
+                            "confidence": 0.8,
+                            "belief_type": "fact",
+                            "derived_from": ["note:n1"],
+                        }
+                    ],
+                }
+            )
+        )
         args = _make_args(file=str(f))
         cmd_import(args, k)
         beliefs = k._storage.get_beliefs(limit=10)
@@ -116,40 +134,56 @@ class TestCmdImport:
 
     def test_auto_detect_csv(self, k, tmp_path, capsys):
         f = tmp_path / "data.csv"
-        f.write_text("type,statement,confidence\nbelief,CSV auto detect,0.9\n")
+        f.write_text("type,content\nraw,CSV auto detect\n")
         args = _make_args(file=str(f))
         cmd_import(args, k)
-        beliefs = k._storage.get_beliefs(limit=10)
-        assert any(b.statement == "CSV auto detect" for b in beliefs)
+        raw = k._storage.list_raw(limit=10)
+        assert any(r.content == "CSV auto detect" for r in raw)
 
     def test_auto_detect_markdown(self, k, tmp_path, capsys):
         f = tmp_path / "data.md"
-        f.write_text("## Beliefs\n\n- MD auto detect (90%)\n")
+        f.write_text("## Thoughts\n\n- MD auto detect raw\n")
         args = _make_args(file=str(f))
         cmd_import(args, k)
-        beliefs = k._storage.get_beliefs(limit=10)
-        assert any("MD auto detect" in b.statement for b in beliefs)
+        raw = k._storage.list_raw(limit=10)
+        assert any("MD auto detect raw" in r.content for r in raw)
 
     def test_auto_detect_txt_as_markdown(self, k, tmp_path, capsys):
         f = tmp_path / "data.txt"
-        f.write_text("## Beliefs\n\n- TXT belief (80%)\n")
+        f.write_text("## Thoughts\n\n- TXT raw thought\n")
         args = _make_args(file=str(f))
         cmd_import(args, k)
-        beliefs = k._storage.get_beliefs(limit=10)
-        assert any("TXT belief" in b.statement for b in beliefs)
+        raw = k._storage.list_raw(limit=10)
+        assert any("TXT raw thought" in r.content for r in raw)
 
     def test_auto_detect_markdown_extension(self, k, tmp_path, capsys):
         f = tmp_path / "data.markdown"
-        f.write_text("## Beliefs\n\n- Markdown ext belief (80%)\n")
+        f.write_text("## Thoughts\n\n- Markdown ext raw thought\n")
         args = _make_args(file=str(f))
         cmd_import(args, k)
-        beliefs = k._storage.get_beliefs(limit=10)
-        assert any("Markdown ext belief" in b.statement for b in beliefs)
+        raw = k._storage.list_raw(limit=10)
+        assert any("Markdown ext raw thought" in r.content for r in raw)
 
     def test_format_override(self, k, tmp_path, capsys):
         """Explicit --format overrides file extension."""
         f = tmp_path / "data.xyz"
-        f.write_text(json.dumps({"beliefs": [{"statement": "Override", "confidence": 0.7}]}))
+        f.write_text(
+            json.dumps(
+                {
+                    "raw_entries": [{"id": "r1", "content": "raw obs"}],
+                    "notes": [{"id": "n1", "content": "note", "derived_from": ["raw:r1"]}],
+                    "beliefs": [
+                        {
+                            "id": "b1",
+                            "statement": "Override",
+                            "confidence": 0.7,
+                            "belief_type": "fact",
+                            "derived_from": ["note:n1"],
+                        }
+                    ],
+                }
+            )
+        )
         args = _make_args(file=str(f), format="json")
         cmd_import(args, k)
         beliefs = k._storage.get_beliefs(limit=10)
@@ -164,7 +198,22 @@ class TestCmdImport:
 
     def test_dry_run_passed_to_json(self, k, tmp_path, capsys):
         f = tmp_path / "data.json"
-        f.write_text(json.dumps({"beliefs": [{"statement": "DryJSON", "confidence": 0.8}]}))
+        f.write_text(
+            json.dumps(
+                {
+                    "raw_entries": [{"id": "r1", "content": "raw obs"}],
+                    "notes": [{"id": "n1", "content": "note", "derived_from": ["raw:r1"]}],
+                    "beliefs": [
+                        {
+                            "id": "b1",
+                            "statement": "DryJSON",
+                            "confidence": 0.8,
+                            "derived_from": ["note:n1"],
+                        }
+                    ],
+                }
+            )
+        )
         args = _make_args(file=str(f), dry_run=True)
         cmd_import(args, k)
         assert len(k._storage.get_beliefs(limit=10)) == 0
@@ -172,18 +221,18 @@ class TestCmdImport:
 
     def test_dry_run_passed_to_csv(self, k, tmp_path, capsys):
         f = tmp_path / "data.csv"
-        f.write_text("type,statement,confidence\nbelief,DryCSV,0.9\n")
+        f.write_text("type,content\nraw,DryCSV raw content\n")
         args = _make_args(file=str(f), dry_run=True)
         cmd_import(args, k)
-        assert len(k._storage.get_beliefs(limit=10)) == 0
+        assert len(k._storage.list_raw(limit=10)) == 0
         assert "DRY RUN" in capsys.readouterr().out
 
     def test_dry_run_passed_to_markdown(self, k, tmp_path, capsys):
         f = tmp_path / "data.md"
-        f.write_text("## Beliefs\n\n- DryMD (80%)\n")
+        f.write_text("## Thoughts\n\n- DryMD raw thought\n")
         args = _make_args(file=str(f), dry_run=True)
         cmd_import(args, k)
-        assert len(k._storage.get_beliefs(limit=10)) == 0
+        assert len(k._storage.list_raw(limit=10)) == 0
         assert "DRY RUN" in capsys.readouterr().out
 
 
@@ -206,9 +255,23 @@ class TestImportJson:
             {
                 "stack_id": "source",
                 "exported_at": "2024-01-01T00:00:00Z",
+                "raw_entries": [{"id": "r1", "content": "raw obs"}],
+                "notes": [{"id": "n1", "content": "note", "derived_from": ["raw:r1"]}],
                 "beliefs": [
-                    {"statement": "B1", "confidence": 0.9, "type": "fact"},
-                    {"statement": "B2", "confidence": 0.7},
+                    {
+                        "id": "b1",
+                        "statement": "B1",
+                        "confidence": 0.9,
+                        "belief_type": "fact",
+                        "derived_from": ["note:n1"],
+                    },
+                    {
+                        "id": "b2",
+                        "statement": "B2",
+                        "confidence": 0.7,
+                        "belief_type": "fact",
+                        "derived_from": ["note:n1"],
+                    },
                 ],
             },
         )
@@ -223,8 +286,15 @@ class TestImportJson:
         f = self._write_json(
             tmp_path,
             {
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
                 "episodes": [
-                    {"objective": "E1", "outcome": "O1", "lessons": ["L1"]},
+                    {
+                        "id": "e1",
+                        "objective": "E1",
+                        "outcome": "O1",
+                        "lessons": ["L1"],
+                        "derived_from": ["raw:r1"],
+                    },
                 ],
             },
         )
@@ -238,8 +308,15 @@ class TestImportJson:
         f = self._write_json(
             tmp_path,
             {
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
                 "notes": [
-                    {"content": "N1", "type": "note", "speaker": "user"},
+                    {
+                        "id": "n1",
+                        "content": "N1",
+                        "type": "note",
+                        "speaker": "user",
+                        "derived_from": ["raw:r1"],
+                    },
                 ],
             },
         )
@@ -253,7 +330,15 @@ class TestImportJson:
         f = self._write_json(
             tmp_path,
             {
-                "notes": [{"content": "InsightContent", "type": "insight"}],
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
+                "notes": [
+                    {
+                        "id": "n1",
+                        "content": "InsightContent",
+                        "type": "insight",
+                        "derived_from": ["raw:r1"],
+                    }
+                ],
             },
         )
         _import_json(f, k, dry_run=False, skip_duplicates=False)
@@ -321,14 +406,29 @@ class TestImportJson:
         f = self._write_json(
             tmp_path,
             {
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
+                "episodes": [
+                    {
+                        "id": "e1",
+                        "objective": "explored",
+                        "outcome": "learned",
+                        "derived_from": ["raw:r1"],
+                    }
+                ],
                 "drives": [
-                    {"drive_type": "curiosity", "intensity": 0.8, "focus_areas": ["learning"]},
+                    {
+                        "id": "d1",
+                        "drive_type": "curiosity",
+                        "intensity": 0.8,
+                        "focus_areas": ["learning"],
+                        "derived_from": ["episode:e1"],
+                    },
                 ],
             },
         )
         _import_json(f, k, dry_run=False, skip_duplicates=False)
         out = capsys.readouterr().out
-        assert "Imported 1" in out
+        assert "Imported" in out
         drive = k._storage.get_drive("curiosity")
         assert drive is not None
         assert drive.intensity == 0.8
@@ -391,8 +491,24 @@ class TestImportJson:
         f = self._write_json(
             tmp_path,
             {
-                "beliefs": [{"statement": "Should not exist", "confidence": 0.9}],
-                "episodes": [{"objective": "Should not exist"}],
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
+                "notes": [{"id": "n1", "content": "note", "derived_from": ["raw:r1"]}],
+                "beliefs": [
+                    {
+                        "id": "b1",
+                        "statement": "Should not exist",
+                        "confidence": 0.9,
+                        "derived_from": ["note:n1"],
+                    }
+                ],
+                "episodes": [
+                    {
+                        "id": "e1",
+                        "objective": "Should not exist",
+                        "outcome": "done",
+                        "derived_from": ["raw:r1"],
+                    }
+                ],
             },
         )
         _import_json(f, k, dry_run=True, skip_duplicates=False)
@@ -405,9 +521,23 @@ class TestImportJson:
         f = self._write_json(
             tmp_path,
             {
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
+                "notes": [{"id": "n1", "content": "note", "derived_from": ["raw:r1"]}],
                 "beliefs": [
-                    {"statement": "Already exists", "confidence": 0.9},
-                    {"statement": "New belief", "confidence": 0.7},
+                    {
+                        "id": "b1",
+                        "statement": "Already exists",
+                        "confidence": 0.9,
+                        "belief_type": "fact",
+                        "derived_from": ["note:n1"],
+                    },
+                    {
+                        "id": "b2",
+                        "statement": "New belief",
+                        "confidence": 0.7,
+                        "belief_type": "fact",
+                        "derived_from": ["note:n1"],
+                    },
                 ],
             },
         )
@@ -460,9 +590,28 @@ class TestImportJson:
         f = self._write_json(
             tmp_path,
             {
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
+                "episodes": [
+                    {
+                        "id": "e1",
+                        "objective": "explored",
+                        "outcome": "learned",
+                        "derived_from": ["raw:r1"],
+                    }
+                ],
                 "drives": [
-                    {"drive_type": "curiosity", "intensity": 0.9},
-                    {"drive_type": "growth", "intensity": 0.7},
+                    {
+                        "id": "d1",
+                        "drive_type": "curiosity",
+                        "intensity": 0.9,
+                        "derived_from": ["episode:e1"],
+                    },
+                    {
+                        "id": "d2",
+                        "drive_type": "growth",
+                        "intensity": 0.7,
+                        "derived_from": ["episode:e1"],
+                    },
                 ],
             },
         )
@@ -524,7 +673,17 @@ class TestImportJson:
         f = self._write_json(
             tmp_path,
             {
-                "beliefs": [{"statement": "Provenance test", "confidence": 0.8}],
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
+                "notes": [{"id": "n1", "content": "note", "derived_from": ["raw:r1"]}],
+                "beliefs": [
+                    {
+                        "id": "b1",
+                        "statement": "Provenance test",
+                        "confidence": 0.8,
+                        "belief_type": "fact",
+                        "derived_from": ["note:n1"],
+                    }
+                ],
             },
         )
         _import_json(
@@ -543,7 +702,15 @@ class TestImportJson:
         f = self._write_json(
             tmp_path,
             {
-                "episodes": [{"objective": "Prov ep", "outcome": "Done"}],
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
+                "episodes": [
+                    {
+                        "id": "e1",
+                        "objective": "Prov ep",
+                        "outcome": "Done",
+                        "derived_from": ["raw:r1"],
+                    }
+                ],
             },
         )
         _import_json(
@@ -564,11 +731,12 @@ class TestImportJson:
             {
                 "stack_id": "src-agent",
                 "exported_at": "2024-06-15T12:00:00Z",
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
+                "notes": [{"id": "n1", "content": "N1", "derived_from": ["raw:r1"]}],
                 "beliefs": [
-                    {"statement": "S1", "confidence": 0.8},
-                    {"statement": "S2", "confidence": 0.7},
+                    {"id": "b1", "statement": "S1", "confidence": 0.8, "derived_from": ["note:n1"]},
+                    {"id": "b2", "statement": "S2", "confidence": 0.7, "derived_from": ["note:n1"]},
                 ],
-                "notes": [{"content": "N1"}],
             },
         )
         _import_json(f, k, dry_run=False, skip_duplicates=False)
@@ -594,10 +762,28 @@ class TestImportJson:
         assert "episode: 1" in out
 
     def test_round_trip_export_import_beliefs_episodes(self, k, k2, tmp_path, capsys):
-        """Export beliefs/episodes from one agent, import to another."""
-        k.belief("Round-trip belief", confidence=0.85)
-        k.episode(objective="Round-trip task", outcome="Done")
-        k.note("Round-trip note", type="note")
+        """Export beliefs/episodes from one agent, import to another.
+
+        The round-trip requires proper provenance chains in the export.
+        We create raw -> episode/note -> belief with derived_from links
+        so the exported JSON passes provenance validation on re-import.
+        """
+        raw_id = k.raw(blob="Round-trip observation", source="test")
+        k.episode(
+            objective="Round-trip task",
+            outcome="Done",
+            derived_from=[f"raw:{raw_id}"],
+        )
+        note_id = k.note(
+            "Round-trip note",
+            type="note",
+            derived_from=[f"raw:{raw_id}"],
+        )
+        k.belief(
+            "Round-trip belief",
+            confidence=0.85,
+            derived_from=[f"note:{note_id}"],
+        )
 
         export_json = k.dump(format="json")
         f = tmp_path / "export.json"
@@ -629,7 +815,16 @@ class TestImportJson:
             {
                 "stack_id": "short",
                 "exported_at": "2024",
-                "beliefs": [{"statement": "Short date", "confidence": 0.8}],
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
+                "notes": [{"id": "n1", "content": "note", "derived_from": ["raw:r1"]}],
+                "beliefs": [
+                    {
+                        "id": "b1",
+                        "statement": "Short date",
+                        "confidence": 0.8,
+                        "derived_from": ["note:n1"],
+                    }
+                ],
             },
         )
         _import_json(f, k, dry_run=False, skip_duplicates=False)
@@ -652,201 +847,172 @@ class TestImportCsv:
         return f
 
     def test_csv_with_type_column(self, k, tmp_path, capsys):
-        f = self._write_csv(tmp_path, "type,statement,confidence\nbelief,CSV belief,0.9\n")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        beliefs = k._storage.get_beliefs(limit=10)
-        assert any(b.statement == "CSV belief" for b in beliefs)
+        f = self._write_csv(tmp_path, "type,content\nraw,CSV raw entry\n")
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        raw = k._storage.list_raw(limit=10)
+        assert any(r.content == "CSV raw entry" for r in raw)
 
     def test_csv_with_memory_type_column(self, k, tmp_path, capsys):
-        f = self._write_csv(tmp_path, "memory_type,statement,confidence\nbelief,MT belief,0.85\n")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        beliefs = k._storage.get_beliefs(limit=10)
-        assert any(b.statement == "MT belief" for b in beliefs)
+        f = self._write_csv(tmp_path, "memory_type,content\nraw,MT raw entry\n")
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        raw = k._storage.list_raw(limit=10)
+        assert any(r.content == "MT raw entry" for r in raw)
 
     def test_csv_with_kind_column(self, k, tmp_path, capsys):
-        f = self._write_csv(tmp_path, "kind,statement,confidence\nbelief,Kind belief,0.8\n")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        beliefs = k._storage.get_beliefs(limit=10)
-        assert any(b.statement == "Kind belief" for b in beliefs)
+        f = self._write_csv(tmp_path, "kind,content\nraw,Kind raw entry\n")
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        raw = k._storage.list_raw(limit=10)
+        assert any(r.content == "Kind raw entry" for r in raw)
 
-    def test_csv_mixed_types_that_work(self, k, tmp_path, capsys):
-        """Belief, note, and episode types should import via CSV.
-        Value and goal types may error due to API mismatch."""
+    def test_csv_mixed_types_skips_non_raw(self, k, tmp_path, capsys):
+        """CSV import only imports raw items; non-raw types are skipped."""
         content = (
-            "type,statement,content,objective\n"
-            "belief,Mixed CSV belief,,\n"
-            "note,,A mixed note,\n"
-            "episode,,,Mixed task\n"
+            "type,content\n" "raw,Raw CSV content\n" "belief,Skipped belief\n" "note,Skipped note\n"
         )
         f = self._write_csv(tmp_path, content)
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        assert len(k._storage.get_beliefs(limit=10)) == 1
-        assert len(k._storage.get_notes(limit=10)) == 1
-        assert len(k._storage.get_episodes(limit=10)) == 1
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        assert len(k._storage.list_raw(limit=10)) == 1
+        out = capsys.readouterr().out
+        assert "Skipped 2 non-raw items" in out
 
-    def test_csv_no_type_column_no_layer_error(self, k, tmp_path, capsys):
+    def test_csv_no_type_column_error(self, k, tmp_path, capsys):
         f = self._write_csv(tmp_path, "statement,confidence\nBelief,0.9\n")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
         out = capsys.readouterr().out
         assert "must have a 'type' column" in out
 
-    def test_csv_target_layer_override(self, k, tmp_path, capsys):
-        """--layer forces all rows to a specific type."""
-        f = self._write_csv(tmp_path, "content\nForced note 1\nForced note 2\n")
-        _import_csv(f, k, dry_run=False, target_layer="note", skip_duplicates=False)
-        notes = k._storage.get_notes(limit=10)
-        assert len(notes) == 2
-
-    def test_csv_target_layer_belief(self, k, tmp_path, capsys):
-        """--layer=belief forces all rows to belief type."""
-        f = self._write_csv(tmp_path, "statement,confidence\nLayer belief,0.8\n")
-        _import_csv(f, k, dry_run=False, target_layer="belief", skip_duplicates=False)
-        beliefs = k._storage.get_beliefs(limit=10)
-        assert any(b.statement == "Layer belief" for b in beliefs)
-
     def test_csv_dry_run(self, k, tmp_path, capsys):
-        f = self._write_csv(tmp_path, "type,statement,confidence\nbelief,Dry CSV,0.9\n")
-        _import_csv(f, k, dry_run=True, target_layer=None, skip_duplicates=False)
-        assert len(k._storage.get_beliefs(limit=10)) == 0
+        f = self._write_csv(tmp_path, "type,content\nraw,Dry CSV raw\n")
+        _import_csv(f, k, dry_run=True, skip_duplicates=False)
+        assert len(k._storage.list_raw(limit=10)) == 0
         assert "DRY RUN" in capsys.readouterr().out
 
     def test_csv_skip_duplicates(self, k, tmp_path, capsys):
-        k.belief("Dup CSV", confidence=0.8)
-        f = self._write_csv(
-            tmp_path, "type,statement,confidence\nbelief,Dup CSV,0.9\nbelief,New CSV,0.7\n"
-        )
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=True)
-        beliefs = k._storage.get_beliefs(limit=20)
-        statements = [b.statement for b in beliefs]
-        assert statements.count("Dup CSV") == 1
-        assert "New CSV" in statements
+        k.raw(blob="Dup CSV raw", source="test")
+        f = self._write_csv(tmp_path, "type,content\nraw,Dup CSV raw\nraw,New CSV raw\n")
+        _import_csv(f, k, dry_run=False, skip_duplicates=True)
+        raw = k._storage.list_raw(limit=20)
+        contents = [r.content for r in raw]
+        assert contents.count("Dup CSV raw") == 1
+        assert "New CSV raw" in contents
 
-    def test_csv_episode_columns(self, k, tmp_path, capsys):
+    def test_csv_episode_columns_skipped(self, k, tmp_path, capsys):
+        """Episode rows in CSV are skipped (CSV is raw-only)."""
         f = self._write_csv(
             tmp_path,
             'type,objective,outcome,outcome_type,lessons\nepisode,Fix bug,Fixed,success,"test first,verify"\n',
         )
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        episodes = k._storage.get_episodes(limit=10)
-        assert any(e.objective == "Fix bug" for e in episodes)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        out = capsys.readouterr().out
+        assert "Skipped 1 non-raw items" in out
 
-    def test_csv_note_columns(self, k, tmp_path, capsys):
-        """Notes imported via CSV — content may get type-prefixed by k.note()."""
+    def test_csv_note_columns_skipped(self, k, tmp_path, capsys):
+        """Note rows in CSV are skipped (CSV is raw-only)."""
         f = self._write_csv(
             tmp_path, "type,content,note_type,speaker\nnote,CSV note content,note,user\n"
         )
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        notes = k._storage.get_notes(limit=10)
-        assert len(notes) == 1
-        assert "CSV note content" in notes[0].content
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        out = capsys.readouterr().out
+        assert "Skipped 1 non-raw items" in out
 
-    def test_csv_value_columns_error(self, k, tmp_path, capsys):
-        """Value import via CSV uses description= which doesn't match k.value() API."""
+    def test_csv_value_columns_skipped(self, k, tmp_path, capsys):
+        """Value rows in CSV are skipped (CSV is raw-only)."""
         f = self._write_csv(
             tmp_path, "type,name,description,priority\nvalue,Honesty,Always tell truth,80\n"
         )
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
         out = capsys.readouterr().out
-        # Either succeeds or error is caught
-        values = k._storage.get_values(limit=10)
-        if len(values) == 0:
-            assert "error" in out.lower()
+        assert "Skipped 1 non-raw items" in out
 
-    def test_csv_goal_columns_error(self, k, tmp_path, capsys):
-        """Goal import via CSV passes status= which is not a valid k.goal() kwarg."""
+    def test_csv_goal_columns_skipped(self, k, tmp_path, capsys):
+        """Goal rows in CSV are skipped (CSV is raw-only)."""
         f = self._write_csv(
             tmp_path, "type,title,description,status\ngoal,Ship v1,Release,active\n"
         )
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
         out = capsys.readouterr().out
-        goals = k._storage.get_goals(status=None, limit=10)
-        if len(goals) == 0:
-            assert "error" in out.lower()
+        assert "Skipped 1 non-raw items" in out
 
     def test_csv_raw_columns(self, k, tmp_path, capsys):
         f = self._write_csv(tmp_path, "type,content,source\nraw,Raw CSV content,csv-import\n")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
         raw = k._storage.list_raw(limit=10)
         assert any(r.content == "Raw CSV content" for r in raw)
 
-    def test_csv_belief_confidence_normalization(self, k, tmp_path, capsys):
-        """Confidence > 1 should be divided by 100."""
+    def test_csv_belief_rows_skipped(self, k, tmp_path, capsys):
+        """Belief rows in CSV are skipped (CSV is raw-only)."""
         f = self._write_csv(tmp_path, "type,statement,confidence\nbelief,High conf,90\n")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        beliefs = k._storage.get_beliefs(limit=10)
-        b = next(b for b in beliefs if b.statement == "High conf")
-        assert b.confidence == pytest.approx(0.9, abs=0.05)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        out = capsys.readouterr().out
+        assert "Skipped 1 non-raw items" in out
 
-    def test_csv_belief_confidence_invalid(self, k, tmp_path, capsys):
-        """Invalid confidence should default to 0.7."""
-        f = self._write_csv(tmp_path, "type,statement,confidence\nbelief,Bad conf,xyz\n")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        beliefs = k._storage.get_beliefs(limit=10)
-        b = next(b for b in beliefs if b.statement == "Bad conf")
-        assert b.confidence == pytest.approx(0.7, abs=0.05)
+    def test_csv_raw_with_text_column(self, k, tmp_path, capsys):
+        """Raw items can use 'text' column as content alias."""
+        f = self._write_csv(tmp_path, "type,text\nraw,Text column content\n")
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        raw = k._storage.list_raw(limit=10)
+        assert any(r.content == "Text column content" for r in raw)
 
     def test_csv_empty_rows_skipped(self, k, tmp_path, capsys):
         """Rows with no content should be skipped."""
-        f = self._write_csv(tmp_path, "type,content\nnote,\nnote,Has content\n")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        notes = k._storage.get_notes(limit=10)
-        assert len(notes) == 1
+        f = self._write_csv(tmp_path, "type,content\nraw,\nraw,Has content\n")
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        raw = k._storage.list_raw(limit=10)
+        assert len(raw) == 1
 
     def test_csv_no_importable_content(self, k, tmp_path, capsys):
         f = self._write_csv(tmp_path, "type,content\n")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        assert "No importable content" in capsys.readouterr().out
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        assert "No raw entries found" in capsys.readouterr().out
 
     def test_csv_no_headers(self, k, tmp_path, capsys):
         f = self._write_csv(tmp_path, "")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
         out = capsys.readouterr().out
         assert "no headers" in out.lower() or "No importable" in out
 
     def test_csv_derived_from(self, k, tmp_path, capsys):
-        f = self._write_csv(tmp_path, "type,statement,confidence\nbelief,Prov CSV,0.8\n")
+        """CSV raw items don't carry derived_from (raw entries use blob source), but the function accepts the parameter."""
+        f = self._write_csv(tmp_path, "type,content\nraw,Prov CSV raw\n")
         _import_csv(
             f,
             k,
             dry_run=False,
-            target_layer=None,
             skip_duplicates=False,
             derived_from=["context:csv-source"],
         )
-        beliefs = k._storage.get_beliefs(limit=10)
-        b = next(b for b in beliefs if b.statement == "Prov CSV")
-        assert b.derived_from is not None
-        assert "context:csv-source" in b.derived_from
+        raw = k._storage.list_raw(limit=10)
+        r = next(r for r in raw if r.content == "Prov CSV raw")
+        assert r is not None
 
     def test_csv_dry_run_preview_limit(self, k, tmp_path, capsys):
         """Dry run preview shows max 10 items."""
-        rows = "\n".join(f"note,Content {i}" for i in range(15))
+        rows = "\n".join(f"raw,Content {i}" for i in range(15))
         f = self._write_csv(tmp_path, f"type,content\n{rows}\n")
-        _import_csv(f, k, dry_run=True, target_layer=None, skip_duplicates=False)
+        _import_csv(f, k, dry_run=True, skip_duplicates=False)
         out = capsys.readouterr().out
         assert "and 5 more" in out
 
-    def test_csv_column_aliases_episode(self, k, tmp_path, capsys):
-        """Episode 'title' column alias for objective should work."""
+    def test_csv_column_aliases_episode_skipped(self, k, tmp_path, capsys):
+        """Episode rows in CSV are skipped (CSV is raw-only)."""
         f = self._write_csv(tmp_path, "type,title\nepisode,Task via title alias\n")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        episodes = k._storage.get_episodes(limit=10)
-        assert len(episodes) == 1
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        out = capsys.readouterr().out
+        assert "Skipped 1 non-raw items" in out
 
     def test_csv_missing_type_row_skipped(self, k, tmp_path, capsys):
         """Rows without a type value are skipped."""
-        f = self._write_csv(tmp_path, "type,statement\nbelief,Has type\n,Missing type\n")
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
-        beliefs = k._storage.get_beliefs(limit=10)
-        assert len(beliefs) == 1
+        f = self._write_csv(tmp_path, "type,content\nraw,Has type\n,Missing type\n")
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
+        raw = k._storage.list_raw(limit=10)
+        assert len(raw) == 1
 
     def test_csv_type_count_summary(self, k, tmp_path, capsys):
-        content = "type,statement,content\nbelief,B1,\nbelief,B2,\nnote,,N1\n"
+        content = "type,content\nraw,R1\nraw,R2\nraw,R3\n"
         f = self._write_csv(tmp_path, content)
-        _import_csv(f, k, dry_run=False, target_layer=None, skip_duplicates=False)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
         out = capsys.readouterr().out
-        assert "belief: 2" in out
-        assert "note: 1" in out
+        assert "raw: 3" in out
 
 
 # ============================================================================
@@ -862,135 +1028,106 @@ class TestImportMarkdown:
         f.write_text(content)
         return f
 
-    def test_markdown_beliefs_imported(self, k, tmp_path, capsys):
+    def test_markdown_beliefs_skipped(self, k, tmp_path, capsys):
+        """Belief sections in markdown are skipped (markdown is raw-only)."""
         f = self._write_md(tmp_path, "## Beliefs\n\n- MD imported belief (90%)\n- Another belief\n")
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer=None)
-        beliefs = k._storage.get_beliefs(limit=10)
-        assert len(beliefs) == 2
+        _import_markdown(f, k, dry_run=False, interactive=False)
+        out = capsys.readouterr().out
+        assert "Skipped 2 non-raw items" in out
 
-    def test_markdown_episodes_imported(self, k, tmp_path, capsys):
+    def test_markdown_episodes_skipped(self, k, tmp_path, capsys):
+        """Episode sections in markdown are skipped (markdown is raw-only)."""
         f = self._write_md(tmp_path, "## Episodes\n\n- Fixed the bug -> Test first\n")
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer=None)
-        episodes = k._storage.get_episodes(limit=10)
-        assert len(episodes) == 1
+        _import_markdown(f, k, dry_run=False, interactive=False)
+        out = capsys.readouterr().out
+        assert "Skipped 1 non-raw items" in out
 
-    def test_markdown_notes_imported(self, k, tmp_path, capsys):
+    def test_markdown_notes_skipped(self, k, tmp_path, capsys):
+        """Note sections in markdown are skipped (markdown is raw-only)."""
         f = self._write_md(tmp_path, "## Notes\n\n- Important note from MD\n")
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer=None)
-        notes = k._storage.get_notes(limit=10)
-        assert len(notes) == 1
+        _import_markdown(f, k, dry_run=False, interactive=False)
+        out = capsys.readouterr().out
+        assert "Skipped 1 non-raw items" in out
 
-    def test_markdown_goals_batch_errors_caught(self, k, tmp_path, capsys):
-        """Goal import from markdown may fail due to _import_item API mismatch."""
+    def test_markdown_goals_skipped(self, k, tmp_path, capsys):
+        """Goal sections in markdown are skipped (markdown is raw-only)."""
         f = self._write_md(tmp_path, "## Goals\n\n- Ship v1\n- [done] Write docs\n")
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer=None)
+        _import_markdown(f, k, dry_run=False, interactive=False)
         out = capsys.readouterr().out
-        # Goals may import or error depending on whether _import_item
-        # passes incompatible kwargs; check output has some import info
-        assert "Found" in out
+        assert "Skipped 2 non-raw items" in out
 
-    def test_markdown_values_batch_errors_caught(self, k, tmp_path, capsys):
-        """Value import from markdown may fail due to _import_item API mismatch."""
+    def test_markdown_values_skipped(self, k, tmp_path, capsys):
+        """Value sections in markdown are skipped (markdown is raw-only)."""
         f = self._write_md(tmp_path, "## Values\n\n- Quality: Always test\n")
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer=None)
+        _import_markdown(f, k, dry_run=False, interactive=False)
         out = capsys.readouterr().out
-        assert "Found" in out
+        assert "Skipped 1 non-raw items" in out
 
     def test_markdown_raw_imported(self, k, tmp_path, capsys):
         f = self._write_md(tmp_path, "## Thoughts\n\n- Random thought\n")
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer=None)
+        _import_markdown(f, k, dry_run=False, interactive=False)
         raw = k._storage.list_raw(limit=10)
         assert len(raw) == 1
 
-    def test_markdown_all_working_sections(self, k, tmp_path, capsys):
-        """Import all sections that are known to work (beliefs, episodes, notes, raw)."""
+    def test_markdown_raw_sections_imported(self, k, tmp_path, capsys):
+        """Only raw sections are imported from markdown; non-raw are skipped."""
         content = (
             "## Beliefs\n\n- Belief here (90%)\n\n"
             "## Episodes\n\n- Task completed -> Lesson\n\n"
-            "## Notes\n\n- A note\n\n"
-            "## Raw\n\n- Raw thought\n"
+            "## Thoughts\n\n- A raw thought\n\n"
+            "## Raw\n\n- Raw entry\n"
         )
         f = self._write_md(tmp_path, content)
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer=None)
+        _import_markdown(f, k, dry_run=False, interactive=False)
 
-        assert len(k._storage.get_beliefs(limit=10)) == 1
-        assert len(k._storage.get_episodes(limit=10)) == 1
-        assert len(k._storage.get_notes(limit=10)) == 1
-        assert len(k._storage.list_raw(limit=10)) == 1
+        assert len(k._storage.list_raw(limit=10)) == 2
+        out = capsys.readouterr().out
+        assert "Skipped 2 non-raw items" in out
 
     def test_markdown_dry_run(self, k, tmp_path, capsys):
-        f = self._write_md(tmp_path, "## Beliefs\n\n- Dry run belief\n")
-        _import_markdown(f, k, dry_run=True, interactive=False, target_layer=None)
-        assert len(k._storage.get_beliefs(limit=10)) == 0
+        f = self._write_md(tmp_path, "## Thoughts\n\n- Dry run raw thought\n")
+        _import_markdown(f, k, dry_run=True, interactive=False)
+        assert len(k._storage.list_raw(limit=10)) == 0
         assert "DRY RUN" in capsys.readouterr().out
 
     def test_markdown_empty_content(self, k, tmp_path, capsys):
         f = self._write_md(tmp_path, "")
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer=None)
+        _import_markdown(f, k, dry_run=False, interactive=False)
         assert "No importable content" in capsys.readouterr().out
 
-    def test_markdown_layer_override_to_raw(self, k, tmp_path, capsys):
-        """--layer=raw overrides belief items to raw type.
-
-        BUG: Parsed belief items have 'statement' key but _import_item for
-        raw type looks for 'content' key, causing KeyError caught by _batch_import.
-        """
-        f = self._write_md(tmp_path, "## Beliefs\n\n- Actually raw\n")
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer="raw")
-        out = capsys.readouterr().out
-        # Layer override changes the type count to raw
-        assert "raw: 1" in out
-        # Error is caught — KeyError 'content' because belief items lack it
-        assert "1 errors" in out or "error" in out.lower()
-
-    def test_markdown_layer_override_to_belief(self, k, tmp_path, capsys):
-        """--layer=belief overrides note items to belief type.
-
-        BUG: Parsed note items have 'content' key but _import_item for
-        belief type looks for 'statement' key, causing KeyError caught by _batch_import.
-        """
-        f = self._write_md(tmp_path, "## Notes\n\n- Actually a belief\n")
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer="belief")
-        out = capsys.readouterr().out
-        assert "belief: 1" in out
-        # Error is caught — KeyError 'statement' because note items lack it
-        assert "1 errors" in out or "error" in out.lower()
-
     def test_markdown_derived_from(self, k, tmp_path, capsys):
-        f = self._write_md(tmp_path, "## Beliefs\n\n- Prov MD belief (80%)\n")
+        """Markdown raw items are imported; derived_from is passed to _batch_import but raw entries don't store it via k.raw()."""
+        f = self._write_md(tmp_path, "## Thoughts\n\n- Prov MD raw thought\n")
         _import_markdown(
             f,
             k,
             dry_run=False,
             interactive=False,
-            target_layer=None,
             derived_from=["context:md-source"],
         )
-        beliefs = k._storage.get_beliefs(limit=10)
-        b = next(b for b in beliefs if "Prov MD" in b.statement)
-        assert b.derived_from is not None
-        assert "context:md-source" in b.derived_from
+        raw = k._storage.list_raw(limit=10)
+        r = next(r for r in raw if "Prov MD" in r.content)
+        assert r is not None
 
     def test_markdown_preamble_as_raw(self, k, tmp_path, capsys):
         f = self._write_md(tmp_path, "This preamble text has no headers.\n\nAnother paragraph.\n")
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer=None)
+        _import_markdown(f, k, dry_run=False, interactive=False)
         raw = k._storage.list_raw(limit=10)
         assert len(raw) == 2  # two paragraphs
 
     def test_markdown_type_count_output(self, k, tmp_path, capsys):
-        f = self._write_md(tmp_path, "## Beliefs\n\n- B1\n- B2\n\n## Notes\n\n- N1\n")
-        _import_markdown(f, k, dry_run=False, interactive=False, target_layer=None)
+        f = self._write_md(tmp_path, "## Thoughts\n\n- R1\n- R2\n\n## Ideas\n\n- R3\n")
+        _import_markdown(f, k, dry_run=False, interactive=False)
         out = capsys.readouterr().out
-        assert "belief: 2" in out
-        assert "note: 1" in out
+        assert "raw: 3" in out
 
     def test_markdown_interactive_mode(self, k, tmp_path, capsys):
         """Interactive mode should be triggered when interactive=True."""
-        f = self._write_md(tmp_path, "## Beliefs\n\n- Interactive belief\n")
+        f = self._write_md(tmp_path, "## Thoughts\n\n- Interactive raw thought\n")
         with patch("builtins.input", return_value="y"):
-            _import_markdown(f, k, dry_run=False, interactive=True, target_layer=None)
-        beliefs = k._storage.get_beliefs(limit=10)
-        assert len(beliefs) == 1
+            _import_markdown(f, k, dry_run=False, interactive=True)
+        raw = k._storage.list_raw(limit=10)
+        assert len(raw) == 1
 
 
 # ============================================================================
@@ -1227,22 +1364,24 @@ class TestImportItem:
         b = next(b for b in beliefs if b.statement == "Default conf belief")
         assert b.confidence == pytest.approx(0.7, abs=0.05)
 
-    def test_import_value_errors(self, k):
-        """_import_item for value calls k.value(description=...) which is invalid."""
+    def test_import_value(self, k):
+        """_import_item for value uses k.value(statement=...) correctly."""
         item = {"type": "value", "name": "Courage", "description": "Be brave", "priority": 70}
-        with pytest.raises(TypeError, match="unexpected keyword argument"):
-            _import_item(item, k)
+        _import_item(item, k)
+        values = k._storage.get_values(limit=10)
+        assert any(v.name == "Courage" for v in values)
 
-    def test_import_goal_errors(self, k):
-        """_import_item for goal calls k.goal(status=...) which is invalid."""
+    def test_import_goal(self, k):
+        """_import_item for goal uses k.goal() correctly."""
         item = {
             "type": "goal",
             "description": "Item goal",
             "title": "Goal title",
             "status": "active",
         }
-        with pytest.raises(TypeError, match="unexpected keyword argument"):
-            _import_item(item, k)
+        _import_item(item, k)
+        goals = k._storage.get_goals(status=None, limit=10)
+        assert any(g.title == "Goal title" for g in goals)
 
     def test_import_raw(self, k):
         item = {"type": "raw", "content": "Item raw content", "source": "test"}
@@ -2006,32 +2145,35 @@ class TestCsvGoalStatusVariants:
         f.write_text(content)
         return f
 
-    def test_csv_goal_status_done(self, k, tmp_path, capsys):
+    def test_csv_goal_status_done_skipped(self, k, tmp_path, capsys):
+        """Goal rows in CSV are skipped (CSV is raw-only)."""
         f = self._write_csv(tmp_path, "type,title,status\ngoal,Ship v1,done\n")
-        _import_csv(f, k, dry_run=True, target_layer=None, skip_duplicates=False)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
         out = capsys.readouterr().out
-        assert "goal: 1" in out
+        assert "Skipped 1 non-raw items" in out
 
-    def test_csv_goal_status_paused(self, k, tmp_path, capsys):
+    def test_csv_goal_status_paused_skipped(self, k, tmp_path, capsys):
+        """Goal rows in CSV are skipped (CSV is raw-only)."""
         f = self._write_csv(tmp_path, "type,title,status\ngoal,Ship v1,paused\n")
-        _import_csv(f, k, dry_run=True, target_layer=None, skip_duplicates=False)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
         out = capsys.readouterr().out
-        assert "goal: 1" in out
+        assert "Skipped 1 non-raw items" in out
 
-    def test_csv_goal_status_hold(self, k, tmp_path, capsys):
+    def test_csv_goal_status_hold_skipped(self, k, tmp_path, capsys):
+        """Goal rows in CSV are skipped (CSV is raw-only)."""
         f = self._write_csv(tmp_path, "type,title,status\ngoal,Ship v1,hold\n")
-        _import_csv(f, k, dry_run=True, target_layer=None, skip_duplicates=False)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
         out = capsys.readouterr().out
-        assert "goal: 1" in out
+        assert "Skipped 1 non-raw items" in out
 
-    def test_csv_value_priority_invalid(self, k, tmp_path, capsys):
-        """Invalid priority should default to 50."""
+    def test_csv_value_priority_skipped(self, k, tmp_path, capsys):
+        """Value rows in CSV are skipped (CSV is raw-only)."""
         f = self._write_csv(
             tmp_path, "type,name,description,priority\nvalue,V1,Desc,not_a_number\n"
         )
-        _import_csv(f, k, dry_run=True, target_layer=None, skip_duplicates=False)
+        _import_csv(f, k, dry_run=False, skip_duplicates=False)
         out = capsys.readouterr().out
-        assert "value: 1" in out
+        assert "Skipped 1 non-raw items" in out
 
 
 # ============================================================================
@@ -2089,7 +2231,11 @@ class TestJsonSkipDuplicatesEdgeCases:
             {
                 "stack_id": "src",
                 "exported_at": "",
-                "beliefs": [{"statement": "B", "confidence": 0.8}],
+                "raw_entries": [{"id": "r1", "content": "raw data"}],
+                "notes": [{"id": "n1", "content": "note", "derived_from": ["raw:r1"]}],
+                "beliefs": [
+                    {"id": "b1", "statement": "B", "confidence": 0.8, "derived_from": ["note:n1"]}
+                ],
             },
         )
         _import_json(f, k, dry_run=False, skip_duplicates=False)

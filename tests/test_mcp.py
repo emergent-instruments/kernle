@@ -34,14 +34,13 @@ class TestMCPToolDefinitions:
         # Check all expected tools are present
         tool_names = {tool.name for tool in tools}
         expected_names = {
-            # Original 14 tools
+            # Original tools (memory_belief removed in #866)
             "memory_load",
             "memory_checkpoint_save",
             "memory_checkpoint_load",
             "memory_episode",
             "memory_note",
             "memory_search",
-            "memory_belief",
             "memory_value",
             "memory_goal",
             "memory_drive",
@@ -70,7 +69,7 @@ class TestMCPToolDefinitions:
         # Verify expected tools exist (new tools may be added)
         assert expected_names.issubset(tool_names), f"Missing tools: {expected_names - tool_names}"
         # Track current count for documentation (don't fail if new tools added)
-        assert len(tools) >= 27, f"Should have at least 27 tools, got {len(tools)}"
+        assert len(tools) >= 26, f"Should have at least 26 tools, got {len(tools)}"
 
     def test_tool_definitions_have_required_fields(self):
         """Test that all tool definitions have required fields."""
@@ -475,47 +474,6 @@ class TestMCPToolCalls:
         await call_tool("memory_search", {"query": "testing"})
 
         patched_get_kernle.search.assert_called_once_with(query="testing", limit=10)
-
-    @pytest.mark.asyncio
-    async def test_memory_belief(self, patched_get_kernle):
-        """Test memory_belief."""
-        args = {
-            "statement": "Testing is essential for quality software",
-            "type": "fact",
-            "confidence": 0.95,
-        }
-
-        result = await call_tool("memory_belief", args)
-
-        assert len(result) == 1
-        assert "Belief saved: belief_1" in result[0].text
-
-        patched_get_kernle.belief.assert_called_once_with(
-            statement="Testing is essential for quality software",
-            type="fact",
-            confidence=0.95,
-            context=None,
-            context_tags=None,
-            source=None,
-            derived_from=None,
-            source_type=None,
-        )
-
-    @pytest.mark.asyncio
-    async def test_memory_belief_default_values(self, patched_get_kernle):
-        """Test memory_belief with default type and confidence."""
-        await call_tool("memory_belief", {"statement": "Simple belief"})
-
-        patched_get_kernle.belief.assert_called_once_with(
-            statement="Simple belief",
-            type="fact",
-            confidence=0.8,
-            context=None,
-            context_tags=None,
-            source=None,
-            derived_from=None,
-            source_type=None,
-        )
 
     @pytest.mark.asyncio
     async def test_memory_value(self, patched_get_kernle):
@@ -1093,12 +1051,6 @@ class TestMultiToolWorkflows:
     @pytest.mark.asyncio
     async def test_memory_building_workflow_dispatch(self, patched_get_kernle):
         """Test that memory building workflow dispatches correctly."""
-        # Add belief
-        await call_tool(
-            "memory_belief",
-            {"statement": "Testing prevents bugs", "type": "fact", "confidence": 0.9},
-        )
-
         # Add value
         await call_tool(
             "memory_value",
@@ -1109,16 +1061,6 @@ class TestMultiToolWorkflows:
         await call_tool("memory_goal", {"title": "Achieve zero critical bugs", "priority": "high"})
 
         # Verify correct methods called with correct arguments
-        patched_get_kernle.belief.assert_called_once_with(
-            statement="Testing prevents bugs",
-            type="fact",
-            confidence=0.9,
-            context=None,
-            context_tags=None,
-            source=None,
-            derived_from=None,
-            source_type=None,
-        )
         patched_get_kernle.value.assert_called_once_with(
             name="reliability",
             statement="Software should be dependable",
@@ -1633,11 +1575,10 @@ class TestMCPProvenanceParams:
     """Test provenance params (derived_from, source, source_type) on MCP tools."""
 
     def test_source_type_enum_in_all_creation_schemas(self):
-        """All 6 memory creation tools should expose source_type with valid enum values."""
+        """All 5 memory creation tools should expose source_type with valid enum values."""
         creation_tools = {
             "memory_episode",
             "memory_note",
-            "memory_belief",
             "memory_value",
             "memory_goal",
             "memory_drive",
@@ -1652,11 +1593,10 @@ class TestMCPProvenanceParams:
                 ), f"{tool.name} source_type enum mismatch"
 
     def test_derived_from_in_all_creation_schemas(self):
-        """All 6 memory creation tools should expose derived_from."""
+        """All 5 memory creation tools should expose derived_from."""
         creation_tools = {
             "memory_episode",
             "memory_note",
-            "memory_belief",
             "memory_value",
             "memory_goal",
             "memory_drive",
@@ -1670,11 +1610,10 @@ class TestMCPProvenanceParams:
                 ), f"{tool.name} derived_from should be array"
 
     def test_source_in_all_creation_schemas(self):
-        """All 6 memory creation tools should expose source."""
+        """All 5 memory creation tools should expose source."""
         creation_tools = {
             "memory_episode",
             "memory_note",
-            "memory_belief",
             "memory_value",
             "memory_goal",
             "memory_drive",
@@ -1801,8 +1740,8 @@ class TestMCPProvenanceParams:
     @pytest.mark.asyncio
     async def test_source_type_none_when_omitted(self, patched_get_kernle):
         """Test that source_type is None when not provided."""
-        await call_tool("memory_belief", {"statement": "Test belief"})
-        call_args = patched_get_kernle.belief.call_args
+        await call_tool("memory_value", {"name": "test", "statement": "Test value"})
+        call_args = patched_get_kernle.value.call_args
         assert call_args.kwargs["source_type"] is None
 
 

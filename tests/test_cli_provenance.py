@@ -332,6 +332,8 @@ class TestCoreDerivedFrom:
         from kernle import Kernle
 
         k = Kernle(stack_id="test-agent", storage=storage, strict=False)
+        # Mock _require_inference since mock storage has no real stack to bind to
+        k._require_inference = lambda op: None
         return k, storage
 
     def test_value_with_derived_from(self):

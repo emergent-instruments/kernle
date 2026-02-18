@@ -293,11 +293,7 @@ class TestCsvImporterDryRun:
     def test_dry_run_counts_items_without_importing(self):
         """dry_run should return counts but not call any Kernle methods."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write(
-                "type,statement,confidence\n"
-                "belief,First belief,0.9\n"
-                "belief,Second belief,0.8\n"
-            )
+            f.write("type,content\n" "raw,First raw entry\n" "raw,Second raw entry\n")
             f.flush()
 
             importer = CsvImporter(f.name)
@@ -308,12 +304,12 @@ class TestCsvImporterDryRun:
 
             result = importer.import_to(mock_k, dry_run=True)
 
-            assert result["imported"]["belief"] == 2
+            assert result["imported"]["raw"] == 2
             assert result["errors"] == []
             # Kernle methods should NOT have been called
+            mock_k.raw.assert_not_called()
             mock_k.belief.assert_not_called()
             mock_k.episode.assert_not_called()
-            mock_k.note.assert_not_called()
 
 
 # =========================================================================
@@ -327,7 +323,7 @@ class TestCsvImporterAutoparse:
     def test_import_to_auto_parses_when_items_empty(self):
         """import_to should call parse() if self.items is empty."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("type,content\nnote,Auto-parsed note\n")
+            f.write("type,content\nraw,Auto-parsed raw entry\n")
             f.flush()
 
             importer = CsvImporter(f.name)
@@ -336,7 +332,7 @@ class TestCsvImporterAutoparse:
             mock_k = MagicMock()
             result = importer.import_to(mock_k, dry_run=True)
 
-            assert result["imported"]["note"] == 1
+            assert result["imported"]["raw"] == 1
 
 
 # =========================================================================

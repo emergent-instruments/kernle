@@ -1271,6 +1271,7 @@ class TestKernleStrictMode:
     def strict_kernle(self, tmp_path):
         from kernle.core import Kernle
         from kernle.storage import SQLiteStorage
+        from tests.conftest import bind_noop_model
 
         db = tmp_path / "strict.db"
         storage = SQLiteStorage(stack_id="strict_agent", db_path=db)
@@ -1280,6 +1281,7 @@ class TestKernleStrictMode:
             checkpoint_dir=tmp_path / "cp",
             strict=True,
         )
+        bind_noop_model(k)
         yield k
         storage.close()
 
@@ -1339,24 +1341,33 @@ class TestKernleStrictMode:
             )
 
     def test_strict_maintenance_blocks_belief(self, strict_kernle):
+        from tests.conftest import bind_noop_model
+
         stack = strict_kernle.stack
         stack.on_attach("strict_agent")
+        bind_noop_model(strict_kernle)  # re-bind after on_attach resets _inference
         stack.enter_maintenance()
 
         with pytest.raises(MaintenanceModeError):
             strict_kernle.belief(statement="Test belief")
 
     def test_strict_maintenance_blocks_value(self, strict_kernle):
+        from tests.conftest import bind_noop_model
+
         stack = strict_kernle.stack
         stack.on_attach("strict_agent")
+        bind_noop_model(strict_kernle)  # re-bind after on_attach resets _inference
         stack.enter_maintenance()
 
         with pytest.raises(MaintenanceModeError):
             strict_kernle.value(name="Test", statement="Test value")
 
     def test_strict_maintenance_blocks_goal(self, strict_kernle):
+        from tests.conftest import bind_noop_model
+
         stack = strict_kernle.stack
         stack.on_attach("strict_agent")
+        bind_noop_model(strict_kernle)  # re-bind after on_attach resets _inference
         stack.enter_maintenance()
 
         with pytest.raises(MaintenanceModeError):
@@ -1379,16 +1390,22 @@ class TestKernleStrictMode:
             strict_kernle.note(content="Test note")
 
     def test_strict_maintenance_blocks_drive(self, strict_kernle):
+        from tests.conftest import bind_noop_model
+
         stack = strict_kernle.stack
         stack.on_attach("strict_agent")
+        bind_noop_model(strict_kernle)  # re-bind after on_attach resets _inference
         stack.enter_maintenance()
 
         with pytest.raises(MaintenanceModeError):
             strict_kernle.drive(drive_type="curiosity")
 
     def test_strict_maintenance_blocks_relationship(self, strict_kernle):
+        from tests.conftest import bind_noop_model
+
         stack = strict_kernle.stack
         stack.on_attach("strict_agent")
+        bind_noop_model(strict_kernle)  # re-bind after on_attach resets _inference
         stack.enter_maintenance()
 
         with pytest.raises(MaintenanceModeError):
@@ -1457,6 +1474,7 @@ class TestKernleStrictMode:
         """strict + enforce_provenance rejects beliefs without derived_from."""
         from kernle.core import Kernle
         from kernle.storage import SQLiteStorage
+        from tests.conftest import bind_noop_model
 
         db = tmp_path / "strict_enforced.db"
         storage = SQLiteStorage(stack_id="strict_enf", db_path=db)
@@ -1466,6 +1484,7 @@ class TestKernleStrictMode:
             checkpoint_dir=tmp_path / "cp",
             strict=True,
         )
+        bind_noop_model(k)
         # Enable provenance enforcement
         k.stack.set_stack_setting("enforce_provenance", "true")
         k.stack._enforce_provenance = True

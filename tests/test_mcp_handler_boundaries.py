@@ -18,7 +18,6 @@ from kernle.mcp.handlers.identity import (
     VALIDATORS as IDENTITY_VALIDATORS,
 )
 from kernle.mcp.handlers.identity import (
-    validate_memory_belief,
     validate_memory_drive,
     validate_memory_goal,
     validate_memory_value,
@@ -157,12 +156,6 @@ class TestMemoryValidatorsRejectOversizedInputs:
 class TestIdentityValidatorsRejectOversizedInputs:
     """Identity validators should reject strings that exceed their max_length."""
 
-    def test_belief_statement_too_long(self):
-        """belief rejects statement strings longer than 1000 chars."""
-        oversized_statement = "s" * 1001
-        with pytest.raises(ValueError, match="too long"):
-            validate_memory_belief({"statement": oversized_statement})
-
     def test_value_name_too_long(self):
         """value rejects name strings longer than 100 chars."""
         oversized_name = "n" * 101
@@ -226,11 +219,6 @@ class TestMemoryValidatorsRejectMissingRequired:
         with pytest.raises(ValueError):
             validate_memory_raw({})
 
-    def test_belief_missing_statement(self):
-        """belief requires a statement string."""
-        with pytest.raises(ValueError):
-            validate_memory_belief({})
-
     def test_value_missing_name(self):
         """value requires a name string."""
         with pytest.raises(ValueError):
@@ -259,16 +247,6 @@ class TestMemoryValidatorsRejectMissingRequired:
 
 class TestValidateNumberRangeConstraints:
     """validate_number should enforce min/max constraints correctly."""
-
-    def test_belief_confidence_above_max(self):
-        """Confidence > 1.0 is rejected by belief validator."""
-        with pytest.raises(ValueError, match="must be <="):
-            validate_memory_belief({"statement": "test", "confidence": 1.5})
-
-    def test_belief_confidence_below_min(self):
-        """Confidence < 0.0 is rejected by belief validator."""
-        with pytest.raises(ValueError, match="must be >="):
-            validate_memory_belief({"statement": "test", "confidence": -0.1})
 
     def test_drive_intensity_nan_rejected(self):
         """NaN intensity is rejected by drive validator."""

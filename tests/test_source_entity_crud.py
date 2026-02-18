@@ -17,6 +17,7 @@ import uuid
 from datetime import datetime, timezone
 
 from kernle.storage import Relationship
+from tests.conftest import bind_noop_model
 
 
 def _make_relationship(stack_id: str, **overrides) -> Relationship:
@@ -186,6 +187,7 @@ class TestEntityRelationshipSourceEntityRoundTrip:
             checkpoint_dir=checkpoint_dir,
             strict=False,
         )
+        bind_noop_model(k)
 
         # Create relationship with source_entity
         r_id = k.relationship(
@@ -215,6 +217,7 @@ class TestEntityRelationshipSourceEntityRoundTrip:
             checkpoint_dir=checkpoint_dir,
             strict=False,
         )
+        bind_noop_model(k)
 
         # Create, then update with new source_entity
         k.relationship("UpdateEntity", entity_type="person")

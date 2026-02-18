@@ -157,6 +157,23 @@ class Kernle(
             return stack
         return self._storage
 
+    def has_user_content(self) -> bool:
+        """Return True if this stack contains any user-created memories."""
+        stats = self._storage.get_stats()
+        return any(
+            stats.get(key, 0) > 0
+            for key in (
+                "episodes",
+                "beliefs",
+                "values",
+                "goals",
+                "notes",
+                "drives",
+                "relationships",
+                "raw",
+            )
+        )
+
     @property
     def storage(self) -> "StorageProtocol":
         """Get the storage backend.
@@ -231,7 +248,6 @@ class Kernle(
         return self.entity.process(
             transition=transition,
             force=force,
-            allow_no_inference_override=allow_no_inference_override,
             auto_promote=auto_promote,
             batch_size=batch_size,
         )

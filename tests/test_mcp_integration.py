@@ -19,6 +19,7 @@ import pytest
 
 from kernle import Kernle
 from kernle.mcp.server import call_tool
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -37,6 +38,7 @@ def real_kernle(temp_db):
 
     try:
         k = Kernle(stack_id="test-mcp-integration", strict=False)
+        bind_noop_model(k)
         yield k
     finally:
         if old_home:
@@ -108,19 +110,16 @@ class TestMCPBeliefIntegration:
 
     @pytest.mark.asyncio
     async def test_belief_create_and_list(self, setup_kernle_for_mcp):
-        """Test creating and listing beliefs through MCP."""
+        """Test creating a belief via entity method and listing through MCP."""
+        k = setup_kernle_for_mcp
 
-        # Create belief (uses 'statement' not 'content')
-        result = await call_tool(
-            "memory_belief",
-            {
-                "statement": "Integration tests catch real bugs",
-                "confidence": 0.85,
-            },
+        # Create belief via entity method (MCP memory_belief tool removed in #866)
+        k.belief(
+            statement="Integration tests catch real bugs",
+            confidence=0.85,
         )
-        assert len(result) == 1
 
-        # List beliefs
+        # List beliefs through MCP (memory_belief_list still exists)
         list_result = await call_tool("memory_belief_list", {"limit": 10})
         assert len(list_result) == 1
         # Should contain our belief
@@ -131,13 +130,10 @@ class TestMCPBeliefIntegration:
         """Test updating belief through MCP."""
         k = setup_kernle_for_mcp
 
-        # Create belief (uses 'statement' not 'content')
-        await call_tool(
-            "memory_belief",
-            {
-                "statement": "Mocks are sometimes insufficient",
-                "confidence": 0.7,
-            },
+        # Create belief via entity method (MCP memory_belief tool removed in #866)
+        k.belief(
+            statement="Mocks are sometimes insufficient",
+            confidence=0.7,
         )
 
         # Get belief ID (belief uses 'statement' not 'content')
@@ -323,14 +319,12 @@ class TestMCPLoadIntegration:
     @pytest.mark.asyncio
     async def test_load_returns_formatted_memory(self, setup_kernle_for_mcp):
         """Test that memory_load returns properly formatted data."""
+        k = setup_kernle_for_mcp
 
-        # Create some data (uses 'statement' not 'content')
-        await call_tool(
-            "memory_belief",
-            {
-                "statement": "Tests should be deterministic",
-                "confidence": 0.9,
-            },
+        # Create some data via entity method (MCP memory_belief tool removed in #866)
+        k.belief(
+            statement="Tests should be deterministic",
+            confidence=0.9,
         )
 
         # Load memory
@@ -449,10 +443,8 @@ class TestMCPStatusIntegration:
             "memory_episode",
             {"objective": "Status test", "outcome": "Created", "lesson": "Count this"},
         )
-        await call_tool(
-            "memory_belief",
-            {"statement": "Status works", "confidence": 0.8},
-        )
+        # Create belief via entity method (MCP memory_belief tool removed in #866)
+        k.belief(statement="Status works", confidence=0.8)
         after = k.status()
 
         assert after["episodes"] >= before["episodes"] + 1

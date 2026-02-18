@@ -11,6 +11,7 @@ import pytest
 
 from kernle.core import Kernle
 from kernle.storage import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -31,9 +32,11 @@ def temp_checkpoint_dir(tmp_path):
 def kernle(temp_db, temp_checkpoint_dir):
     """Create a Kernle instance for testing."""
     storage = SQLiteStorage(stack_id="test-agent", db_path=temp_db)
-    return Kernle(
+    k = Kernle(
         stack_id="test-agent", storage=storage, checkpoint_dir=temp_checkpoint_dir, strict=False
     )
+    bind_noop_model(k)
+    return k
 
 
 @pytest.fixture

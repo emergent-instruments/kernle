@@ -195,7 +195,6 @@ def cmd_raw(args, k: "Kernle"):
         print("For each entry, consider:")
         print("  - **Episode**: Significant experience with a lesson learned")
         print("  - **Note**: Important observation, decision, or fact")
-        print("  - **Belief**: Pattern or principle you've discovered")
         print("  - **Skip**: Keep as raw (not everything needs promotion)")
         print()
         print("=" * 60)
@@ -220,17 +219,12 @@ def cmd_raw(args, k: "Kernle"):
                 suggestions.append("episode (contains learning)")
             if any(word in content_lower for word in ["decided", "decision", "chose", "will"]):
                 suggestions.append("note (contains decision)")
-            if any(
-                word in content_lower
-                for word in ["always", "never", "should", "principle", "pattern"]
-            ):
-                suggestions.append("belief (contains principle)")
 
             if suggestions:
                 print(f"💡 Suggestions: {', '.join(suggestions)}")
 
             print(
-                f"\nTo promote: kernle -s {k.stack_id} raw process {e['id'][:8]} --type <episode|note|belief>"
+                f"\nTo promote: kernle -s {k.stack_id} raw process {e['id'][:8]} --type <episode|note>"
             )
 
         print("\n" + "=" * 60)
@@ -378,7 +372,7 @@ def cmd_raw(args, k: "Kernle"):
         print(f"Raw Entry Triage ({len(entries)} entries)")
         print("=" * 50)
         print()
-        print("Suggestions: [E]pisode | [N]ote | [B]elief | [D]elete | [S]kip")
+        print("Suggestions: [E]pisode | [N]ote | [D]elete | [S]kip")
         print()
 
         for entry in entries:
@@ -406,16 +400,15 @@ def cmd_raw(args, k: "Kernle"):
                 for x in ["insight", "decision", "realized", "learned", "important"]
             ):
                 suggestion = "N"
-            # Beliefs / observations about the world
+            # Observations / patterns → Note (beliefs come from episode promotion)
             elif any(
                 x in content_lower for x in ["believe", "think that", "seems like", "pattern"]
             ):
-                suggestion = "B"
+                suggestion = "N"
 
             suggestion_labels = {
                 "E": "Episode",
                 "N": "Note",
-                "B": "Belief",
                 "D": "Delete",
                 "S": "Skip",
             }
@@ -424,7 +417,7 @@ def cmd_raw(args, k: "Kernle"):
             print(f"  {blob[:200]}{'...' if len(blob) > 200 else ''}")
             print(f"  → Suggested: {suggestion_labels[suggestion]}")
             print()
-            print(f"  To act: kernle raw promote {entry['id'][:8]} --type <episode|note|belief>")
+            print(f"  To act: kernle raw promote {entry['id'][:8]} --type <episode|note>")
             print("          kernle raw clean --junk --confirm  (to delete junk)")
             print("-" * 50)
 

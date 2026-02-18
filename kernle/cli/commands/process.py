@@ -36,7 +36,6 @@ def cmd_process(args, k: "Kernle"):
         _ensure_model(k)
         transition = getattr(args, "transition", None)
         force = getattr(args, "force", False)
-        allow_no_inference_override = getattr(args, "allow_no_inference_override", False)
         auto_promote = getattr(args, "auto_promote", False)
 
         if transition and transition not in VALID_TRANSITIONS:
@@ -48,7 +47,6 @@ def cmd_process(args, k: "Kernle"):
             results = k.process(
                 transition=transition,
                 force=force,
-                allow_no_inference_override=allow_no_inference_override,
                 auto_promote=auto_promote,
             )
         except RuntimeError as e:

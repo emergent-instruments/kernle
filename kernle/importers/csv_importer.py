@@ -130,6 +130,9 @@ class CsvImporter:
     ) -> Dict[str, Any]:
         """Import parsed items into a Kernle instance.
 
+        Only raw entries are imported from CSV files. Non-raw items
+        are skipped with a count in the return dict.
+
         Args:
             k: Kernle instance to import into
             dry_run: If True, don't actually import, just return counts
@@ -141,12 +144,27 @@ class CsvImporter:
         if not self.items:
             self.parse()
 
+        if not dry_run and k.has_user_content():
+            raise ValueError(
+                "Cannot import into a stack with existing content. "
+                "Import is only supported on empty stacks."
+            )
+
+        if not dry_run:
+            from kernle.importers.import_model import bind_import_model
+
+            bind_import_model(k)
+
+        # Filter to raw-only
+        raw_items = [(i, item) for i, item in enumerate(self.items) if item.type == "raw"]
+        skipped_non_raw = len(self.items) - len(raw_items)
+
         counts: Dict[str, int] = {}
         skipped: Dict[str, int] = {}
         errors: List[str] = []
         rejections: List[Dict[str, Any]] = list(self.rejections)
 
-        for i, item in enumerate(self.items):
+        for i, item in raw_items:
             try:
                 if not dry_run:
                     imported = _import_csv_item(item, k, skip_duplicates)
@@ -172,6 +190,7 @@ class CsvImporter:
         return {
             "imported": counts,
             "skipped": skipped,
+            "skipped_non_raw": skipped_non_raw,
             "errors": errors,
             "coercion_warnings": list(self.coercion_warnings),
             "rejections": rejections,
@@ -596,6 +615,7 @@ def _import_csv_item(item: CsvImportItem, k: "Kernle", skip_duplicates: bool = T
             statement=statement,
             type=belief_type,
             confidence=data.get("confidence", 0.8),
+            source_type="imported",
         )
         return True
 
@@ -614,6 +634,7 @@ def _import_csv_item(item: CsvImportItem, k: "Kernle", skip_duplicates: bool = T
             name=name,
             statement=data.get("description", name),
             priority=data.get("priority", 50),
+            source_type="imported",
         )
         return True
 
@@ -642,6 +663,7 @@ def _import_csv_item(item: CsvImportItem, k: "Kernle", skip_duplicates: bool = T
             title=title or description,
             description=description,
             priority=data.get("priority", "medium"),
+            source_type="imported",
         )
 
         # goal() always creates with status="active"; update if needed

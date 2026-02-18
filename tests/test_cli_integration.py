@@ -32,6 +32,7 @@ from kernle.cli.commands import (
 from kernle.cli.commands.trust import cmd_trust
 from kernle.core import Kernle
 from kernle.storage import SQLiteStorage
+from tests.conftest import bind_noop_model
 
 
 @pytest.fixture
@@ -45,6 +46,7 @@ def cli_kernle(tmp_path):
     k = Kernle(
         stack_id="cli_test_agent", storage=storage, checkpoint_dir=checkpoint_dir, strict=False
     )
+    bind_noop_model(k)
 
     yield k, storage
     storage.close()
@@ -440,8 +442,8 @@ class TestTrustCommands:
         output = out.getvalue()
         assert "already exist" in output
 
-    def test_trust_list_empty(self, cli_kernle):
-        """List with no assessments shows helpful message."""
+    def test_trust_list_default(self, cli_kernle):
+        """List with only bootstrap identity assessment shows it."""
         k, storage = cli_kernle
 
         args = argparse.Namespace(trust_action="list")
@@ -450,7 +452,7 @@ class TestTrustCommands:
             cmd_trust(args, k)
 
         output = out.getvalue()
-        assert "No trust assessments" in output
+        assert "identity" in output
 
     def test_trust_list_shows_domain_scores(self, cli_kernle):
         """List shows domain-specific scores when present."""

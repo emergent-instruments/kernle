@@ -13,6 +13,7 @@ import pytest
 
 from kernle.cli.__main__ import cmd_init, main, validate_input
 from kernle.core import Kernle
+from tests.conftest import bind_noop_model
 
 # ============================================================================
 # Fixtures
@@ -27,6 +28,7 @@ def storage(tmp_path, sqlite_storage_factory):
 @pytest.fixture
 def k(storage):
     inst = Kernle(stack_id="test-main", storage=storage, strict=False)
+    bind_noop_model(inst)
     yield inst
 
 

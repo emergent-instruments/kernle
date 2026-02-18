@@ -21,6 +21,7 @@ from kernle.core import Kernle
 from kernle.storage import EntityModel, Relationship, RelationshipHistoryEntry
 from kernle.storage.sqlite import SQLiteStorage
 from kernle.types import SourceType
+from tests.conftest import bind_noop_model
 
 # === Fixtures ===
 
@@ -40,6 +41,7 @@ def kernle_with_storage(tmp_path):
     checkpoint_dir.mkdir()
     s = SQLiteStorage(stack_id="test_agent", db_path=tmp_path / "test.db")
     k = Kernle(stack_id="test_agent", storage=s, checkpoint_dir=checkpoint_dir, strict=False)
+    bind_noop_model(k)
     yield k, s
     s.close()
 

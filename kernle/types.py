@@ -70,6 +70,7 @@ class SourceType(str, Enum):
     PROCESSING = "processing"  # Created by automated memory processing/promotion
     SEED = "seed"  # Initial seed memories provided at setup
     OBSERVATION = "observation"  # Passive observation (not direct interaction)
+    IMPORTED = "imported"  # One-time direct import from another stack or file
     UNKNOWN = "unknown"  # Legacy or untracked
 
 

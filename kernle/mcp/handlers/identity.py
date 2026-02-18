@@ -1,4 +1,4 @@
-"""Handlers for identity tools: belief, value, goal, drive + list/update variants."""
+"""Handlers for identity tools: value, goal, drive + list/update variants (belief list/update only)."""
 
 import json
 from typing import Any, Dict
@@ -16,24 +16,6 @@ from kernle.mcp.tool_definitions import VALID_SOURCE_TYPES
 # ---------------------------------------------------------------------------
 # Validators
 # ---------------------------------------------------------------------------
-
-
-def validate_memory_belief(arguments: Dict[str, Any]) -> Dict[str, Any]:
-    sanitized: Dict[str, Any] = {}
-    sanitized["statement"] = sanitize_string(
-        arguments.get("statement"), "statement", 1000, required=True
-    )
-    sanitized["type"] = validate_enum(
-        arguments.get("type"),
-        "type",
-        ["fact", "rule", "preference", "constraint", "learned"],
-        "fact",
-    )
-    sanitized["confidence"] = validate_number(
-        arguments.get("confidence"), "confidence", 0.0, 1.0, 0.8
-    )
-    sanitized.update(sanitize_source_metadata(arguments, VALID_SOURCE_TYPES))
-    return sanitized
 
 
 def validate_memory_value(arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -144,20 +126,6 @@ def validate_memory_belief_update(arguments: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Handlers
 # ---------------------------------------------------------------------------
-
-
-def handle_memory_belief(args: Dict[str, Any], k: Kernle) -> str:
-    belief_id = k.belief(
-        statement=args["statement"],
-        type=args.get("type", "fact"),
-        confidence=args.get("confidence", 0.8),
-        context=args.get("context"),
-        context_tags=args.get("context_tags"),
-        source=args.get("source"),
-        derived_from=args.get("derived_from"),
-        source_type=args.get("source_type"),
-    )
-    return f"Belief saved: {belief_id[:8]}..."
 
 
 def handle_memory_value(args: Dict[str, Any], k: Kernle) -> str:
@@ -294,7 +262,6 @@ def handle_memory_belief_update(args: Dict[str, Any], k: Kernle) -> str:
 # ---------------------------------------------------------------------------
 
 HANDLERS = {
-    "memory_belief": handle_memory_belief,
     "memory_value": handle_memory_value,
     "memory_goal": handle_memory_goal,
     "memory_drive": handle_memory_drive,
@@ -307,7 +274,6 @@ HANDLERS = {
 }
 
 VALIDATORS = {
-    "memory_belief": validate_memory_belief,
     "memory_value": validate_memory_value,
     "memory_goal": validate_memory_goal,
     "memory_drive": validate_memory_drive,

@@ -1114,11 +1114,6 @@ def main():
         "--force", "-f", action="store_true", help="Process even if thresholds aren't met"
     )
     process_run.add_argument(
-        "--allow-no-inference-override",
-        action="store_true",
-        help="Allow identity-layer writes without inference (except values). Requires --force.",
-    )
-    process_run.add_argument(
         "--auto-promote",
         action="store_true",
         help="Directly promote memories instead of creating suggestions for review",
@@ -1265,7 +1260,7 @@ def main():
         "--type",
         "-t",
         required=True,
-        choices=["episode", "note", "belief"],
+        choices=["episode", "note"],
         help="Target memory type",
     )
     raw_process.add_argument("--objective", help="Episode objective (for episodes)")
@@ -1304,7 +1299,7 @@ def main():
         "--type",
         "-t",
         required=True,
-        choices=["episode", "note", "belief"],
+        choices=["episode", "note"],
         help="Target memory type",
     )
     raw_promote.add_argument("--objective", help="Episode objective (for episodes)")
@@ -1992,12 +1987,6 @@ Typical usage:
         "-i",
         action="store_true",
         help="Confirm each item before importing (markdown only)",
-    )
-    p_import.add_argument(
-        "--layer",
-        "-l",
-        choices=["episode", "note", "belief", "value", "goal", "raw"],
-        help="Force all items to a specific memory type (overrides auto-detection)",
     )
     p_import.add_argument(
         "--skip-duplicates",

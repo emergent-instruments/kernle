@@ -130,7 +130,7 @@ This is the cross-conversation continuity that Claude Desktop does not have on i
 There is **no automatic memory loading or saving**. The SI must explicitly call MCP tools at each step. Nothing happens behind the scenes.
 
 - **Session start.** The SI should call `memory_load` to restore context from previous conversations. This pulls in values, beliefs, goals, episodes, notes, and the last checkpoint.
-- **During the conversation.** The SI calls `memory_episode`, `memory_note`, `memory_raw`, `memory_belief`, and other tools to capture memories as they arise. Each of these tool calls writes immediately to the memory store.
+- **During the conversation.** The SI calls `memory_episode`, `memory_note`, `memory_raw`, and other tools to capture memories as they arise. Each of these tool calls writes immediately to the memory store.
 - **Session end.** The SI should call `memory_checkpoint_save` to persist a summary of the current state for the next conversation.
 - **If the SI forgets to load.** The conversation proceeds without any cross-conversation context. No data is lost -- it just is not loaded. The next conversation can still load everything.
 - **If the SI forgets to save a checkpoint.** Anything captured via `memory_episode`, `memory_note`, `memory_raw`, etc. during the conversation is already persisted, because each tool call writes immediately. Only the checkpoint summary is lost. The individual memories are still there.

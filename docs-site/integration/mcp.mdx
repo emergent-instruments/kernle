@@ -35,7 +35,7 @@ There is no automatic memory loading or saving. The client SI must call tools ex
 
 **Session start** — Call `memory_load` to restore context. This returns values, beliefs, goals, episodes, notes, checkpoint, and relationships, priority-ordered within the token budget. Without this call, the SI starts with no memory context.
 
-**During the session** — Call capture tools (`memory_episode`, `memory_note`, `memory_raw`, `memory_belief`, etc.) as the SI works. Each call immediately persists to the local SQLite database. Nothing is buffered or batched.
+**During the session** — Call capture tools (`memory_episode`, `memory_note`, `memory_raw`, etc.) as the SI works. Each call immediately persists to the local SQLite database. Nothing is buffered or batched.
 
 **Session end** — Call `memory_checkpoint_save` to record what the SI was working on, pending items, and context for next time. This checkpoint is loaded first on the next `memory_load`.
 
@@ -146,7 +146,6 @@ Loading memories automatically records access for salience-based forgetting. Thi
 | `memory_episode` | Record an experience with lessons |
 | `memory_note` | Capture a note (decision/insight/quote) |
 | `memory_raw` | Quick capture to raw layer |
-| `memory_belief` | Add or update beliefs |
 | `memory_value` | Define core values |
 | `memory_goal` | Set and manage goals |
 | `memory_drive` | Set or update drives (motivations) |

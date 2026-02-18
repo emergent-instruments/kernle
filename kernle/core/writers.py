@@ -40,6 +40,22 @@ class WritersMixin:
     _normalize_belief_type = staticmethod(normalize_belief_type)
     _normalize_note_type = staticmethod(normalize_note_type)
 
+    def _require_inference(self, operation: str) -> None:
+        """Raise InferenceRequiredError if no inference model is bound.
+
+        Higher-tier memory operations (belief, value, goal, drive, relationship)
+        require a bound inference model. Raw, episode, and note are exempt.
+        """
+        stack = self.stack
+        if stack is not None and getattr(stack, "_inference", None) is not None:
+            return  # Model is bound, proceed
+        from kernle.protocols import InferenceRequiredError
+
+        raise InferenceRequiredError(
+            f"{operation}() requires a bound inference model. "
+            "Bind a model with `kernle model bind` or use MCP inference passthrough."
+        )
+
     # =========================================================================
     # EPISODES
     # =========================================================================
@@ -360,15 +376,14 @@ class WritersMixin:
         By default, creates suggestions for review rather than directly
         promoting memories. Set auto_promote=True to directly write memories.
 
-        When no model is bound, identity-layer transitions are blocked
-        by the no-inference safety policy. Values can never be created
-        without inference.
+        All transitions require a bound inference model (v0.14.01 #867).
+        Without one, processing is blocked.
 
         Args:
             transition: Specific layer transition to process (None = check all)
             force: Process even if triggers aren't met
-            allow_no_inference_override: Allow identity-layer writes without
-                inference (except values). Only effective with force=True.
+            allow_no_inference_override: Deprecated — no longer has any effect.
+                All transitions now require inference.
             auto_promote: If True, directly write memories. If False (default),
                 create suggestions for review.
             batch_size: Override the per-transition batch size (None = use config).
@@ -387,7 +402,6 @@ class WritersMixin:
         return entity.process(
             transition=transition,
             force=force,
-            allow_no_inference_override=allow_no_inference_override,
             auto_promote=auto_promote,
             batch_size=batch_size,
         )
@@ -402,7 +416,7 @@ class WritersMixin:
 
         Args:
             raw_id: ID of the raw entry to process
-            as_type: Type to convert to (episode, note, belief)
+            as_type: Type to convert to (episode, note)
             **kwargs: Additional arguments for the target type
 
         Returns:
@@ -463,22 +477,8 @@ class WritersMixin:
             )
             memory_ref = f"note:{memory_id}"
 
-        elif as_type == "belief":
-            content = entry.blob or entry.content or ""
-            confidence = kwargs.get("confidence", 0.7)
-            belief_type = kwargs.get("type", "observation")
-
-            memory_id = self.belief(
-                statement=content,
-                type=belief_type,
-                confidence=confidence,
-                source="raw-processing",
-                derived_from=[raw_ref],
-            )
-            memory_ref = f"belief:{memory_id}"
-
         else:
-            raise ValueError(f"Invalid as_type: {as_type}. Must be one of: episode, note, belief")
+            raise ValueError(f"Invalid as_type: {as_type}. Must be one of: episode, note")
 
         # Mark the raw entry as processed
         self._storage.mark_raw_processed(raw_id, [memory_ref])
@@ -686,6 +686,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
+        self._require_inference("belief")
         confidence = clamp_confidence(confidence)
         belief_id = str(uuid.uuid4())
 
@@ -732,6 +733,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
+        self._require_inference("value")
         value_id = str(uuid.uuid4())
 
         resolved = self._normalize_source_type(source_type)
@@ -777,6 +779,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
+        self._require_inference("goal")
         validate_goal_type(goal_type)
 
         goal_id = str(uuid.uuid4())
@@ -876,6 +879,7 @@ class WritersMixin:
             derived_from: List of memory refs this was derived from (format: type:id)
             source_type: How this memory was acquired (default: direct_experience)
         """
+        self._require_inference("drive")
         validate_drive_type(drive_type)
 
         resolved = self._normalize_source_type(source_type)
@@ -964,6 +968,7 @@ class WritersMixin:
             source_type: How this memory was acquired (default: direct_experience)
             source_entity: Who/what created this memory
         """
+        self._require_inference("relationship")
         resolved = self._normalize_source_type(source_type)
 
         # Check existing — use write backend for consistent strict-mode path

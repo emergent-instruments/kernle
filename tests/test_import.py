@@ -15,6 +15,7 @@ from kernle.cli.commands.import_cmd import (
     _parse_raw,
     _parse_values,
 )
+from tests.conftest import bind_noop_model
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,7 @@ class TestJsonExportFormat:
 
         storage = SQLiteStorage(stack_id="export-test", db_path=tmp_path / "export.db")
         k = Kernle(stack_id="export-test", storage=storage, strict=False)
+        bind_noop_model(k)
         k.belief("Export test belief", confidence=0.8)
 
         export_json = k.dump(format="json")
@@ -264,7 +266,9 @@ class TestImportIntegration:
         from kernle.storage import SQLiteStorage
 
         storage = SQLiteStorage(stack_id="test-import", db_path=tmp_path / "import.db")
-        return Kernle(stack_id="test-import", storage=storage, strict=False)
+        k = Kernle(stack_id="test-import", storage=storage, strict=False)
+        bind_noop_model(k)
+        return k
 
     def test_import_markdown_beliefs(self, kernle_instance, tmp_path):
         """Import beliefs from markdown file."""

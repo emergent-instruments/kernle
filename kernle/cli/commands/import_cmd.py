@@ -373,21 +373,31 @@ def cmd_import(args: "argparse.Namespace", k: "Kernle") -> None:
 
     dry_run = getattr(args, "dry_run", False)
     interactive = getattr(args, "interactive", False)
-    target_layer = getattr(args, "layer", None)
     skip_duplicates = getattr(args, "skip_duplicates", True)
     derived_from = getattr(args, "derived_from", None)
     strict = getattr(args, "strict", False)
 
     chunk_size = getattr(args, "chunk_size", 2000)
 
+    if not dry_run and k.has_user_content():
+        print(
+            "Error: Cannot import into a stack with existing content.\n"
+            "Import is only supported on empty stacks.\n"
+            "Use --dry-run to preview what would be imported."
+        )
+        return
+
+    if not dry_run:
+        from kernle.importers.import_model import bind_import_model
+
+        bind_import_model(k)
+
     if file_format == "markdown":
-        _import_markdown(file_path, k, dry_run, interactive, target_layer, derived_from)
+        _import_markdown(file_path, k, dry_run, interactive, derived_from)
     elif file_format == "json":
         _import_json(file_path, k, dry_run, skip_duplicates, derived_from, strict=strict)
     elif file_format == "csv":
-        _import_csv(
-            file_path, k, dry_run, target_layer, skip_duplicates, derived_from, strict=strict
-        )
+        _import_csv(file_path, k, dry_run, skip_duplicates, derived_from, strict=strict)
     elif file_format == "pdf":
         _import_pdf(file_path, k, dry_run, skip_duplicates, derived_from, chunk_size)
 
@@ -397,10 +407,9 @@ def _import_markdown(
     k: "Kernle",
     dry_run: bool,
     interactive: bool,
-    target_layer: Optional[str],
     derived_from: Optional[List[str]] = None,
 ) -> None:
-    """Import from a markdown file."""
+    """Import from a markdown file (raw entries only)."""
     content = file_path.read_text(encoding="utf-8")
 
     # Parse the content
@@ -409,41 +418,40 @@ def _import_markdown(
     if not items:
         print("No importable content found in file")
         print("\nExpected formats:")
-        print("  ## Episodes / ## Lessons - for episode entries")
-        print("  ## Decisions / ## Notes - for note entries")
-        print("  ## Beliefs - for belief entries")
-        print("  ## Values / ## Principles - for value entries")
-        print("  ## Goals / ## Tasks - for goal entries")
         print("  ## Raw / ## Thoughts - for raw entries")
         print("  Freeform paragraphs - imported as raw entries")
+        print("\nNote: Markdown import supports raw entries only.")
         return
 
-    # If layer specified, override detected types
-    if target_layer:
-        for item in items:
-            item["type"] = target_layer
+    # Filter to raw items only
+    raw_items = [item for item in items if item["type"] == "raw"]
+    non_raw_count = len(items) - len(raw_items)
+
+    if not raw_items:
+        print("No raw entries found in file")
+        if non_raw_count > 0:
+            print(
+                f"Skipped {non_raw_count} non-raw items (markdown import supports raw entries only)"
+            )
+        return
 
     # Show what we found
-    type_counts: Dict[str, int] = {}
-    for item in items:
-        t = item["type"]
-        type_counts[t] = type_counts.get(t, 0) + 1
-
-    print(f"Found {len(items)} items to import:")
-    for t, count in sorted(type_counts.items()):
-        print(f"  {t}: {count}")
+    print(f"Found {len(raw_items)} raw items to import:")
+    print(f"  raw: {len(raw_items)}")
+    if non_raw_count > 0:
+        print(f"Skipped {non_raw_count} non-raw items (markdown import supports raw entries only)")
     print()
 
     if dry_run:
         print("=== DRY RUN (no changes made) ===\n")
-        for i, item in enumerate(items, 1):
+        for i, item in enumerate(raw_items, 1):
             _preview_item(i, item)
         return
 
     if interactive:
-        _interactive_import(items, k, derived_from)
+        _interactive_import(raw_items, k, derived_from)
     else:
-        _batch_import(items, k, derived_from=derived_from)
+        _batch_import(raw_items, k, derived_from=derived_from)
 
 
 def _import_json(
@@ -455,7 +463,9 @@ def _import_json(
     *,
     strict: bool = False,
 ) -> None:
-    """Import from a Kernle JSON export file."""
+    """Import from a Kernle JSON export file with provenance validation."""
+    from kernle.importers.provenance import IMPORT_ORDER, validate_provenance_chains
+
     try:
         content = file_path.read_text(encoding="utf-8")
         data = json.loads(content)
@@ -476,334 +486,119 @@ def _import_json(
     )
     print()
 
-    # Count items by type
-    type_counts: Dict[str, int] = {}
-    for memory_type in [
-        "values",
-        "beliefs",
-        "goals",
-        "episodes",
-        "notes",
-        "drives",
-        "relationships",
-        "raw_entries",
-    ]:
-        items = data.get(memory_type, [])
-        if items:
-            # Normalize type name
-            normalized = memory_type.rstrip("s") if memory_type != "raw_entries" else "raw"
-            if normalized == "raw_entrie":
-                normalized = "raw"
-            type_counts[normalized] = len(items)
+    # Collect all items into a flat list with their types
+    type_key_map = {
+        "values": "value",
+        "beliefs": "belief",
+        "goals": "goal",
+        "episodes": "episode",
+        "notes": "note",
+        "drives": "drive",
+        "relationships": "relationship",
+        "raw_entries": "raw",
+    }
+    all_items: List[Dict[str, Any]] = []
+    for json_key, item_type in type_key_map.items():
+        for item in data.get(json_key, []):
+            flat_item = dict(item)
+            # Preserve original "type" field into type-specific keys before
+            # overwriting it with the generic item type.  JSON exports use
+            # "type" for belief_type, note_type, drive_type, etc.
+            original_type = flat_item.get("type")
+            if item_type == "belief" and "belief_type" not in flat_item and original_type:
+                flat_item["belief_type"] = original_type
+            elif item_type == "note" and "note_type" not in flat_item and original_type:
+                flat_item["note_type"] = original_type
+            elif item_type == "drive" and "drive_type" not in flat_item and original_type:
+                flat_item["drive_type"] = original_type
+            flat_item["type"] = item_type
+            all_items.append(flat_item)
 
-    if not type_counts:
+    if not all_items:
         print("No importable content found in JSON file")
         return
 
-    print(f"Found {sum(type_counts.values())} items to import:")
+    # Count items by type
+    type_counts: Dict[str, int] = {}
+    for item in all_items:
+        t = item["type"]
+        type_counts[t] = type_counts.get(t, 0) + 1
+
+    print(f"Found {len(all_items)} items to import:")
     for t, count in sorted(type_counts.items()):
         print(f"  {t}: {count}")
     print()
+
+    # Validate provenance chains
+    provenance_errors = validate_provenance_chains(all_items)
+    if provenance_errors:
+        print(f"Provenance validation failed ({len(provenance_errors)} errors):")
+        for err in provenance_errors[:10]:
+            print(f"  {err}")
+        if len(provenance_errors) > 10:
+            print(f"  ... and {len(provenance_errors) - 10} more")
+        return
 
     if dry_run:
         print("=== DRY RUN (no changes made) ===")
         return
 
-    # Import each type
+    # Sort items by dependency order
+    type_order = {t: i for i, t in enumerate(IMPORT_ORDER)}
+    all_items.sort(key=lambda x: type_order.get(x["type"], 99))
+
+    # Import with ID remapping
     imported: Dict[str, int] = {}
     skipped: Dict[str, int] = {}
     errors: List[str] = []
     existing_fingerprints = _build_import_fingerprint_index(k) if skip_duplicates else None
     seen_signatures = _seen_signature_buckets()
+    id_map: Dict[str, str] = {}  # "type:old_id" -> "type:new_id"
 
-    # Values
-    for item in data.get("values", []):
-        priority_val, rejected = _validate_import_numeric(
-            item.get("priority", 50), 0, 100, 50, strict=strict
+    for item in all_items:
+        item_type = item["type"]
+        old_id = item.get("id", "")
+
+        # Remap derived_from using id_map
+        source_derived_from = item.get("derived_from") or []
+        remapped_refs = []
+        for ref in source_derived_from:
+            if not isinstance(ref, str):
+                continue
+            if ref in id_map:
+                remapped_refs.append(id_map[ref])
+            else:
+                remapped_refs.append(ref)
+
+        # Merge with CLI-provided derived_from and import fingerprint
+        import_item_for_fingerprint = dict(item)
+        import_derived_from = _merge_derived_from(
+            (derived_from or []) + remapped_refs if remapped_refs else derived_from,
+            import_item_for_fingerprint,
         )
-        if rejected:
-            errors.append(f"value: priority out of range: {item.get('priority')}")
-            continue
-        import_item = {
-            "type": "value",
-            "name": item.get("name", ""),
-            "description": item.get("statement", item.get("description", "")),
-            "priority": int(priority_val),
-        }
-        import_derived_from = _merge_derived_from(derived_from, import_item)
+
         try:
             if skip_duplicates and _check_duplicate(
-                import_item,
+                item,
                 k,
                 seen_signatures=seen_signatures,
                 existing_fingerprints=existing_fingerprints,
             ):
-                skipped["value"] = skipped.get("value", 0) + 1
+                skipped[item_type] = skipped.get(item_type, 0) + 1
                 continue
 
-            k.value(
-                name=import_item["name"],
-                description=import_item["description"],
-                priority=import_item["priority"],
-                derived_from=import_derived_from,
-            )
-            imported["value"] = imported.get("value", 0) + 1
-            if skip_duplicates:
-                _register_seen_signature(import_item, seen_signatures)
+            new_id = _import_single_json_item(item, k, import_derived_from, strict=strict)
+            if new_id:
+                imported[item_type] = imported.get(item_type, 0) + 1
+                if old_id:
+                    id_map[f"{item_type}:{old_id}"] = f"{item_type}:{new_id}"
+                if skip_duplicates:
+                    _register_seen_signature(item, seen_signatures)
+            else:
+                skipped[item_type] = skipped.get(item_type, 0) + 1
         except Exception as e:
-            logger.debug("Import value failed: %s", e, exc_info=True)
-            errors.append(f"value: {str(e)[:50]}")
-
-    # Beliefs
-    for item in data.get("beliefs", []):
-        conf_val, rejected = _validate_import_numeric(
-            item.get("confidence", 0.8), 0.0, 1.0, 0.8, strict=strict
-        )
-        if rejected:
-            errors.append(f"belief: confidence out of range: {item.get('confidence')}")
-            continue
-        import_item = {
-            "type": "belief",
-            "statement": item.get("statement", ""),
-            "belief_type": item.get("type", "fact"),
-            "confidence": conf_val,
-        }
-        import_derived_from = _merge_derived_from(derived_from, import_item)
-        try:
-            if skip_duplicates and _check_duplicate(
-                import_item,
-                k,
-                seen_signatures=seen_signatures,
-                existing_fingerprints=existing_fingerprints,
-            ):
-                skipped["belief"] = skipped.get("belief", 0) + 1
-                continue
-
-            k.belief(
-                statement=import_item["statement"],
-                type=import_item["belief_type"],
-                confidence=import_item["confidence"],
-                derived_from=import_derived_from,
-            )
-            imported["belief"] = imported.get("belief", 0) + 1
-            if skip_duplicates:
-                _register_seen_signature(import_item, seen_signatures)
-        except Exception as e:
-            logger.debug("Import belief failed: %s", e, exc_info=True)
-            errors.append(f"belief: {str(e)[:50]}")
-
-    # Goals
-    for item in data.get("goals", []):
-        title = item.get("title", "")
-        description = item.get("description", title)
-        import_item = {
-            "type": "goal",
-            "title": title,
-            "description": description,
-            "priority": item.get("priority", "medium"),
-            "status": item.get("status", "active"),
-        }
-        import_derived_from = _merge_derived_from(derived_from, import_item)
-        try:
-            if skip_duplicates:
-                if _check_duplicate(
-                    import_item,
-                    k,
-                    seen_signatures=seen_signatures,
-                    existing_fingerprints=existing_fingerprints,
-                ):
-                    skipped["goal"] = skipped.get("goal", 0) + 1
-                    continue
-
-            k.goal(
-                description=import_item["description"],
-                title=import_item["title"],
-                priority=import_item["priority"],
-                status=import_item["status"],
-                derived_from=import_derived_from,
-            )
-            imported["goal"] = imported.get("goal", 0) + 1
-            if skip_duplicates:
-                _register_seen_signature(import_item, seen_signatures)
-        except Exception as e:
-            logger.debug("Import goal failed: %s", e, exc_info=True)
-            errors.append(f"goal: {str(e)[:50]}")
-
-    # Episodes
-    for item in data.get("episodes", []):
-        import_item = {
-            "type": "episode",
-            "objective": item.get("objective", ""),
-            "outcome": item.get("outcome", item.get("objective", "")),
-            "lessons": item.get("lessons"),
-            "tags": item.get("tags"),
-        }
-        import_derived_from = _merge_derived_from(derived_from, import_item)
-        try:
-            if skip_duplicates and _check_duplicate(
-                import_item,
-                k,
-                seen_signatures=seen_signatures,
-                existing_fingerprints=existing_fingerprints,
-            ):
-                skipped["episode"] = skipped.get("episode", 0) + 1
-                continue
-
-            k.episode(
-                objective=import_item["objective"],
-                outcome=import_item["outcome"],
-                lessons=import_item["lessons"],
-                tags=import_item["tags"],
-                derived_from=import_derived_from,
-            )
-            imported["episode"] = imported.get("episode", 0) + 1
-            if skip_duplicates:
-                _register_seen_signature(import_item, seen_signatures)
-        except Exception as e:
-            logger.debug("Import episode failed: %s", e, exc_info=True)
-            errors.append(f"episode: {str(e)[:50]}")
-
-    # Notes
-    for item in data.get("notes", []):
-        note_type = item.get("type", "note")
-        import_item = {
-            "type": "note",
-            "content": item.get("content", ""),
-            "note_type": note_type,
-            "speaker": item.get("speaker"),
-            "reason": item.get("reason"),
-            "tags": item.get("tags"),
-        }
-        import_derived_from = _merge_derived_from(derived_from, import_item)
-        try:
-            if skip_duplicates and _check_duplicate(
-                import_item,
-                k,
-                seen_signatures=seen_signatures,
-                existing_fingerprints=existing_fingerprints,
-            ):
-                skipped["note"] = skipped.get("note", 0) + 1
-                continue
-
-            k.note(
-                content=import_item["content"],
-                type=import_item["note_type"],
-                speaker=import_item["speaker"],
-                reason=import_item["reason"],
-                tags=import_item["tags"],
-                derived_from=import_derived_from,
-            )
-            imported["note"] = imported.get("note", 0) + 1
-            if skip_duplicates:
-                _register_seen_signature(import_item, seen_signatures)
-        except Exception as e:
-            logger.debug("Import note failed: %s", e, exc_info=True)
-            errors.append(f"note: {str(e)[:50]}")
-
-    # Drives
-    for item in data.get("drives", []):
-        intensity_val, rejected = _validate_import_numeric(
-            item.get("intensity", 0.5), 0.0, 1.0, 0.5, strict=strict
-        )
-        if rejected:
-            errors.append(f"drive: intensity out of range: {item.get('intensity')}")
-            continue
-        import_item = {
-            "type": "drive",
-            "drive_type": item.get("drive_type", ""),
-            "intensity": intensity_val,
-            "focus_areas": item.get("focus_areas"),
-        }
-        import_derived_from = _merge_derived_from(derived_from, import_item)
-        try:
-            if skip_duplicates and _check_duplicate(
-                import_item,
-                k,
-                seen_signatures=seen_signatures,
-                existing_fingerprints=existing_fingerprints,
-            ):
-                skipped["drive"] = skipped.get("drive", 0) + 1
-                continue
-
-            k.drive(
-                drive_type=import_item["drive_type"],
-                intensity=import_item["intensity"],
-                focus_areas=import_item["focus_areas"],
-                derived_from=import_derived_from,
-            )
-            imported["drive"] = imported.get("drive", 0) + 1
-            if skip_duplicates:
-                _register_seen_signature(import_item, seen_signatures)
-        except Exception as e:
-            logger.debug("Import drive failed: %s", e, exc_info=True)
-            errors.append(f"drive: {str(e)[:50]}")
-
-    # Relationships
-    for item in data.get("relationships", []):
-        sentiment_val, rejected = _validate_import_numeric(
-            item.get("sentiment", 0.0), -1.0, 1.0, 0.0, strict=strict
-        )
-        if rejected:
-            errors.append(f"relationship: sentiment out of range: {item.get('sentiment')}")
-            continue
-        import_item = {
-            "type": "relationship",
-            "entity_name": item.get("entity_name", ""),
-            "entity_type": item.get("entity_type", "unknown"),
-            "relationship_type": item.get("relationship_type", "knows"),
-            "sentiment": sentiment_val,
-            "notes": item.get("notes"),
-        }
-        import_derived_from = _merge_derived_from(derived_from, import_item)
-        try:
-            if skip_duplicates and _check_duplicate(
-                import_item,
-                k,
-                seen_signatures=seen_signatures,
-                existing_fingerprints=existing_fingerprints,
-            ):
-                skipped["relationship"] = skipped.get("relationship", 0) + 1
-                continue
-
-            k.relationship(
-                entity_name=import_item["entity_name"],
-                entity_type=import_item["entity_type"],
-                relationship_type=import_item["relationship_type"],
-                sentiment=import_item["sentiment"],
-                notes=import_item["notes"],
-                derived_from=import_derived_from,
-            )
-            imported["relationship"] = imported.get("relationship", 0) + 1
-            if skip_duplicates:
-                _register_seen_signature(import_item, seen_signatures)
-        except Exception as e:
-            logger.debug("Import relationship failed: %s", e, exc_info=True)
-            errors.append(f"relationship: {str(e)[:50]}")
-
-    # Raw entries
-    for item in data.get("raw_entries", []):
-        import_item = {
-            "type": "raw",
-            "content": item.get("content", ""),
-            "source": item.get("source", "import"),
-        }
-        try:
-            if skip_duplicates and _check_duplicate(
-                import_item,
-                k,
-                seen_signatures=seen_signatures,
-                existing_fingerprints=existing_fingerprints,
-            ):
-                skipped["raw"] = skipped.get("raw", 0) + 1
-                continue
-
-            k.raw(blob=import_item["content"], source=import_item["source"])
-            imported["raw"] = imported.get("raw", 0) + 1
-            if skip_duplicates:
-                _register_seen_signature(import_item, seen_signatures)
-        except Exception as e:
-            logger.debug("Import raw entry failed: %s", e, exc_info=True)
-            errors.append(f"raw: {str(e)[:50]}")
+            logger.debug("Import %s failed: %s", item_type, e, exc_info=True)
+            errors.append(f"{item_type}: {str(e)[:50]}")
 
     # Summary
     total_imported = sum(imported.values())
@@ -827,17 +622,147 @@ def _import_json(
             print(f"  ... and {len(errors) - 5} more")
 
 
+def _import_single_json_item(
+    item: Dict[str, Any],
+    k: "Kernle",
+    import_derived_from: Optional[List[str]],
+    *,
+    strict: bool = False,
+) -> Optional[str]:
+    """Import a single flat JSON item into Kernle, returning the new ID."""
+    item_type = item["type"]
+
+    if item_type == "raw":
+        content = item.get("content", "")
+        if not content:
+            return None
+        return k.raw(blob=content, source=item.get("source", "import"))
+
+    elif item_type == "episode":
+        objective = item.get("objective", "")
+        if not objective:
+            return None
+        tags = item.get("tags") or []
+        outcome_type = item.get("outcome_type")
+        if outcome_type:
+            tags = list(tags) + [f"outcome:{outcome_type}"]
+        return k.episode(
+            objective=objective,
+            outcome=item.get("outcome", objective),
+            lessons=item.get("lessons"),
+            tags=tags or None,
+            derived_from=import_derived_from,
+        )
+
+    elif item_type == "note":
+        content = item.get("content", "")
+        if not content:
+            return None
+        return k.note(
+            content=content,
+            type=item.get("note_type", item.get("type", "note")),
+            speaker=item.get("speaker"),
+            reason=item.get("reason"),
+            tags=item.get("tags"),
+            derived_from=import_derived_from,
+        )
+
+    elif item_type == "belief":
+        statement = item.get("statement", "")
+        if not statement:
+            return None
+        conf_val, rejected = _validate_import_numeric(
+            item.get("confidence", 0.8), 0.0, 1.0, 0.8, strict=strict
+        )
+        if rejected:
+            return None
+        return k.belief(
+            statement=statement,
+            type=item.get("belief_type", item.get("type", "fact")),
+            confidence=conf_val,
+            derived_from=import_derived_from,
+            source_type="imported",
+        )
+
+    elif item_type == "value":
+        name = item.get("name", "")
+        if not name:
+            return None
+        prio_val, rejected = _validate_import_numeric(
+            item.get("priority", 50), 0, 100, 50, strict=strict
+        )
+        if rejected:
+            return None
+        return k.value(
+            name=name,
+            statement=item.get("statement", item.get("description", name)),
+            priority=int(prio_val),
+            derived_from=import_derived_from,
+            source_type="imported",
+        )
+
+    elif item_type == "goal":
+        title = item.get("title", "")
+        description = item.get("description", title)
+        if not title and not description:
+            return None
+        return k.goal(
+            title=title or description,
+            description=description,
+            priority=item.get("priority", "medium"),
+            derived_from=import_derived_from,
+            source_type="imported",
+        )
+
+    elif item_type == "drive":
+        drive_type = item.get("drive_type", "")
+        if not drive_type:
+            return None
+        intensity_val, rejected = _validate_import_numeric(
+            item.get("intensity", 0.5), 0.0, 1.0, 0.5, strict=strict
+        )
+        if rejected:
+            return None
+        return k.drive(
+            drive_type=drive_type,
+            intensity=intensity_val,
+            focus_areas=item.get("focus_areas"),
+            derived_from=import_derived_from,
+            source_type="imported",
+        )
+
+    elif item_type == "relationship":
+        entity_name = item.get("entity_name", "")
+        if not entity_name:
+            return None
+        sentiment_val, rejected = _validate_import_numeric(
+            item.get("sentiment", 0.0), -1.0, 1.0, 0.0, strict=strict
+        )
+        if rejected:
+            return None
+        return k.relationship(
+            other_stack_id=entity_name,
+            entity_type=item.get("entity_type", "unknown"),
+            interaction_type=item.get("relationship_type", "knows"),
+            trust_level=(sentiment_val + 1.0) / 2.0,
+            notes=item.get("notes"),
+            derived_from=import_derived_from,
+            source_type="imported",
+        )
+
+    return None
+
+
 def _import_csv(
     file_path: Path,
     k: "Kernle",
     dry_run: bool,
-    target_layer: Optional[str],
     skip_duplicates: bool,
     derived_from: Optional[List[str]] = None,
     *,
     strict: bool = False,
 ) -> None:
-    """Import from a CSV file."""
+    """Import from a CSV file (raw entries only)."""
     import csv
     import io
 
@@ -858,13 +783,13 @@ def _import_csv(
     # Check if 'type' column exists
     has_type_column = any(h in ["type", "memory_type", "kind"] for h in headers)
 
-    if not has_type_column and not target_layer:
-        print("Error: CSV must have a 'type' column or use --layer to specify memory type")
-        print("Valid types: episode, note, belief, value, goal, raw")
+    if not has_type_column:
+        print("Error: CSV must have a 'type' column")
+        print("Valid types: raw")
         return
 
     # Parse items
-    items: List[Dict[str, Any]] = []
+    all_items: List[Dict[str, Any]] = []
     reader = csv.DictReader(io.StringIO(content))  # Re-read
 
     for row in reader:
@@ -872,106 +797,61 @@ def _import_csv(
         row = {k.lower().strip(): v.strip() if v else "" for k, v in row.items()}
 
         # Determine type
-        if target_layer:
-            item_type = target_layer
-        else:
-            item_type = row.get("type") or row.get("memory_type") or row.get("kind")
-            if not item_type:
-                continue
+        item_type = row.get("type") or row.get("memory_type") or row.get("kind")
+        if not item_type:
+            continue
 
         item_type = item_type.lower().strip()
 
         # Build item based on type
         item = {"type": item_type}
 
-        if item_type == "episode":
-            item["objective"] = row.get("objective") or row.get("title") or row.get("task", "")
-            item["outcome"] = row.get("outcome") or row.get("result") or item["objective"]
-            item["outcome_type"] = row.get("outcome_type") or row.get("status")
-            lessons = row.get("lessons") or row.get("lesson", "")
-            item["lessons"] = (
-                [lesson.strip() for lesson in lessons.split(",") if lesson.strip()]
-                if lessons
-                else None
-            )
-        elif item_type == "note":
-            item["content"] = row.get("content") or row.get("text") or row.get("note", "")
-            item["note_type"] = row.get("note_type") or row.get("category") or "note"
-            item["speaker"] = row.get("speaker") or row.get("author")
-        elif item_type == "belief":
-            item["statement"] = row.get("statement") or row.get("belief") or row.get("content", "")
-            conf = row.get("confidence") or row.get("conf") or "0.7"
-            try:
-                fval = float(conf)
-                if fval > 1:
-                    fval = fval / 100
-            except (ValueError, TypeError):
-                if strict:
-                    continue
-                fval = 0.7
-            conf_val, rejected = _validate_import_numeric(fval, 0.0, 1.0, 0.7, strict=strict)
-            if rejected:
-                continue
-            item["confidence"] = conf_val
-        elif item_type == "value":
-            item["name"] = row.get("name") or row.get("value") or row.get("title", "")
-            item["description"] = row.get("description") or row.get("statement") or item["name"]
-            prio_val, rejected = _validate_import_numeric(
-                row.get("priority", "50"), 0, 100, 50, strict=strict
-            )
-            if rejected:
-                continue
-            item["priority"] = int(prio_val)
-        elif item_type == "goal":
-            item["title"] = row.get("title") or row.get("goal") or row.get("name", "")
-            item["description"] = row.get("description") or item["title"]
-            status = row.get("status", "active").lower()
-            if status in ("done", "complete", "completed", "true", "1", "yes"):
-                item["status"] = "completed"
-            elif status in ("paused", "hold"):
-                item["status"] = "paused"
-            else:
-                item["status"] = "active"
-        elif item_type == "raw":
+        if item_type == "raw":
             item["content"] = row.get("content") or row.get("text") or row.get("raw", "")
             item["source"] = row.get("source", "csv-import")
+        else:
+            # Still parse non-raw for counting purposes
+            content_field = (
+                row.get("content")
+                or row.get("text")
+                or row.get("statement")
+                or row.get("objective")
+                or row.get("name")
+                or row.get("title", "")
+            )
+            item["content"] = content_field
 
         # Skip empty items
-        content_field = (
-            item.get("content")
-            or item.get("objective")
-            or item.get("statement")
-            or item.get("name")
-            or item.get("title")
-        )
-        if content_field:
-            items.append(item)
+        if item.get("content"):
+            all_items.append(item)
 
-    if not items:
-        print("No importable content found in CSV file")
+    # Filter to raw items only
+    raw_items = [item for item in all_items if item["type"] == "raw"]
+    non_raw_count = len(all_items) - len(raw_items)
+
+    if not raw_items:
+        print("No raw entries found in CSV file")
+        if non_raw_count > 0:
+            print(f"Skipped {non_raw_count} non-raw items (CSV import supports raw entries only)")
         return
 
     # Show what we found
-    type_counts: Dict[str, int] = {}
-    for item in items:
-        t = item["type"]
-        type_counts[t] = type_counts.get(t, 0) + 1
-
-    print(f"Found {len(items)} items to import:")
-    for t, count in sorted(type_counts.items()):
-        print(f"  {t}: {count}")
+    print(f"Found {len(raw_items)} raw items to import:")
+    print(f"  raw: {len(raw_items)}")
+    if non_raw_count > 0:
+        print(f"Skipped {non_raw_count} non-raw items (CSV import supports raw entries only)")
     print()
 
     if dry_run:
         print("=== DRY RUN (no changes made) ===\n")
-        for i, item in enumerate(items[:10], 1):
+        for i, item in enumerate(raw_items[:10], 1):
             _preview_item(i, item)
-        if len(items) > 10:
-            print(f"... and {len(items) - 10} more items")
+        if len(raw_items) > 10:
+            print(f"... and {len(raw_items) - 10} more items")
         return
 
     # Import
-    _batch_import(items, k, skip_duplicates, derived_from=derived_from)
+    _batch_import(raw_items, k, skip_duplicates, derived_from=derived_from)
 
 
 def _import_pdf(
@@ -1509,11 +1389,17 @@ def _import_item(
     k: "Kernle",
     derived_from: Optional[List[str]] = None,
 ) -> None:
-    """Import a single item into Kernle."""
+    """Import a single item into Kernle.
+
+    For markdown/CSV imports, only raw items reach this function.
+    Other branches kept for completeness.
+    """
     t = item["type"]
     merged_derived_from = _merge_derived_from(derived_from, item)
 
-    if t == "episode":
+    if t == "raw":
+        k.raw(blob=item["content"], source=item.get("source", "import"))
+    elif t == "episode":
         lessons = [item["lesson"]] if item.get("lesson") else item.get("lessons")
         k.episode(
             objective=item["objective"],
@@ -1537,22 +1423,22 @@ def _import_item(
             confidence=item.get("confidence", 0.7),
             type=item.get("belief_type", "fact"),
             derived_from=merged_derived_from,
+            source_type="imported",
         )
     elif t == "value":
         k.value(
             name=item["name"],
-            description=item.get("description", item["name"]),
+            statement=item.get("description", item["name"]),
             priority=item.get("priority", 50),
             derived_from=merged_derived_from,
+            source_type="imported",
         )
     elif t == "goal":
         goal_title = item.get("title") or item.get("description") or ""
         k.goal(
-            description=item.get("description", item.get("title", "")),
             title=goal_title,
-            status=item.get("status", "active"),
+            description=item.get("description", item.get("title", "")),
             priority=item.get("priority", "medium"),
             derived_from=merged_derived_from,
+            source_type="imported",
         )
-    elif t == "raw":
-        k.raw(blob=item["content"], source=item.get("source", "import"))

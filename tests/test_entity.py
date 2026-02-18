@@ -683,7 +683,6 @@ class TestPluginManagement:
         entity.load_plugin(plugin)
         ctx = entity._plugin_contexts["test-plugin"]
         assert ctx.episode("obj", "out") is None
-        assert ctx.belief("stmt") is None
         assert ctx.note("content") is None
         assert ctx.raw("blob") is None
 
@@ -1208,10 +1207,9 @@ class TestPluginContextAttribution:
     def test_plugin_derived_from_passes_through(self, entity, stack):
         entity.attach_stack(stack)
         ctx = _PluginContextImpl(entity, "test-plugin")
-        ctx.belief("test statement", derived_from=["episode:ep1"])
-        b = stack.save_belief.call_args[0][0]
-        # build_derived_from appends context marker for the plugin source
-        assert b.derived_from == ["episode:ep1", "context:plugin:test-plugin"]
+        ctx.episode("obj", "out", derived_from=["raw:r1"])
+        ep = stack.save_episode.call_args[0][0]
+        assert "raw:r1" in ep.derived_from
 
 
 # ---- Entity Enrichment Parity Tests ----
@@ -1574,12 +1572,12 @@ class TestPluginContextSourceType:
         ep = stack.save_episode.call_args[0][0]
         assert ep.source_type == "direct_experience"
 
-    def test_belief_source_type_passthrough(self, entity, stack):
+    def test_note_source_type_seed_passthrough(self, entity, stack):
         entity.attach_stack(stack)
         ctx = _PluginContextImpl(entity, "test-plugin")
-        ctx.belief("test statement", source_type="seed")
-        b = stack.save_belief.call_args[0][0]
-        assert b.source_type == "seed"
+        ctx.note("test content", source_type="seed")
+        n = stack.save_note.call_args[0][0]
+        assert n.source_type == "seed"
 
     def test_relationship_source_type_passthrough(self, entity, stack):
         entity.attach_stack(stack)
