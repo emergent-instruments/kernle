@@ -1426,16 +1426,13 @@ class TestKernleStrictMode:
         with pytest.raises(MaintenanceModeError):
             strict_kernle.notes_batch([{"content": "X"}])
 
-    def test_legacy_mode_ignores_maintenance(self, legacy_kernle):
-        """In legacy mode, writes go to storage directly — no enforcement."""
-        # Force the stack into maintenance, but legacy mode bypasses it
+    def test_legacy_mode_enforces_maintenance(self, legacy_kernle):
+        """All writes route through Stack — maintenance blocks even in legacy mode."""
         stack = legacy_kernle.stack
-        stack.on_attach("legacy_agent")
         stack.enter_maintenance()
 
-        # Legacy write goes directly to storage — no error
-        raw_id = legacy_kernle.raw(blob="Should succeed in legacy mode")
-        assert raw_id is not None
+        with pytest.raises(MaintenanceModeError):
+            legacy_kernle.raw(blob="Should be blocked in maintenance")
 
     def test_strict_auto_attaches_to_active(self, strict_kernle):
         """Strict mode auto-attaches the stack, transitioning to ACTIVE."""

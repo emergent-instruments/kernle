@@ -58,25 +58,28 @@ class Kernle(
 ):
     """Main interface for Kernle memory operations.
 
-    This is the **legacy compatibility API**. Write methods (episode, belief,
-    value, goal, note, drive, relationship, raw) write directly to the storage
-    backend and do NOT enforce provenance hierarchy or maintenance mode.
+    All writes route through the Stack, which enforces maintenance mode
+    blocking and runs component hooks (emotional tagging, etc.) regardless
+    of the ``strict`` setting.
 
-    For enforced memory operations, use :attr:`entity` which routes writes
-    through the stack with full provenance validation.
+    The ``strict`` parameter controls:
+    - **Provenance validation** — ``strict=True`` requires ``derived_from``
+      on higher-tier memories and validates the provenance hierarchy.
+    - **Save-time lint** — ``strict=True`` enables lint checks that may
+      redirect low-quality writes to suggestions.
+    - **Error propagation** — ``strict=True`` re-raises sync/checkpoint
+      errors instead of logging and continuing.
 
-    Use ``strict=True`` to route all writes through the stack, which enforces
-    maintenance mode blocking, provenance hierarchy (when enabled), and stack
-    component hooks.
+    For full enforcement with Entity-level orchestration, use :attr:`entity`.
 
     Examples:
-        # Legacy mode (default) — no enforcement
-        k = Kernle(stack_id="my_agent")
+        # Non-strict mode — writes through stack, no provenance enforcement
+        k = Kernle(stack_id="my_agent", strict=False)
 
-        # Strict mode — writes routed through stack enforcement
+        # Strict mode (default) — full enforcement
         k = Kernle(stack_id="my_agent", strict=True)
 
-        # Recommended: use Entity directly for full enforcement
+        # Recommended: use Entity directly for full orchestration
         from kernle import Entity
         e = Entity(core_id="my_agent")
     """
@@ -95,8 +98,9 @@ class Kernle(
             storage: Optional storage backend. If None, creates SQLiteStorage.
                 Any object implementing the Storage protocol is accepted.
             checkpoint_dir: Directory for local checkpoints
-            strict: If True, route writes through stack enforcement layer
-                (maintenance mode, provenance validation, component hooks).
+            strict: If True, enable provenance validation, save-time lint,
+                and strict error propagation. All writes route through Stack
+                regardless of this setting.
         """
         self.stack_id = self._validate_stack_id(
             stack_id or os.environ.get("KERNLE_STACK_ID", "default")
@@ -113,6 +117,8 @@ class Kernle(
                 stack_id=self.stack_id,
             )
 
+        # Controls Stack enforcement (enforce_provenance, lint_on_save) and
+        # error propagation in checkpoint/sync mixins.
         self._strict = strict
 
         # Eager Stack creation — shares the same storage instance
