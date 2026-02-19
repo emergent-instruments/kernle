@@ -508,6 +508,17 @@ class SuggestionStorage(Protocol):
         """
         return False
 
+    def expire_suggestions(self, max_age_hours: float = 168.0) -> List[str]:
+        """Auto-dismiss pending suggestions older than max_age_hours.
+
+        Args:
+            max_age_hours: Age threshold in hours (default: 168 = 7 days)
+
+        Returns:
+            List of expired suggestion IDs
+        """
+        return []
+
 
 @runtime_checkable
 class SearchStorage(Protocol):
@@ -680,6 +691,54 @@ class MetaMemoryStorage(Protocol):
             List of matching memories
         """
         ...
+
+    def get_all_active_memories(self, memory_types: Optional[List[str]] = None) -> List[tuple]:
+        """Get all active (non-deleted, non-forgotten) memories for strength decay.
+
+        Args:
+            memory_types: Types to include (default: all except raw)
+
+        Returns:
+            List of (memory_type, record) tuples
+        """
+        return []
+
+    def update_strength_batch(self, updates: List[tuple]) -> int:
+        """Update strength for multiple memories in a single operation.
+
+        Args:
+            updates: List of (memory_type, memory_id, strength) tuples
+
+        Returns:
+            Number of memories successfully updated
+        """
+        count = 0
+        for memory_type, memory_id, strength in updates:
+            if self.update_strength(memory_type, memory_id, strength):
+                count += 1
+        return count
+
+    def update_memory_metadata(
+        self,
+        memory_type: str,
+        memory_id: str,
+        **kwargs: Any,
+    ) -> bool:
+        """Update arbitrary metadata fields on a memory record.
+
+        This is a general-purpose metadata update that supports any field
+        the storage backend recognizes. Used by Stack for lazy decay persistence
+        and other metadata updates that don't fit specific protocol methods.
+
+        Args:
+            memory_type: Type of memory (episode, belief, note, etc.)
+            memory_id: ID of the memory
+            **kwargs: Field name/value pairs to update
+
+        Returns:
+            True if updated, False if memory not found
+        """
+        return False
 
 
 @runtime_checkable
@@ -1228,6 +1287,267 @@ class EpochStorage(Protocol):
         return False
 
 
+# === New Sub-protocols (v0.15.0 — Storage Decoupling) ===
+
+
+@runtime_checkable
+class SettingsStorage(Protocol):
+    """Storage interface for stack configuration settings (key-value store)."""
+
+    def get_stack_setting(self, key: str) -> Optional[str]:
+        """Get a stack setting value by key.
+
+        Args:
+            key: Setting key name
+
+        Returns:
+            The setting value, or None if not found
+        """
+        return None
+
+    def set_stack_setting(self, key: str, value: str) -> None:
+        """Set a stack setting (upsert).
+
+        Args:
+            key: Setting key name
+            value: Setting value
+        """
+        pass
+
+    def get_all_stack_settings(self) -> Dict[str, str]:
+        """Get all stack settings as a dict.
+
+        Returns:
+            Dict of key → value for all settings
+        """
+        return {}
+
+
+@runtime_checkable
+class AtomicUpdateStorage(Protocol):
+    """Storage interface for optimistic-locking updates.
+
+    These methods update an entire record atomically, optionally checking
+    a version field to prevent lost writes.
+    """
+
+    def update_belief_atomic(
+        self, belief: "Belief", expected_version: Optional[int] = None
+    ) -> bool:
+        """Update a belief with optimistic concurrency control.
+
+        Args:
+            belief: The belief to update (must have valid .id)
+            expected_version: If set, only update if current version matches
+
+        Returns:
+            True if updated, False if not found or version mismatch
+        """
+        return False
+
+    def update_goal_atomic(self, goal: "Goal", expected_version: Optional[int] = None) -> bool:
+        """Update a goal with optimistic concurrency control.
+
+        Args:
+            goal: The goal to update (must have valid .id)
+            expected_version: If set, only update if current version matches
+
+        Returns:
+            True if updated, False if not found or version mismatch
+        """
+        return False
+
+    def update_drive_atomic(self, drive: "Drive", expected_version: Optional[int] = None) -> bool:
+        """Update a drive with optimistic concurrency control.
+
+        Args:
+            drive: The drive to update (must have valid .id)
+            expected_version: If set, only update if current version matches
+
+        Returns:
+            True if updated, False if not found or version mismatch
+        """
+        return False
+
+    def update_relationship_atomic(
+        self, relationship: "Relationship", expected_version: Optional[int] = None
+    ) -> bool:
+        """Update a relationship with optimistic concurrency control.
+
+        Args:
+            relationship: The relationship to update (must have valid .id)
+            expected_version: If set, only update if current version matches
+
+        Returns:
+            True if updated, False if not found or version mismatch
+        """
+        return False
+
+    def update_episode_atomic(
+        self, episode: "Episode", expected_version: Optional[int] = None
+    ) -> bool:
+        """Update an episode with optimistic concurrency control.
+
+        Args:
+            episode: The episode to update (must have valid .id)
+            expected_version: If set, only update if current version matches
+
+        Returns:
+            True if updated, False if not found or version mismatch
+        """
+        return False
+
+
+@runtime_checkable
+class ProcessingStorage(Protocol):
+    """Storage interface for memory processing state and configuration."""
+
+    def mark_episode_processed(self, episode_id: str) -> bool:
+        """Mark an episode as processed.
+
+        Args:
+            episode_id: ID of the episode to mark
+
+        Returns:
+            True if marked, False if not found
+        """
+        return False
+
+    def mark_note_processed(self, note_id: str) -> bool:
+        """Mark a note as processed.
+
+        Args:
+            note_id: ID of the note to mark
+
+        Returns:
+            True if marked, False if not found
+        """
+        return False
+
+    def mark_belief_processed(self, belief_id: str) -> bool:
+        """Mark a belief as processed.
+
+        Args:
+            belief_id: ID of the belief to mark
+
+        Returns:
+            True if marked, False if not found
+        """
+        return False
+
+    def get_processing_config(self) -> List[Dict[str, Any]]:
+        """Get all processing configuration entries.
+
+        Returns:
+            List of processing config dicts with keys like
+            layer_transition, enabled, model_id, etc.
+        """
+        return []
+
+    def set_processing_config(
+        self,
+        layer_transition: str,
+        **kwargs: Any,
+    ) -> bool:
+        """Update processing configuration for a layer transition.
+
+        Args:
+            layer_transition: The transition name (e.g. "raw_to_episode")
+            **kwargs: Configuration fields to update
+
+        Returns:
+            True if updated, False otherwise
+        """
+        return False
+
+
+@runtime_checkable
+class LineageStorage(Protocol):
+    """Storage interface for provenance/lineage queries and strength cascading."""
+
+    def get_memories_derived_from(self, memory_type: str, memory_id: str) -> List[tuple]:
+        """Find all memories that cite 'type:id' in their derived_from.
+
+        Args:
+            memory_type: Type of the source memory
+            memory_id: ID of the source memory
+
+        Returns:
+            List of (child_type, child_id) tuples
+        """
+        return []
+
+    def get_ungrounded_memories(self, stack_id: str) -> List[tuple]:
+        """Find memories where ALL source refs have strength 0.0 or don't exist.
+
+        Args:
+            stack_id: Stack ID to scope the query
+
+        Returns:
+            List of (memory_type, memory_id) tuples
+        """
+        return []
+
+    def log_belief_revision(
+        self,
+        old_id: str,
+        new_id: str,
+        reason: Optional[str] = None,
+        actor: str = "system",
+        correlation_id: Optional[str] = None,
+    ) -> tuple:
+        """Log audit entries for a belief revision (old → new).
+
+        Args:
+            old_id: ID of the superseded belief
+            new_id: ID of the new belief
+            reason: Reason for revision
+            actor: Who performed the revision
+            correlation_id: Optional ID linking related entries
+
+        Returns:
+            Tuple of (old_audit_id, new_audit_id)
+        """
+        return ("", "")
+
+    def boost_memory_strength(self, memory_type: str, memory_id: str, amount: float) -> bool:
+        """Boost a memory's strength by a given amount (capped at 1.0).
+
+        Args:
+            memory_type: Type of memory
+            memory_id: ID of the memory
+            amount: Amount to boost (positive value)
+
+        Returns:
+            True if updated, False if not found
+        """
+        return False
+
+
+@runtime_checkable
+class EmbeddingStorage(Protocol):
+    """Storage interface for embedding statistics and observability."""
+
+    def get_embedding_stats(self) -> Dict[str, Any]:
+        """Get embedding provider statistics for observability.
+
+        Returns:
+            Dict with keys:
+            - total: total embeddings stored
+            - by_provider: counts per embedding_provider
+            - fallback_count: number of fallback embeddings
+            - current_provider: name of active provider
+            - is_degraded: whether using fallback
+        """
+        return {
+            "total": 0,
+            "by_provider": {},
+            "fallback_count": 0,
+            "current_provider": "none",
+            "is_degraded": False,
+        }
+
+
 # === Composite Storage Protocol ===
 
 
@@ -1254,6 +1574,11 @@ class Storage(
     SummaryStorage,
     NarrativeStorage,
     EpochStorage,
+    SettingsStorage,
+    AtomicUpdateStorage,
+    ProcessingStorage,
+    LineageStorage,
+    EmbeddingStorage,
     Protocol,
 ):
     """Full storage interface — backwards compatible composite.

@@ -167,9 +167,10 @@ def update_strength_batch(
         cursor = conn.execute(
             f"""UPDATE {table}
                SET strength = ?,
+                   last_accessed = ?,
                    local_updated_at = ?
                WHERE id = ? AND stack_id = ? AND deleted = 0""",
-            (strength, now, memory_id, stack_id),
+            (strength, now, now, memory_id, stack_id),
         )
         total_updated += cursor.rowcount
     conn.commit()

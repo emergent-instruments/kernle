@@ -474,53 +474,10 @@ class SQLiteStack(
                 advisory,
             )
 
-        # Persist schema-mapped fields
-        table_map = {
-            "episode": "episodes",
-            "belief": "beliefs",
-            "value": "agent_values",
-            "goal": "goals",
-            "note": "notes",
-            "drive": "drives",
-            "relationship": "relationships",
-        }
-        table = table_map.get(memory_type)
-        if not table:
-            return
-
-        # Map of allowed fields per table (only fields that exist in schema)
-        allowed_fields = {
-            "episodes": {
-                "emotional_valence",
-                "emotional_arousal",
-                "emotional_tags",
-            },
-        }
-        fields = allowed_fields.get(table, set())
-        if not fields:
-            return
-
-        updates = []
-        params = []
-        for key, value in metadata.items():
-            if key not in fields:
-                continue
-            updates.append(f"{key} = ?")
-            if isinstance(value, (list, dict)):
-                import json
-
-                params.append(json.dumps(value))
-            else:
-                params.append(value)
-
-        if not updates:
-            return
-
-        params.extend([memory_id, self._backend.stack_id])
-        sql = f"UPDATE {table} SET {', '.join(updates)} WHERE id = ? AND stack_id = ?"
-        with self._backend._connect() as conn:
-            conn.execute(sql, params)
-            conn.commit()
+        # Persist schema-mapped fields via protocol method (no _connect() leak)
+        schema_fields = {k: v for k, v in metadata.items() if k not in advisory_keys}
+        if schema_fields:
+            self._backend.update_memory_metadata(memory_type, memory_id, **schema_fields)
 
     def _dispatch_on_search(
         self, query: str, results: List[ProtocolSearchResult]
@@ -603,41 +560,14 @@ class SQLiteStack(
         return records
 
     def _persist_decay_updates(self, updates: list[tuple[str, str, float]]) -> None:
-        """Persist lazy decay strength updates with last_accessed bump.
+        """Persist lazy decay strength updates via protocol method.
 
-        Updates both strength and last_accessed to now, ensuring
-        subsequent reads don't re-decay from the same reference time.
+        Delegates to the backend's update_strength_batch, which handles
+        clamping, last_accessed bumps, and transactional writes.
         """
         if not updates:
             return
-
-        table_map = {
-            "episode": "episodes",
-            "belief": "beliefs",
-            "value": "agent_values",
-            "goal": "goals",
-            "note": "notes",
-            "drive": "drives",
-            "relationship": "relationships",
-        }
-
-        now = datetime.now(timezone.utc).isoformat()
-
-        with self._backend._connect() as conn:
-            for memory_type, memory_id, strength in updates:
-                table = table_map.get(memory_type)
-                if not table:
-                    continue
-                strength = max(0.0, min(1.0, strength))
-                conn.execute(
-                    f"""UPDATE {table}
-                       SET strength = ?,
-                           last_accessed = ?,
-                           local_updated_at = ?
-                       WHERE id = ? AND stack_id = ? AND deleted = 0""",
-                    (strength, now, now, memory_id, self._backend.stack_id),
-                )
-            conn.commit()
+        self._backend.update_strength_batch(updates)
 
     @staticmethod
     def _filter_by_strength(
