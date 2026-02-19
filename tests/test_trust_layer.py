@@ -142,7 +142,9 @@ class TestSQLiteStorage:
             storage.save_trust_assessment(a)
 
         all_assessments = storage.get_trust_assessments()
-        assert len(all_assessments) == 3
+        # 3 test assessments + 1 self-trust "identity" (bootstrapped by eager Stack)
+        non_identity = [a for a in all_assessments if a.entity != "identity"]
+        assert len(non_identity) == 3
 
     def test_delete_trust_assessment(self, trust_setup):
         k, storage = trust_setup
@@ -277,8 +279,10 @@ class TestTrustCoreAPI:
         k, _ = trust_setup
         k.seed_trust()
         result = k.trust_list()
-        assert len(result) == 4
-        entities = {r["entity"] for r in result}
+        # 4 seed entities + 1 bootstrapped "identity" self-trust from eager Stack init
+        non_identity = [r for r in result if r["entity"] != "identity"]
+        assert len(non_identity) == 4
+        entities = {r["entity"] for r in non_identity}
         assert "stack-owner" in entities
 
     def test_trust_show(self, trust_setup):

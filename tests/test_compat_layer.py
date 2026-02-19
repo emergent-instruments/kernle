@@ -61,23 +61,26 @@ class TestStackProperty:
         s = kernle_sqlite.stack
         assert s._backend.db_path == kernle_sqlite._storage.db_path
 
-    def test_stack_is_lazily_created(self, kernle_sqlite):
-        assert not hasattr(kernle_sqlite, "_stack")
-        _ = kernle_sqlite.stack
+    def test_stack_is_eagerly_created(self, kernle_sqlite):
+        """Stack is created eagerly during __init__ (Phase 3)."""
         assert hasattr(kernle_sqlite, "_stack")
+        assert kernle_sqlite._stack is not None
 
     def test_stack_is_cached(self, kernle_sqlite):
         s1 = kernle_sqlite.stack
         s2 = kernle_sqlite.stack
         assert s1 is s2
 
-    def test_stack_returns_none_for_non_sqlite(self, tmp_path):
-        """If the storage is not SQLite, .stack returns None."""
+    def test_stack_works_with_non_sqlite_storage(self, tmp_path):
+        """Stack is created eagerly with any storage backend (Phase 3)."""
         from unittest.mock import MagicMock
 
         mock_storage = MagicMock()
+        mock_storage.stack_id = "mock_agent"
         mock_storage.is_online.return_value = False
         mock_storage.get_pending_sync_count.return_value = 0
+        mock_storage.get_trust_assessment.return_value = None
+        mock_storage.get_all_stack_settings.return_value = {}
 
         k = Kernle(
             stack_id="mock_agent",
@@ -85,7 +88,8 @@ class TestStackProperty:
             checkpoint_dir=tmp_path / "cp",
             strict=False,
         )
-        assert k.stack is None
+        assert k.stack is not None
+        assert k._storage is k.stack._backend
 
 
 class TestEntityStackIntegration:
@@ -97,19 +101,16 @@ class TestEntityStackIntegration:
         s = kernle_sqlite.stack
         assert e.active_stack is s
 
-    def test_stack_then_entity_does_not_auto_attach(self, kernle_sqlite):
-        """Accessing .stack first, then .entity, does NOT auto-attach."""
-        _ = kernle_sqlite.stack  # noqa: F841 - trigger lazy creation
+    def test_entity_always_gets_stack_attached(self, kernle_sqlite):
+        """Entity always auto-attaches the eager Stack (Phase 3)."""
         e = kernle_sqlite.entity
-        # Stack was created before entity, so no auto-attach happened
-        assert e.active_stack is None
+        assert e.active_stack is kernle_sqlite.stack
 
-    def test_manual_attach_after_both_created(self, kernle_sqlite):
-        """User can manually attach stack to entity."""
-        s = kernle_sqlite.stack
+    def test_entity_shares_stack_with_kernle(self, kernle_sqlite):
+        """Entity's active stack is the same Stack Kernle created eagerly."""
         e = kernle_sqlite.entity
-        e.attach_stack(s, alias="default", set_active=True)
-        assert e.active_stack is s
+        assert e.active_stack is kernle_sqlite.stack
+        assert e.active_stack._backend is kernle_sqlite._storage
 
     def test_entity_can_write_through_stack(self, kernle_sqlite):
         """Full round-trip: entity writes to stack, data visible in storage."""

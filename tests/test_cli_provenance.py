@@ -5,6 +5,7 @@ to the underlying Kernle methods.
 """
 
 from argparse import Namespace
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from kernle.cli.__main__ import cmd_relation
@@ -323,17 +324,27 @@ class TestCoreDerivedFrom:
     """Test that core.py value(), goal(), and relationship() accept derived_from."""
 
     def _make_kernle(self):
-        """Create a Kernle instance with mock storage."""
+        """Create a Kernle instance with real SQLite storage."""
+        import tempfile
+
         from kernle.storage.sqlite import SQLiteStorage
 
-        storage = MagicMock(spec=SQLiteStorage)
-        storage.get_relationship.return_value = None  # No existing relationship
+        self._tmpdir = tempfile.mkdtemp()
+        db_path = Path(self._tmpdir) / "test.db"
+        storage = SQLiteStorage(stack_id="test-agent", db_path=db_path)
 
         from kernle import Kernle
 
-        k = Kernle(stack_id="test-agent", storage=storage, strict=False)
-        # Mock _require_inference since mock storage has no real stack to bind to
-        k._require_inference = lambda op: None
+        k = Kernle(
+            stack_id="test-agent",
+            storage=storage,
+            checkpoint_dir=Path(self._tmpdir) / "cp",
+            strict=False,
+        )
+        # Bind noop model to satisfy inference gate
+        from tests.conftest import bind_noop_model
+
+        bind_noop_model(k)
         return k, storage
 
     def test_value_with_derived_from(self):
@@ -347,10 +358,10 @@ class TestCoreDerivedFrom:
         )
 
         assert value_id is not None
-        # Check that save_value was called with a Value that has derived_from set
-        storage.save_value.assert_called_once()
-        saved_value = storage.save_value.call_args[0][0]
-        assert saved_value.derived_from == ["episode:ep-abc"]
+        values = storage.get_values(limit=10)
+        saved = [v for v in values if v.id == value_id]
+        assert len(saved) == 1
+        assert saved[0].derived_from == ["episode:ep-abc"]
 
     def test_value_without_derived_from(self):
         """Kernle.value() works without derived_from."""
@@ -359,9 +370,10 @@ class TestCoreDerivedFrom:
         value_id = k.value(name="Quality", statement="High quality")
 
         assert value_id is not None
-        storage.save_value.assert_called_once()
-        saved_value = storage.save_value.call_args[0][0]
-        assert saved_value.derived_from is None
+        values = storage.get_values(limit=10)
+        saved = [v for v in values if v.id == value_id]
+        assert len(saved) == 1
+        assert saved[0].derived_from is None
 
     def test_goal_with_derived_from(self):
         """Kernle.goal() passes derived_from to Goal dataclass."""
@@ -374,9 +386,10 @@ class TestCoreDerivedFrom:
         )
 
         assert goal_id is not None
-        storage.save_goal.assert_called_once()
-        saved_goal = storage.save_goal.call_args[0][0]
-        assert saved_goal.derived_from == ["context:planning_session"]
+        goals = storage.get_goals(limit=10)
+        saved = [g for g in goals if g.id == goal_id]
+        assert len(saved) == 1
+        assert saved[0].derived_from == ["context:planning_session"]
 
     def test_goal_without_derived_from(self):
         """Kernle.goal() works without derived_from."""
@@ -385,9 +398,10 @@ class TestCoreDerivedFrom:
         goal_id = k.goal(title="Do something")
 
         assert goal_id is not None
-        storage.save_goal.assert_called_once()
-        saved_goal = storage.save_goal.call_args[0][0]
-        assert saved_goal.derived_from is None
+        goals = storage.get_goals(limit=10)
+        saved = [g for g in goals if g.id == goal_id]
+        assert len(saved) == 1
+        assert saved[0].derived_from is None
 
     def test_relationship_new_with_derived_from(self):
         """Kernle.relationship() passes derived_from when creating new."""
@@ -401,38 +415,31 @@ class TestCoreDerivedFrom:
         )
 
         assert rel_id is not None
-        storage.save_relationship.assert_called_once()
-        saved_rel = storage.save_relationship.call_args[0][0]
-        assert saved_rel.derived_from == ["episode:ep-meeting"]
-        assert saved_rel.entity_name == "Alice"
+        rels = storage.get_relationships()
+        saved = [r for r in rels if r.id == rel_id]
+        assert len(saved) == 1
+        assert saved[0].derived_from == ["episode:ep-meeting"]
+        assert saved[0].entity_name == "Alice"
 
     def test_relationship_update_with_derived_from(self):
         """Kernle.relationship() sets derived_from on update."""
-        from datetime import datetime, timezone
-
-        from kernle.types import Relationship
-
         k, storage = self._make_kernle()
 
-        # Mock existing relationship
-        existing = Relationship(
-            id="rel-existing",
-            stack_id="test-agent",
-            entity_name="Bob",
+        # Create initial relationship
+        k.relationship(
+            "Bob",
+            trust_level=0.5,
             entity_type="person",
-            relationship_type="interaction",
-            sentiment=0.0,
-            interaction_count=1,
-            created_at=datetime.now(timezone.utc),
         )
-        storage.get_relationship.return_value = existing
 
+        # Update with derived_from
         k.relationship(
             "Bob",
             trust_level=0.7,
             derived_from=["episode:ep-collaboration"],
         )
 
-        storage.update_relationship_atomic.assert_called_once()
-        saved_rel = storage.update_relationship_atomic.call_args[0][0]
-        assert saved_rel.derived_from == ["episode:ep-collaboration"]
+        rels = storage.get_relationships()
+        bob_rels = [r for r in rels if r.entity_name == "Bob"]
+        assert len(bob_rels) == 1
+        assert bob_rels[0].derived_from == ["episode:ep-collaboration"]

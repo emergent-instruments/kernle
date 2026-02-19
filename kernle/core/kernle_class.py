@@ -7,7 +7,7 @@ all extraction mixins and the existing feature mixins.
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import Any, Optional
 
 from kernle.core.checkpoint import CheckpointMixin
 from kernle.core.identity import IdentityMixin
@@ -31,9 +31,6 @@ from kernle.features import (
 )
 from kernle.storage import SQLiteStorage
 from kernle.utils import get_kernle_home
-
-if TYPE_CHECKING:
-    from kernle.storage import Storage as StorageProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +84,7 @@ class Kernle(
     def __init__(
         self,
         stack_id: Optional[str] = None,
-        storage: Optional["StorageProtocol"] = None,
+        storage: Optional[Any] = None,
         checkpoint_dir: Optional[Path] = None,
         strict: bool = True,
     ):
@@ -95,11 +92,11 @@ class Kernle(
 
         Args:
             stack_id: Unique identifier for the agent
-            storage: Optional storage backend. If None, auto-detects.
+            storage: Optional storage backend. If None, creates SQLiteStorage.
+                Any object implementing the Storage protocol is accepted.
             checkpoint_dir: Directory for local checkpoints
             strict: If True, route writes through stack enforcement layer
                 (maintenance mode, provenance validation, component hooks).
-                Requires SQLite-backed storage.
         """
         self.stack_id = self._validate_stack_id(
             stack_id or os.environ.get("KERNLE_STACK_ID", "default")
@@ -108,13 +105,26 @@ class Kernle(
             checkpoint_dir or get_kernle_home() / "checkpoints"
         )
 
-        # Initialize storage
+        # Single storage instance — shared between Kernle and Stack
         if storage is not None:
             self._storage = storage
         else:
             self._storage = SQLiteStorage(
                 stack_id=self.stack_id,
             )
+
+        self._strict = strict
+
+        # Eager Stack creation — shares the same storage instance
+        from kernle.stack import Stack
+
+        self._stack = Stack(
+            stack_id=self.stack_id,
+            storage=self._storage,
+            enforce_provenance=strict,
+            lint_on_save=strict,
+        )
+        self._stack.on_attach(self.stack_id)  # INITIALIZING → ACTIVE
 
         # Auto-sync configuration: enabled by default if sync is available
         # Can be disabled via KERNLE_AUTO_SYNC=false
@@ -129,8 +139,6 @@ class Kernle(
                 self._storage.is_online() or self._storage.get_pending_sync_count() > 0
             )
 
-        self._strict = strict
-
         logger.debug(
             f"Kernle initialized with storage: {type(self._storage).__name__}, "
             f"auto_sync: {self._auto_sync}, strict: {self._strict}"
@@ -140,22 +148,12 @@ class Kernle(
     def _write_backend(self):
         """Return the write target for memory operations.
 
-        In strict mode, returns the stack (which enforces maintenance mode,
-        provenance validation, and component hooks). In legacy mode, returns
-        the storage backend directly (no enforcement).
-
-        Raises:
-            ValueError: If strict=True but no SQLite-backed stack is available.
+        Always returns the Stack, which handles enforcement based on its
+        enforce_provenance setting. In strict mode, Stack validates provenance
+        and runs component hooks. In non-strict mode, Stack still runs
+        component hooks but skips provenance validation.
         """
-        if self._strict:
-            stack = self.stack
-            if stack is None:
-                raise ValueError(
-                    "strict=True requires SQLite-backed storage. "
-                    "Use Entity for enforced writes with other storage backends."
-                )
-            return stack
-        return self._storage
+        return self._stack
 
     def has_user_content(self) -> bool:
         """Return True if this stack contains any user-created memories."""
@@ -175,7 +173,7 @@ class Kernle(
         )
 
     @property
-    def storage(self) -> "StorageProtocol":
+    def storage(self) -> Any:
         """Get the storage backend.
 
         .. deprecated:: 0.4.0
@@ -190,6 +188,7 @@ class Kernle(
 
         The Entity is lazily created on first access. It provides the
         coordinator/bus for the new component architecture (v0.4.0+).
+        The eager Stack is automatically attached on first access.
 
         Returns:
             Entity: The CoreProtocol implementation.
@@ -198,42 +197,19 @@ class Kernle(
             from kernle.entity import Entity
 
             self._entity = Entity(core_id=self.stack_id)
+            self._entity.attach_stack(self._stack, alias="default", set_active=True)
         return self._entity
 
     @property
     def stack(self):
         """Access the Stack (StackProtocol) wrapper.
 
-        The Stack is lazily created on first access. It wraps a
-        *separate* SQLiteStorage pointing at the same database file,
-        providing the StackProtocol interface.
-
-        If the Entity has already been created, the stack is automatically
-        attached as the active stack.
+        The Stack is created eagerly during __init__ and shares the same
+        storage instance as Kernle — no double instantiation.
 
         Returns:
-            Stack: The StackProtocol implementation, or None if the
-            underlying storage is not SQLite-based.
+            Stack: The StackProtocol implementation.
         """
-        if not hasattr(self, "_stack"):
-            from kernle.storage.sqlite import SQLiteStorage as _SQLiteStorage
-
-            if not isinstance(self._storage, _SQLiteStorage):
-                return None
-
-            from kernle.stack import Stack
-
-            self._stack = Stack.from_sqlite(
-                stack_id=self.stack_id,
-                db_path=self._storage.db_path,
-                enforce_provenance=self._strict,
-            )
-            if hasattr(self, "_entity"):
-                self._entity.attach_stack(self._stack, alias="default", set_active=True)
-            elif self._strict:
-                # Strict mode: auto-attach so stack transitions to ACTIVE
-                # (without Entity, on_attach is the only way to leave INITIALIZING)
-                self._stack.on_attach(self.stack_id)
         return self._stack
 
     def process(

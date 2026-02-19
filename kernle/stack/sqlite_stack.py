@@ -242,6 +242,7 @@ class Stack(
         storage: Any,  # Storage protocol — Any to avoid circular import
         components: Optional[List[StackComponentProtocol]] = None,
         enforce_provenance: bool = True,
+        lint_on_save: bool = True,
     ):
         self._backend = storage
         # Alias for mixin compatibility (mixins access self._storage)
@@ -254,6 +255,7 @@ class Stack(
         self._attached_core_id: Optional[str] = None
         self._inference: Optional[InferenceService] = None
         self._enforce_provenance = enforce_provenance
+        self._lint_on_save = lint_on_save
         self._registered_plugins: set = set()
 
         # Load persisted state or default to INITIALIZING
@@ -771,8 +773,8 @@ class Stack(
             "belief", belief.derived_from, getattr(belief, "source_entity", None)
         )
         self._validate_source_type("belief", belief.source_type)
-        # Lint check: reject malformed or low-signal beliefs (ACTIVE state only)
-        if self._state == StackState.ACTIVE:
+        # Lint check: reject malformed or low-signal beliefs (ACTIVE state + lint enabled)
+        if self._state == StackState.ACTIVE and self._lint_on_save:
             lint_result = self._lint_belief(belief)
             if not lint_result.passed:
                 return self._redirect_to_suggestion("belief", belief, lint_result)
@@ -785,8 +787,8 @@ class Stack(
             "value", value.derived_from, getattr(value, "source_entity", None)
         )
         self._validate_source_type("value", value.source_type)
-        # Lint check: reject malformed or low-signal values (ACTIVE state only)
-        if self._state == StackState.ACTIVE:
+        # Lint check: reject malformed or low-signal values (ACTIVE state + lint enabled)
+        if self._state == StackState.ACTIVE and self._lint_on_save:
             lint_result = self._lint_value(value)
             if not lint_result.passed:
                 return self._redirect_to_suggestion("value", value, lint_result)
@@ -1989,8 +1991,9 @@ class Stack(
         inference: Optional[InferenceService] = None,
     ) -> None:
         self._attached_core_id = core_id
-        self._inference = inference
-        self._set_inference_for_components(inference)
+        if inference is not None:
+            self._inference = inference
+            self._set_inference_for_components(inference)
         # Transition to ACTIVE on first attach (provenance enforcement begins)
         if self._state == StackState.INITIALIZING:
             self._state = StackState.ACTIVE
