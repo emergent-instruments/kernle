@@ -1,4 +1,4 @@
-"""Unit tests for SQLiteStack complex methods.
+"""Unit tests for Stack complex methods.
 
 These tests cover:
 - accept_suggestion() with different memory types (episode, belief, note, goal, value, drive, relationship)
@@ -19,7 +19,7 @@ import pytest
 
 from kernle.protocols import MaintenanceModeError, ProvenanceError
 from kernle.stack.sqlite_stack import (
-    SQLiteStack,
+    Stack,
     _normalize_suggestion_provenance_refs,
 )
 from kernle.types import MemorySuggestion
@@ -77,14 +77,14 @@ def _make_suggestion(
 
 @pytest.fixture
 def stack(tmp_path):
-    """Create a SQLiteStack in INITIALIZING state for testing.
+    """Create a Stack in INITIALIZING state for testing.
 
     Uses a temporary directory for the database file.
     Components are set to bare (empty list) to avoid
     needing real component implementations during unit tests.
     """
     db_path = tmp_path / "test.db"
-    stack = SQLiteStack(
+    stack = Stack.from_sqlite(
         stack_id="test-stack",
         db_path=db_path,
         enforce_provenance=False,
@@ -95,12 +95,12 @@ def stack(tmp_path):
 
 @pytest.fixture
 def active_stack(tmp_path):
-    """Create a SQLiteStack in ACTIVE state with provenance enforcement.
+    """Create a Stack in ACTIVE state with provenance enforcement.
 
     This fixture transitions the stack to ACTIVE by attaching a mock core.
     """
     db_path = tmp_path / "test_active.db"
-    stack = SQLiteStack(
+    stack = Stack.from_sqlite(
         stack_id="test-active-stack",
         db_path=db_path,
         enforce_provenance=True,
@@ -286,7 +286,7 @@ class TestAcceptSuggestionEdgeCases:
 
 
 class TestValidateProvenance:
-    """Tests for SQLiteStack._validate_provenance."""
+    """Tests for Stack._validate_provenance."""
 
     def test_initializing_state_allows_any_write(self, stack):
         """In INITIALIZING state, provenance is not required."""

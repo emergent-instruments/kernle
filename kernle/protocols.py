@@ -1235,7 +1235,7 @@ class StackProtocol(
     The intended write path is: core -> stack (with full provenance).
     Direct writes are possible but produce incomplete provenance.
 
-    Implementations: SQLiteStack (default), InMemoryStack, and custom backends.
+    Implementations: Stack (default), InMemoryStack, and custom backends.
     """
 
     @property
@@ -2033,7 +2033,7 @@ class CoreProtocol(Protocol):
 #
 # Stack implementations:
 #   [project.entry-points."kernle.stacks"]
-#   sqlite = "kernle_stack:SQLiteStack"
+#   sqlite = "kernle_stack:Stack"
 #
 # Model implementations:
 #   [project.entry-points."kernle.models"]

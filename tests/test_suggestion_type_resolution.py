@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import pytest
 
 from kernle import Kernle
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.storage.sqlite import SQLiteStorage
 from kernle.types import (
     SUGGESTION_MEMORY_TYPES,
@@ -32,14 +32,18 @@ def _now() -> datetime:
 def stack(tmp_path):
     stack_id = f"type-resolution-{uuid.uuid4().hex[:8]}"
     db_path = tmp_path / "type_resolution.db"
-    return SQLiteStack(stack_id=stack_id, db_path=db_path, components=[], enforce_provenance=False)
+    return Stack.from_sqlite(
+        stack_id=stack_id, db_path=db_path, components=[], enforce_provenance=False
+    )
 
 
 @pytest.fixture
 def strict_stack(tmp_path):
     stack_id = f"type-resolution-strict-{uuid.uuid4().hex[:8]}"
     db_path = tmp_path / "type_resolution_strict.db"
-    return SQLiteStack(stack_id=stack_id, db_path=db_path, components=[], enforce_provenance=True)
+    return Stack.from_sqlite(
+        stack_id=stack_id, db_path=db_path, components=[], enforce_provenance=True
+    )
 
 
 def _make_suggestion(memory_type: str, content: dict, stack_id: str) -> MemorySuggestion:
@@ -211,7 +215,7 @@ class TestSuggestionsMixinTypeResolution:
     """Verify promote_suggestion (non-strict Kernle compat) handles all 7 types.
 
     The SuggestionsMixin.promote_suggestion() is the legacy path used when
-    strict=False. It must handle the same types as SQLiteStack.accept_suggestion().
+    strict=False. It must handle the same types as Stack.accept_suggestion().
     """
 
     @pytest.fixture

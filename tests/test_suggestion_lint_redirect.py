@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.types import MemorySuggestion
 
 STACK_ID = "lint-redirect-test"
@@ -28,7 +28,9 @@ def _now() -> datetime:
 @pytest.fixture
 def stack(tmp_path):
     db_path = tmp_path / "lint_redirect.db"
-    return SQLiteStack(stack_id=STACK_ID, db_path=db_path, components=[], enforce_provenance=False)
+    return Stack.from_sqlite(
+        stack_id=STACK_ID, db_path=db_path, components=[], enforce_provenance=False
+    )
 
 
 def _make_suggestion(**kw) -> MemorySuggestion:

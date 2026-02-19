@@ -20,7 +20,7 @@ from kernle.protocols import (
     ProvenanceError,
     StackState,
 )
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.types import (
     Belief,
     Drive,
@@ -49,7 +49,7 @@ def tmp_db(tmp_path):
 @pytest.fixture
 def stack(tmp_db):
     """Stack with enforce_provenance=False, bare components."""
-    return SQLiteStack(
+    return Stack.from_sqlite(
         stack_id="test-stack", db_path=tmp_db, components=[], enforce_provenance=False
     )
 
@@ -57,7 +57,7 @@ def stack(tmp_db):
 @pytest.fixture
 def enforced_stack(tmp_db):
     """Stack with enforce_provenance=True, bare components."""
-    return SQLiteStack(
+    return Stack.from_sqlite(
         stack_id="test-stack",
         db_path=tmp_db,
         components=[],
@@ -672,7 +672,7 @@ class TestAnnotationRefs:
     @pytest.fixture
     def active_stack(self, tmp_path):
         """Stack in ACTIVE state with enforce_provenance=True."""
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -786,22 +786,22 @@ class TestStackSettings:
     """Test per-stack settings (feature flags)."""
 
     def test_get_nonexistent_setting(self, tmp_path):
-        stack = SQLiteStack("test", db_path=tmp_path / "test.db", components=[])
+        stack = Stack.from_sqlite("test", db_path=tmp_path / "test.db", components=[])
         assert stack.get_stack_setting("nonexistent") is None
 
     def test_set_and_get_setting(self, tmp_path):
-        stack = SQLiteStack("test", db_path=tmp_path / "test.db", components=[])
+        stack = Stack.from_sqlite("test", db_path=tmp_path / "test.db", components=[])
         stack.set_stack_setting("enforce_provenance", "true")
         assert stack.get_stack_setting("enforce_provenance") == "true"
 
     def test_upsert_setting(self, tmp_path):
-        stack = SQLiteStack("test", db_path=tmp_path / "test.db", components=[])
+        stack = Stack.from_sqlite("test", db_path=tmp_path / "test.db", components=[])
         stack.set_stack_setting("key", "v1")
         stack.set_stack_setting("key", "v2")
         assert stack.get_stack_setting("key") == "v2"
 
     def test_get_all_settings(self, tmp_path):
-        stack = SQLiteStack("test", db_path=tmp_path / "test.db", components=[])
+        stack = Stack.from_sqlite("test", db_path=tmp_path / "test.db", components=[])
         stack.set_stack_setting("a", "1")
         stack.set_stack_setting("b", "2")
         settings = stack.get_all_stack_settings()
@@ -809,7 +809,7 @@ class TestStackSettings:
         assert settings["b"] == "2"
 
     def test_get_all_empty(self, tmp_path):
-        stack = SQLiteStack("test", db_path=tmp_path / "test.db", components=[])
+        stack = Stack.from_sqlite("test", db_path=tmp_path / "test.db", components=[])
         settings = stack.get_all_stack_settings()
         assert settings == {}
 
@@ -823,54 +823,54 @@ class TestStackStatePersistence:
     """Test that stack lifecycle state survives across instances."""
 
     def test_new_stack_starts_initializing(self, tmp_path):
-        stack = SQLiteStack("test", db_path=tmp_path / "test.db", components=[])
+        stack = Stack.from_sqlite("test", db_path=tmp_path / "test.db", components=[])
         assert stack.state == StackState.INITIALIZING
 
     def test_on_attach_persists_active_state(self, tmp_path):
         db_path = tmp_path / "test.db"
-        stack = SQLiteStack("test", db_path=db_path, components=[])
+        stack = Stack.from_sqlite("test", db_path=db_path, components=[])
         stack.on_attach(core_id="core-1", inference=None)
         assert stack.state == StackState.ACTIVE
 
         # New instance should load persisted ACTIVE state
-        stack2 = SQLiteStack("test", db_path=db_path, components=[])
+        stack2 = Stack.from_sqlite("test", db_path=db_path, components=[])
         assert stack2.state == StackState.ACTIVE
 
     def test_maintenance_state_persisted(self, tmp_path):
         db_path = tmp_path / "test.db"
-        stack = SQLiteStack("test", db_path=db_path, components=[])
+        stack = Stack.from_sqlite("test", db_path=db_path, components=[])
         stack.on_attach(core_id="core-1", inference=None)
         stack.enter_maintenance()
         assert stack.state == StackState.MAINTENANCE
 
-        stack2 = SQLiteStack("test", db_path=db_path, components=[])
+        stack2 = Stack.from_sqlite("test", db_path=db_path, components=[])
         assert stack2.state == StackState.MAINTENANCE
 
     def test_exit_maintenance_persists(self, tmp_path):
         db_path = tmp_path / "test.db"
-        stack = SQLiteStack("test", db_path=db_path, components=[])
+        stack = Stack.from_sqlite("test", db_path=db_path, components=[])
         stack.on_attach(core_id="core-1", inference=None)
         stack.enter_maintenance()
         stack.exit_maintenance()
         assert stack.state == StackState.ACTIVE
 
-        stack2 = SQLiteStack("test", db_path=db_path, components=[])
+        stack2 = Stack.from_sqlite("test", db_path=db_path, components=[])
         assert stack2.state == StackState.ACTIVE
 
     def test_enforce_provenance_persisted(self, tmp_path):
         """enforce_provenance can be loaded from stack settings."""
         db_path = tmp_path / "test.db"
-        stack = SQLiteStack("test", db_path=db_path, components=[])
+        stack = Stack.from_sqlite("test", db_path=db_path, components=[])
         stack.set_stack_setting("enforce_provenance", "true")
 
         # New instance without explicit enforce_provenance should pick it up
-        stack2 = SQLiteStack("test", db_path=db_path, components=[])
+        stack2 = Stack.from_sqlite("test", db_path=db_path, components=[])
         assert stack2._enforce_provenance is True
 
     def test_explicit_enforce_provenance_overrides(self, tmp_path):
         """Explicit enforce_provenance=True always wins."""
         db_path = tmp_path / "test.db"
-        stack = SQLiteStack("test", db_path=db_path, components=[], enforce_provenance=True)
+        stack = Stack.from_sqlite("test", db_path=db_path, components=[], enforce_provenance=True)
         assert stack._enforce_provenance is True
 
 
@@ -887,7 +887,7 @@ class TestPluginProvenanceBypass:
 
     @pytest.fixture
     def active_enforced_stack(self, tmp_path):
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test",
             db_path=tmp_path / "test.db",
             components=[],
@@ -1013,7 +1013,7 @@ class TestMaintenanceModeIndependence:
 
     def test_maintenance_blocks_when_provenance_off(self, tmp_path):
         """Maintenance blocks writes even when enforce_provenance=False."""
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test",
             db_path=tmp_path / "test.db",
             components=[],
@@ -1033,7 +1033,7 @@ class TestMaintenanceModeIndependence:
 
     def test_maintenance_blocks_raw_when_provenance_off(self, tmp_path):
         """Even raw writes blocked in maintenance mode."""
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test",
             db_path=tmp_path / "test.db",
             components=[],
@@ -1046,7 +1046,7 @@ class TestMaintenanceModeIndependence:
             stack.save_raw(raw)
 
     def test_exit_maintenance_allows_writes_again(self, tmp_path):
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test",
             db_path=tmp_path / "test.db",
             components=[],
@@ -1070,7 +1070,7 @@ class TestBatchWriteProvenance:
 
     @pytest.fixture
     def active_enforced_stack(self, tmp_path):
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test",
             db_path=tmp_path / "test.db",
             components=[],
@@ -1181,8 +1181,8 @@ class TestStackScopedSettings:
     def test_different_stacks_isolated(self, tmp_path):
         """Two stacks sharing a DB have independent settings."""
         db_path = tmp_path / "shared.db"
-        stack_a = SQLiteStack("stack-a", db_path=db_path, components=[])
-        stack_b = SQLiteStack("stack-b", db_path=db_path, components=[])
+        stack_a = Stack.from_sqlite("stack-a", db_path=db_path, components=[])
+        stack_b = Stack.from_sqlite("stack-b", db_path=db_path, components=[])
 
         stack_a.set_stack_setting("enforce_provenance", "true")
 
@@ -1191,8 +1191,8 @@ class TestStackScopedSettings:
 
     def test_get_all_scoped(self, tmp_path):
         db_path = tmp_path / "shared.db"
-        stack_a = SQLiteStack("stack-a", db_path=db_path, components=[])
-        stack_b = SQLiteStack("stack-b", db_path=db_path, components=[])
+        stack_a = Stack.from_sqlite("stack-a", db_path=db_path, components=[])
+        stack_b = Stack.from_sqlite("stack-b", db_path=db_path, components=[])
 
         stack_a.set_stack_setting("a", "1")
         stack_b.set_stack_setting("b", "2")
@@ -1207,7 +1207,7 @@ class TestStackScopedSettings:
     def test_set_enforce_provenance_live(self, tmp_path):
         """set_stack_setting('enforce_provenance', 'true') takes effect immediately."""
         db_path = tmp_path / "live.db"
-        stack = SQLiteStack("test", db_path=db_path, components=[], enforce_provenance=False)
+        stack = Stack.from_sqlite("test", db_path=db_path, components=[], enforce_provenance=False)
         raw = RawEntry(id=_uid(), stack_id="test", blob="raw", source="test")
         raw_id = stack.save_raw(raw)
         ep = Episode(

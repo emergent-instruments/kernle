@@ -80,7 +80,7 @@ class TrustComponent:
     def set_storage(self, storage: Any) -> None:
         """Set the storage backend reference.
 
-        Called by SQLiteStack after attach to provide storage access.
+        Called by Stack after attach to provide storage access.
         This allows the component to read/write trust assessments.
 
         Args:

@@ -33,7 +33,7 @@ from kernle.processing import (
     PromotionGateConfig,
     PromotionGateResult,
 )
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 
 STACK_ID = "test-stack"
 
@@ -93,7 +93,7 @@ def _make_processor(mock_stack, response="[]", gates=None):
 
 @pytest.fixture
 def stack(tmp_path):
-    return SQLiteStack(
+    return Stack.from_sqlite(
         STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
     )
 
@@ -614,7 +614,7 @@ class TestGateResultsInProcessingResult:
 class TestGateConfigViaStackSettings:
     def test_entity_loads_gate_config_from_stack_settings(self, tmp_path):
         ent = Entity(core_id="test-core", data_dir=tmp_path / "entity")
-        st = SQLiteStack(
+        st = Stack.from_sqlite(
             STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
         )
         ent.attach_stack(st)
@@ -644,7 +644,7 @@ class TestGateConfigViaStackSettings:
 
     def test_entity_uses_defaults_when_no_settings(self, tmp_path):
         ent = Entity(core_id="test-core", data_dir=tmp_path / "entity")
-        st = SQLiteStack(
+        st = Stack.from_sqlite(
             STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
         )
         ent.attach_stack(st)

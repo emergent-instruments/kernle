@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.storage.sqlite import SQLiteStorage
 
 
@@ -19,8 +19,8 @@ class TestSelfTrustBootstrap:
     """Verify _ensure_self_trust creates identity assessment on first init."""
 
     def test_migration_initializes_self_trust(self, tmp_path):
-        """A fresh SQLiteStack should have a self-trust assessment for 'identity'."""
-        stack = SQLiteStack(
+        """A fresh Stack should have a self-trust assessment for 'identity'."""
+        stack = Stack.from_sqlite(
             stack_id="trust-init",
             db_path=tmp_path / "init.db",
             components=[],
@@ -34,7 +34,7 @@ class TestSelfTrustBootstrap:
     def test_self_trust_is_idempotent(self, tmp_path):
         """Calling _ensure_self_trust twice does not duplicate the assessment."""
         db = tmp_path / "idem.db"
-        stack = SQLiteStack(stack_id="trust-idem", db_path=db, components=[])
+        stack = Stack.from_sqlite(stack_id="trust-idem", db_path=db, components=[])
         first_id = stack._backend.get_trust_assessment("identity").id
 
         # Call again explicitly
@@ -67,7 +67,7 @@ class TestSelfTrustBootstrap:
         backend.save_trust_assessment(custom)
 
         # Now create the stack -- _ensure_self_trust should see existing and not overwrite
-        stack = SQLiteStack(stack_id="trust-exist", db_path=db, components=[])
+        stack = Stack.from_sqlite(stack_id="trust-exist", db_path=db, components=[])
         assessment = stack._backend.get_trust_assessment("identity")
         assert assessment is not None
         # The score should still be 0.75, not reset to 1.0

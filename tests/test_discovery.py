@@ -106,13 +106,13 @@ class TestDiscoverStacks:
     @patch("kernle.discovery._get_entry_points")
     def test_finds_stacks(self, mock_eps):
         mock_eps.return_value = [
-            _make_entry_point("sqlite", "kernle_stack:SQLiteStack", ENTRY_POINT_GROUP_STACKS),
+            _make_entry_point("sqlite", "kernle_stack:Stack", ENTRY_POINT_GROUP_STACKS),
         ]
         result = discover_stacks()
         assert len(result) == 1
         assert result[0].name == "sqlite"
         assert result[0].module == "kernle_stack"
-        assert result[0].attr == "SQLiteStack"
+        assert result[0].attr == "Stack"
 
 
 class TestDiscoverModels:

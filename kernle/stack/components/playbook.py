@@ -73,7 +73,7 @@ class PlaybookComponent:
     def set_storage(self, storage: Any) -> None:
         """Set the storage backend.
 
-        Called by SQLiteStack after attach() to provide storage access.
+        Called by Stack after attach() to provide storage access.
 
         Args:
             storage: The storage backend instance

@@ -1,4 +1,4 @@
-"""Tests for SQLiteStack feature coverage: suggestions, belief revision, helpers.
+"""Tests for Stack feature coverage: suggestions, belief revision, helpers.
 
 Targets coverage for:
 - _normalize_suggestion_provenance_refs edge cases
@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.stack.sqlite_stack import (
     VALID_SUGGESTION_STATUSES,
     _compute_priority_score,
@@ -42,8 +42,8 @@ def tmp_db(tmp_path):
 
 @pytest.fixture
 def stack(tmp_db):
-    """Create an SQLiteStack for testing with provenance enforcement disabled."""
-    return SQLiteStack(
+    """Create an Stack for testing with provenance enforcement disabled."""
+    return Stack.from_sqlite(
         stack_id="test-features",
         db_path=tmp_db,
         components=[],
@@ -224,7 +224,7 @@ class TestComputePriorityScore:
 
 
 # =============================================================================
-# SQLiteStack save_suggestion and get_suggestion
+# Stack save_suggestion and get_suggestion
 # =============================================================================
 
 
@@ -440,7 +440,7 @@ class TestAcceptSuggestion:
 class TestBeliefRevisionHelpers:
     """Tests for belief revision helper methods accessible via the stack.
 
-    Note: The belief revision mixin is accessible via Kernle, not SQLiteStack
+    Note: The belief revision mixin is accessible via Kernle, not Stack
     directly. These tests cover the _normalize_suggestion_provenance_refs used
     during accept_suggestion which handles belief-typed refs.
     """

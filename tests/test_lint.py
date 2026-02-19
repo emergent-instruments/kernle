@@ -25,7 +25,7 @@ from kernle.lint import (
     lint_text,
     lint_value,
 )
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.types import Belief, Episode, Value
 
 # ============================================================================
@@ -44,7 +44,7 @@ def stack(tmp_db):
 
     Transitions to ACTIVE state so lint is enforced (lint only runs in ACTIVE).
     """
-    s = SQLiteStack(
+    s = Stack.from_sqlite(
         stack_id="test-lint",
         db_path=tmp_db,
         components=[],
@@ -58,7 +58,7 @@ def stack(tmp_db):
 @pytest.fixture
 def stack_with_provenance(tmp_db):
     """Stack with both lint and provenance enabled."""
-    return SQLiteStack(
+    return Stack.from_sqlite(
         stack_id="test-lint-prov",
         db_path=tmp_db,
         components=[],
@@ -432,7 +432,7 @@ class TestGetLintConfig:
 
 
 class TestSaveBeliefLint:
-    """Tests for lint integration in SQLiteStack.save_belief."""
+    """Tests for lint integration in Stack.save_belief."""
 
     def test_valid_belief_saves_normally(self, stack):
         belief = _make_belief(
@@ -542,7 +542,7 @@ class TestSaveBeliefLint:
 
 
 class TestSaveValueLint:
-    """Tests for lint integration in SQLiteStack.save_value."""
+    """Tests for lint integration in Stack.save_value."""
 
     def test_valid_value_saves_normally(self, stack):
         value = _make_value(
@@ -736,7 +736,7 @@ class TestLintLifecycleState:
     def test_lint_skipped_in_initializing_state(self, tmp_path):
         """In INITIALIZING state (seed data), lint should NOT run."""
         db = tmp_path / "test_init.db"
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-init",
             db_path=db,
             components=[],
@@ -751,7 +751,7 @@ class TestLintLifecycleState:
     def test_lint_runs_after_attach(self, tmp_path):
         """After on_attach, stack transitions to ACTIVE and lint runs."""
         db = tmp_path / "test_attach.db"
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-attach",
             db_path=db,
             components=[],

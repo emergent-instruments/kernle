@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import pytest
 
 from kernle.entity import Entity
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.types import Belief, Episode, Goal, Note, RawEntry, Value
 
 
@@ -88,8 +88,8 @@ def _make_goal(stack_id, derived_from=None, strength=1.0):
 
 @pytest.fixture
 def stack(tmp_path):
-    """Create an SQLiteStack with bare components for testing."""
-    return SQLiteStack(
+    """Create an Stack with bare components for testing."""
+    return Stack.from_sqlite(
         stack_id="test-cascade",
         db_path=tmp_path / "test.db",
         components=[],
@@ -98,10 +98,10 @@ def stack(tmp_path):
 
 @pytest.fixture
 def entity_with_stack(tmp_path):
-    """Create an Entity with an attached SQLiteStack."""
+    """Create an Entity with an attached Stack."""
 
     entity = Entity(core_id="test-entity", data_dir=tmp_path)
-    stack = SQLiteStack(
+    stack = Stack.from_sqlite(
         stack_id="test-cascade",
         db_path=tmp_path / "test.db",
         components=[],

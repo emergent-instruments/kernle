@@ -231,7 +231,7 @@ class BeliefRevisionComponent:
     def set_storage(self, storage: Any) -> None:
         """Set the storage backend for this component.
 
-        Called by SQLiteStack after attach() to provide access to the storage
+        Called by Stack after attach() to provide access to the storage
         layer. This allows the component to query existing beliefs and memories.
 
         Args:

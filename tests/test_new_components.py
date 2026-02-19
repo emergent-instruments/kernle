@@ -150,9 +150,9 @@ class TestAdvisoryMetadataLogging:
 
     def test_trust_advisory_is_logged(self, tmp_path, caplog):
         """Trust warning metadata is logged at info level, not dropped."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test-advisory",
             db_path=tmp_path / "test.db",
             enforce_provenance=False,
@@ -171,9 +171,9 @@ class TestAdvisoryMetadataLogging:
 
     def test_contradiction_advisory_is_logged(self, tmp_path, caplog):
         """BeliefRevision contradiction metadata is logged, not dropped."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test-advisory",
             db_path=tmp_path / "test.db",
             enforce_provenance=False,
@@ -196,10 +196,10 @@ class TestAdvisoryMetadataLogging:
 
     def test_emotional_fields_still_persisted(self, tmp_path):
         """Schema-backed emotional fields are still persisted (not regressed)."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
         from kernle.storage import Episode
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test-persist",
             db_path=tmp_path / "test.db",
             enforce_provenance=False,

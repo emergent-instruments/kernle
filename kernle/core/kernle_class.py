@@ -202,9 +202,9 @@ class Kernle(
 
     @property
     def stack(self):
-        """Access the SQLiteStack (StackProtocol) wrapper.
+        """Access the Stack (StackProtocol) wrapper.
 
-        The SQLiteStack is lazily created on first access. It wraps a
+        The Stack is lazily created on first access. It wraps a
         *separate* SQLiteStorage pointing at the same database file,
         providing the StackProtocol interface.
 
@@ -212,7 +212,7 @@ class Kernle(
         attached as the active stack.
 
         Returns:
-            SQLiteStack: The StackProtocol implementation, or None if the
+            Stack: The StackProtocol implementation, or None if the
             underlying storage is not SQLite-based.
         """
         if not hasattr(self, "_stack"):
@@ -221,9 +221,9 @@ class Kernle(
             if not isinstance(self._storage, _SQLiteStorage):
                 return None
 
-            from kernle.stack.sqlite_stack import SQLiteStack
+            from kernle.stack import Stack
 
-            self._stack = SQLiteStack(
+            self._stack = Stack.from_sqlite(
                 stack_id=self.stack_id,
                 db_path=self._storage.db_path,
                 enforce_provenance=self._strict,

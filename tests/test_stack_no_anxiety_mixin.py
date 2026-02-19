@@ -1,4 +1,4 @@
-"""Tests for SQLiteStack after AnxietyMixin removal (#571).
+"""Tests for Stack after AnxietyMixin removal (#571).
 
 Verifies that:
 - AnxietyMixin methods are no longer on the stack
@@ -11,14 +11,14 @@ import uuid
 
 import pytest
 
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.types import Value
 
 
 @pytest.fixture
 def stack(tmp_path):
     db_path = tmp_path / "test_no_mixin.db"
-    return SQLiteStack(
+    return Stack.from_sqlite(
         stack_id="test-stack",
         db_path=db_path,
         enforce_provenance=False,
@@ -28,7 +28,7 @@ def stack(tmp_path):
 @pytest.fixture
 def bare_stack(tmp_path):
     db_path = tmp_path / "test_no_mixin_bare.db"
-    return SQLiteStack(
+    return Stack.from_sqlite(
         stack_id="test-stack",
         db_path=db_path,
         components=[],
@@ -37,7 +37,7 @@ def bare_stack(tmp_path):
 
 
 class TestStackNoAnxietyMixin:
-    """SQLiteStack no longer inherits AnxietyMixin."""
+    """Stack no longer inherits AnxietyMixin."""
 
     def test_stack_no_mixin_anxiety_methods(self, stack):
         """Mixin-specific methods should not exist on the stack."""

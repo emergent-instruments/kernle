@@ -19,7 +19,7 @@ from kernle.corpus import CorpusIngestor
 from kernle.entity import Entity
 from kernle.exhaust import ExhaustionRunner
 from kernle.protocols import ModelResponse
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.testing.assertions import CognitiveAssertions
 
 # Path to the golden corpus fixtures
@@ -165,9 +165,9 @@ class DeterministicMockModel:
 
 @pytest.fixture
 def stack(tmp_path):
-    """Create a bare SQLiteStack for test isolation."""
+    """Create a bare Stack for test isolation."""
     db_path = tmp_path / "golden_corpus.db"
-    s = SQLiteStack(
+    s = Stack.from_sqlite(
         stack_id="golden-corpus-test",
         db_path=db_path,
         components=[],
@@ -204,7 +204,7 @@ def wired_setup(tmp_path):
     Returns (kernle, entity, stack) where kernle.process() uses the model.
     """
     db_path = tmp_path / "golden_corpus.db"
-    stack = SQLiteStack(
+    stack = Stack.from_sqlite(
         stack_id="golden-corpus-wired",
         db_path=db_path,
         components=[],

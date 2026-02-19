@@ -27,7 +27,7 @@ import pytest
 from kernle.entity import Entity
 from kernle.processing import VALID_TRANSITIONS
 from kernle.protocols import ModelResponse
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.types import (
     VALID_SOURCE_TYPE_VALUES,
     SourceType,
@@ -290,9 +290,9 @@ RAW_INPUTS = [
 
 @pytest.fixture
 def stack(tmp_path):
-    """Create a bare SQLiteStack (no default components) for test isolation."""
+    """Create a bare Stack (no default components) for test isolation."""
     db_path = tmp_path / "golden_test.db"
-    s = SQLiteStack(
+    s = Stack.from_sqlite(
         stack_id="golden-test",
         db_path=db_path,
         components=[],  # bare stack, no auto-components
@@ -332,7 +332,7 @@ def ingest_raw_entries(entity: Entity) -> list:
     return ids
 
 
-def get_memory_counts(stack: SQLiteStack) -> Dict[str, int]:
+def get_memory_counts(stack: Stack) -> Dict[str, int]:
     """Get counts of all memory types in the stack."""
     backend = stack._backend
     return {
@@ -347,7 +347,7 @@ def get_memory_counts(stack: SQLiteStack) -> Dict[str, int]:
     }
 
 
-def collect_all_derived_from(stack: SQLiteStack) -> Dict[str, list]:
+def collect_all_derived_from(stack: Stack) -> Dict[str, list]:
     """Collect all derived_from refs across all memory types."""
     refs: Dict[str, list] = {}
 
@@ -382,7 +382,7 @@ def collect_all_derived_from(stack: SQLiteStack) -> Dict[str, list]:
     return refs
 
 
-def collect_all_source_types(stack: SQLiteStack) -> Dict[str, str]:
+def collect_all_source_types(stack: Stack) -> Dict[str, str]:
     """Collect source_type from all memories."""
     types: Dict[str, str] = {}
 
@@ -410,7 +410,7 @@ def collect_all_source_types(stack: SQLiteStack) -> Dict[str, str]:
     return types
 
 
-def collect_all_strengths(stack: SQLiteStack) -> Dict[str, float]:
+def collect_all_strengths(stack: Stack) -> Dict[str, float]:
     """Collect strength values from all memories."""
     strengths: Dict[str, float] = {}
 
@@ -438,7 +438,7 @@ def collect_all_strengths(stack: SQLiteStack) -> Dict[str, float]:
     return strengths
 
 
-def get_existing_memory_ids(stack: SQLiteStack) -> set:
+def get_existing_memory_ids(stack: Stack) -> set:
     """Get all existing memory IDs as 'type:id' refs."""
     ids = set()
     backend = stack._backend

@@ -136,9 +136,9 @@ class TestAcceptSuggestionKeyConsumption:
 
     @pytest.fixture
     def stack(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        return SQLiteStack(
+        return Stack.from_sqlite(
             stack_id="test-accept",
             db_path=tmp_path / "accept.db",
             components=[],

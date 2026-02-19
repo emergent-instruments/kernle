@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.stack.components import (
     AnxietyComponent,
     ConsolidationComponent,
@@ -83,7 +83,7 @@ class TestComponentOrdering:
 
     def test_components_sorted_by_priority(self, tmp_db):
         """Default components should be sorted by priority in the registry."""
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-ordering",
             db_path=tmp_db,
             enforce_provenance=False,
@@ -96,7 +96,7 @@ class TestComponentOrdering:
 
     def test_embedding_runs_first(self, tmp_db):
         """EmbeddingComponent (priority 10) should be first in the registry."""
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-ordering",
             db_path=tmp_db,
             enforce_provenance=False,
@@ -106,7 +106,7 @@ class TestComponentOrdering:
 
     def test_playbooks_runs_last(self, tmp_db):
         """PlaybookComponent (priority 400) should be last in the registry."""
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-ordering",
             db_path=tmp_db,
             enforce_provenance=False,
@@ -116,7 +116,7 @@ class TestComponentOrdering:
 
     def test_add_component_maintains_order(self, tmp_db):
         """Adding a component re-sorts the registry by priority."""
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-ordering",
             db_path=tmp_db,
             components=[],
@@ -168,7 +168,7 @@ class TestComponentOrdering:
             def on_maintenance(self):
                 return {}
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-ordering",
             db_path=tmp_db,
             components=[],
@@ -225,7 +225,7 @@ class TestComponentOrdering:
             def on_maintenance(self):
                 return {}
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-dispatch",
             db_path=tmp_db,
             components=[],

@@ -36,7 +36,7 @@ def compute_decayed_strength(
     """Compute decayed strength for a record based on elapsed time.
 
     This is the shared decay formula used by both ForgettingComponent
-    (during maintenance) and SQLiteStack (lazy decay-on-read).
+    (during maintenance) and Stack (lazy decay-on-read).
 
     Formula:
         decay = days_since_last_access / half_life
@@ -111,7 +111,7 @@ class ForgettingComponent:
         self._inference = inference
 
     def set_storage(self, storage: Any) -> None:
-        """Called by SQLiteStack after attach to provide storage access."""
+        """Called by Stack after attach to provide storage access."""
         self._storage = storage
 
     # ---- Lifecycle Hooks ----

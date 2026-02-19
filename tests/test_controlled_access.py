@@ -3,7 +3,7 @@
 Tests cover:
 - SQLiteStorage: weaken_memory, verify_memory, log_audit, get_audit_log
 - SQLiteStorage: audit trail in forget_memory, recover_memory, protect_memory
-- SQLiteStack: routing of new methods
+- Stack: routing of new methods
 - Entity: weaken, forget, recover, verify, protect with audit logging
 """
 
@@ -14,7 +14,7 @@ import uuid
 import pytest
 
 from kernle.entity import Entity
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.storage.sqlite import SQLiteStorage
 from kernle.types import Episode
 
@@ -30,7 +30,7 @@ def storage(tmp_path):
 
 @pytest.fixture
 def stack(tmp_path):
-    return SQLiteStack(
+    return Stack.from_sqlite(
         STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
     )
 
@@ -38,7 +38,7 @@ def stack(tmp_path):
 @pytest.fixture
 def entity(tmp_path):
     ent = Entity(core_id="test-core", data_dir=tmp_path / "entity")
-    st = SQLiteStack(
+    st = Stack.from_sqlite(
         STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
     )
     ent.attach_stack(st)
@@ -280,7 +280,7 @@ class TestAuditInExistingMethods:
 
 
 # ==============================================================================
-# SQLiteStack routing
+# Stack routing
 # ==============================================================================
 
 

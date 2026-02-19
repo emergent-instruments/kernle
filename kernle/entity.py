@@ -1492,9 +1492,9 @@ class Entity:
         # Rehydrate stack instances from saved stack_id → alias map.
         for sid, alias in (binding.stacks or {}).items():
             try:
-                from kernle.stack import SQLiteStack
+                from kernle.stack import Stack
 
-                stack = SQLiteStack(stack_id=sid, enforce_provenance=False)
+                stack = Stack.from_sqlite(stack_id=sid, enforce_provenance=False)
             except Exception as exc:
                 logger.warning(
                     "Failed to instantiate stack '%s' for binding: %s",

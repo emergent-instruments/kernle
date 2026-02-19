@@ -306,12 +306,12 @@ class TestGracefulDegradation:
 
 
 class TestStackIntegration:
-    """Test EmbeddingComponent with SQLiteStack's component system."""
+    """Test EmbeddingComponent with Stack's component system."""
 
     def test_add_component_to_stack(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -323,9 +323,9 @@ class TestStackIntegration:
         assert stack.get_component("embedding-ngram") is comp
 
     def test_cannot_remove_required_component(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -337,9 +337,9 @@ class TestStackIntegration:
             stack.remove_component("embedding-ngram")
 
     def test_maintenance_includes_component(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -352,9 +352,9 @@ class TestStackIntegration:
         assert results["embedding-ngram"]["provider"] == "ngram-v1"
 
     def test_on_attach_propagates_inference(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -368,9 +368,9 @@ class TestStackIntegration:
         assert comp._inference is inference
 
     def test_on_model_changed_propagates(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -388,9 +388,9 @@ class TestStackIntegration:
         assert comp._inference is inference2
 
     def test_on_detach_clears_inference(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
