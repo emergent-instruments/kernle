@@ -266,17 +266,15 @@ class WritersMixin:
         # Basic validation - no length limit, but sanitize control chars
         blob = self._validate_string_input(blob, "blob", max_length=None)
 
-        if self._strict:
-            from kernle.types import RawEntry
+        from kernle.types import RawEntry
 
-            raw_entry = RawEntry(
-                id=str(uuid.uuid4()),
-                stack_id=self.stack_id,
-                blob=blob,
-                source=source,
-            )
-            return self._write_backend.save_raw(raw_entry)
-        return self._storage.save_raw(blob=blob, source=source)
+        raw_entry = RawEntry(
+            id=str(uuid.uuid4()),
+            stack_id=self.stack_id,
+            blob=blob,
+            source=source,
+        )
+        return self._write_backend.save_raw(raw_entry)
 
     def list_raw(
         self, processed: Optional[bool] = None, limit: int = 100, offset: int = 0

@@ -252,13 +252,16 @@ class TestStackLoadExtensions:
 
 
 class TestNonSQLiteStorageFallback:
-    """Kernle.load() must work when storage is not SQLite-based."""
+    """Kernle.load() works with any storage backend via eager Stack (Phase 3)."""
 
     def test_load_with_non_sqlite_storage(self, tmp_path):
-        """Non-SQLite storage should fall back to individual queries."""
-        # Create a mock storage that quacks like a storage backend
-        # but is NOT an instance of SQLiteStorage
+        """Non-SQLite storage works through eager Stack — no fallback needed."""
         mock_storage = MagicMock()
+        mock_storage.stack_id = "test-non-sqlite"
+        mock_storage.is_online.return_value = False
+        mock_storage.get_pending_sync_count.return_value = 0
+        mock_storage.get_trust_assessment.return_value = None
+        mock_storage.get_all_stack_settings.return_value = {}
         mock_storage.get_values.return_value = []
         mock_storage.get_beliefs.return_value = []
         mock_storage.get_goals.return_value = []
@@ -278,8 +281,9 @@ class TestNonSQLiteStorageFallback:
             checkpoint_dir=checkpoint_dir,
             strict=False,
         )
-        # self.stack returns None for non-SQLite storage
-        assert k.stack is None
+        # Stack is always created (Phase 3)
+        assert k.stack is not None
+        assert k._storage is k.stack._backend
         # load() must not crash
         result = k.load()
         assert isinstance(result, dict)

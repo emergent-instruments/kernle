@@ -1309,9 +1309,10 @@ class TestKernleStrictMode:
         backend = strict_kernle._write_backend
         assert backend is strict_kernle.stack
 
-    def test_write_backend_returns_storage_when_legacy(self, legacy_kernle):
+    def test_write_backend_returns_stack_when_legacy(self, legacy_kernle):
+        """Phase 3: _write_backend always returns Stack, even in non-strict mode."""
         backend = legacy_kernle._write_backend
-        assert backend is legacy_kernle._storage
+        assert backend is legacy_kernle.stack
 
     def test_strict_maintenance_blocks_episode(self, strict_kernle):
         """In strict mode, maintenance state blocks writes."""
@@ -1425,16 +1426,13 @@ class TestKernleStrictMode:
         with pytest.raises(MaintenanceModeError):
             strict_kernle.notes_batch([{"content": "X"}])
 
-    def test_legacy_mode_ignores_maintenance(self, legacy_kernle):
-        """In legacy mode, writes go to storage directly — no enforcement."""
-        # Force the stack into maintenance, but legacy mode bypasses it
+    def test_legacy_mode_enforces_maintenance(self, legacy_kernle):
+        """All writes route through Stack — maintenance blocks even in legacy mode."""
         stack = legacy_kernle.stack
-        stack.on_attach("legacy_agent")
         stack.enter_maintenance()
 
-        # Legacy write goes directly to storage — no error
-        raw_id = legacy_kernle.raw(blob="Should succeed in legacy mode")
-        assert raw_id is not None
+        with pytest.raises(MaintenanceModeError):
+            legacy_kernle.raw(blob="Should be blocked in maintenance")
 
     def test_strict_auto_attaches_to_active(self, strict_kernle):
         """Strict mode auto-attaches the stack, transitioning to ACTIVE."""
@@ -1493,15 +1491,18 @@ class TestKernleStrictMode:
             k.belief(statement="No provenance belief")
         storage.close()
 
-    def test_strict_requires_sqlite(self, tmp_path):
-        """strict=True with non-SQLite storage raises ValueError."""
+    def test_strict_works_with_any_storage(self, tmp_path):
+        """Phase 3: strict=True works with any storage backend via eager Stack."""
         from unittest.mock import MagicMock
 
         from kernle.core import Kernle
 
         mock_storage = MagicMock()
+        mock_storage.stack_id = "test"
         mock_storage.is_online.return_value = False
         mock_storage.get_pending_sync_count.return_value = 0
+        mock_storage.get_trust_assessment.return_value = None
+        mock_storage.get_all_stack_settings.return_value = {}
 
         k = Kernle(
             stack_id="test",
@@ -1509,6 +1510,6 @@ class TestKernleStrictMode:
             checkpoint_dir=tmp_path / "cp",
             strict=True,
         )
-        # stack property returns None for non-SQLite
-        with pytest.raises(ValueError, match="strict=True requires SQLite"):
-            k._write_backend
+        # Stack is always created — _write_backend never raises
+        assert k._write_backend is k.stack
+        assert k._storage is k.stack._backend

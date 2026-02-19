@@ -203,29 +203,19 @@ def wired_setup(tmp_path):
 
     Returns (kernle, entity, stack) where kernle.process() uses the model.
     """
+    from kernle.storage.sqlite import SQLiteStorage
+
     db_path = tmp_path / "golden_corpus.db"
-    stack = Stack.from_sqlite(
+    storage = SQLiteStorage(stack_id="golden-corpus-wired", db_path=db_path)
+    k = Kernle(
         stack_id="golden-corpus-wired",
-        db_path=db_path,
-        components=[],
-        enforce_provenance=False,
+        storage=storage,
+        checkpoint_dir=tmp_path / "checkpoints",
+        strict=False,
     )
-    entity = Entity(core_id="golden-corpus-wired")
-    entity.attach_stack(stack, alias="golden")
     model = DeterministicMockModel()
-    entity.set_model(model)
-
-    # Create a Kernle instance that uses the same storage backend
-    k = Kernle.__new__(Kernle)
-    k._stack_id = stack.stack_id
-    k._storage = stack._backend
-    k._entity = entity
-    k._strict = False
-    from kernle.utils import get_kernle_home
-
-    k._checkpoint_dir = get_kernle_home() / "golden-corpus-wired" / "checkpoints"
-    k._checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    return k, entity, stack
+    k.entity.set_model(model)
+    return k, k.entity, k.stack
 
 
 # =============================================================================
