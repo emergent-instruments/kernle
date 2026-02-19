@@ -2628,6 +2628,69 @@ class SQLiteStorage:
         with self._connect() as conn:
             return _meta_memory_ops.update_strength_batch(conn, self.stack_id, updates, self._now)
 
+    def update_memory_metadata(
+        self,
+        memory_type: str,
+        memory_id: str,
+        **kwargs: Any,
+    ) -> bool:
+        """Update arbitrary metadata fields on a memory record.
+
+        Only updates fields that exist in the schema for the given table.
+        Used by Stack for persisting component metadata (e.g. emotional tags).
+
+        Args:
+            memory_type: Type of memory (episode, belief, note, etc.)
+            memory_id: ID of the memory
+            **kwargs: Field name/value pairs to update
+
+        Returns:
+            True if any fields were updated, False if not found or no valid fields
+        """
+        import json as _json
+
+        table_map = {
+            "episode": "episodes",
+            "belief": "beliefs",
+            "value": "agent_values",
+            "goal": "goals",
+            "note": "notes",
+            "drive": "drives",
+            "relationship": "relationships",
+        }
+        table = table_map.get(memory_type)
+        if not table:
+            return False
+
+        # Allowed schema fields per table
+        allowed_fields = {
+            "episodes": {"emotional_valence", "emotional_arousal", "emotional_tags"},
+        }
+        fields = allowed_fields.get(table, set())
+        if not fields:
+            return False
+
+        updates = []
+        params = []
+        for key, value in kwargs.items():
+            if key not in fields:
+                continue
+            updates.append(f"{key} = ?")
+            if isinstance(value, (list, dict)):
+                params.append(_json.dumps(value))
+            else:
+                params.append(value)
+
+        if not updates:
+            return False
+
+        params.extend([memory_id, self.stack_id])
+        sql = f"UPDATE {table} SET {', '.join(updates)} WHERE id = ? AND stack_id = ?"
+        with self._connect() as conn:
+            cursor = conn.execute(sql, params)
+            conn.commit()
+            return cursor.rowcount > 0
+
     def get_all_active_memories(
         self, memory_types: Optional[list[str]] = None
     ) -> list[tuple[str, Any]]:
