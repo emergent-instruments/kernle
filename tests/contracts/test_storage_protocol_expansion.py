@@ -1,8 +1,10 @@
 """Tests for Phase 1: Storage Protocol expansion.
 
-Verifies that all 4 new sub-protocols and 2 expanded sub-protocols
+Verifies that all 5 new sub-protocols and 2 expanded sub-protocols
 are declared in the Storage protocol and implemented by SQLiteStorage.
 """
+
+from typing import Protocol
 
 import pytest
 
@@ -22,27 +24,85 @@ from kernle.types import Belief, Drive, Episode, Goal, Relationship
 # === Sub-protocol existence and runtime_checkable ===
 
 
+def _is_runtime_checkable_protocol(cls) -> bool:
+    """Verify a class is a @runtime_checkable Protocol.
+
+    Checks that:
+    1. It's a subclass of Protocol (is a protocol)
+    2. It has _is_runtime_protocol = True (is runtime_checkable)
+    """
+    return issubclass(cls, Protocol) and getattr(cls, "_is_runtime_protocol", False)
+
+
 class TestNewSubProtocolsExist:
-    """Verify that new sub-protocols are declared and runtime_checkable."""
+    """Verify that new sub-protocols are @runtime_checkable Protocols."""
 
-    def test_settings_storage_is_protocol(self):
-        assert hasattr(SettingsStorage, "__protocol_attrs__") or isinstance(SettingsStorage, type)
+    def test_settings_storage_is_runtime_checkable_protocol(self):
+        assert _is_runtime_checkable_protocol(SettingsStorage)
 
-    def test_atomic_update_storage_is_protocol(self):
-        assert hasattr(AtomicUpdateStorage, "__protocol_attrs__") or isinstance(
-            AtomicUpdateStorage, type
-        )
+    def test_atomic_update_storage_is_runtime_checkable_protocol(self):
+        assert _is_runtime_checkable_protocol(AtomicUpdateStorage)
 
-    def test_processing_storage_is_protocol(self):
-        assert hasattr(ProcessingStorage, "__protocol_attrs__") or isinstance(
-            ProcessingStorage, type
-        )
+    def test_processing_storage_is_runtime_checkable_protocol(self):
+        assert _is_runtime_checkable_protocol(ProcessingStorage)
 
-    def test_lineage_storage_is_protocol(self):
-        assert hasattr(LineageStorage, "__protocol_attrs__") or isinstance(LineageStorage, type)
+    def test_lineage_storage_is_runtime_checkable_protocol(self):
+        assert _is_runtime_checkable_protocol(LineageStorage)
 
-    def test_embedding_storage_is_protocol(self):
-        assert hasattr(EmbeddingStorage, "__protocol_attrs__") or isinstance(EmbeddingStorage, type)
+    def test_embedding_storage_is_runtime_checkable_protocol(self):
+        assert _is_runtime_checkable_protocol(EmbeddingStorage)
+
+
+class TestRuntimeCheckableConformance:
+    """Verify that isinstance() works correctly for duck-typed classes.
+
+    A class that implements the right methods should pass isinstance()
+    against the runtime_checkable protocol, even without inheriting from it.
+    A class missing methods should fail.
+    """
+
+    def test_duck_typed_settings_passes(self):
+        class MySettings:
+            def get_stack_setting(self, key): ...
+            def set_stack_setting(self, key, value): ...
+            def get_all_stack_settings(self): ...
+
+        assert isinstance(MySettings(), SettingsStorage)
+
+    def test_missing_settings_method_fails(self):
+        class IncompleteSettings:
+            def get_stack_setting(self, key): ...
+
+            # missing set_stack_setting and get_all_stack_settings
+
+        assert not isinstance(IncompleteSettings(), SettingsStorage)
+
+    def test_duck_typed_processing_passes(self):
+        class MyProcessing:
+            def mark_episode_processed(self, episode_id): ...
+            def mark_note_processed(self, note_id): ...
+            def mark_belief_processed(self, belief_id): ...
+            def get_processing_config(self): ...
+            def set_processing_config(self, layer_transition, **kwargs): ...
+
+        assert isinstance(MyProcessing(), ProcessingStorage)
+
+    def test_duck_typed_lineage_passes(self):
+        class MyLineage:
+            def get_memories_derived_from(self, memory_type, memory_id): ...
+            def get_ungrounded_memories(self, stack_id): ...
+            def log_belief_revision(
+                self, old_id, new_id, reason=None, actor="system", correlation_id=None
+            ): ...
+            def boost_memory_strength(self, memory_type, memory_id, amount): ...
+
+        assert isinstance(MyLineage(), LineageStorage)
+
+    def test_duck_typed_embedding_passes(self):
+        class MyEmbedding:
+            def get_embedding_stats(self): ...
+
+        assert isinstance(MyEmbedding(), EmbeddingStorage)
 
 
 # === Default implementations (no-op) ===

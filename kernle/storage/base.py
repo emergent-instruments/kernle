@@ -1292,7 +1292,17 @@ class EpochStorage(Protocol):
 
 @runtime_checkable
 class SettingsStorage(Protocol):
-    """Storage interface for stack configuration settings (key-value store)."""
+    """Storage interface for stack configuration settings (key-value store).
+
+    Override guidance for custom backends:
+        All methods have safe no-op defaults. A backend that doesn't override
+        these will still construct and run, but Stack settings (lifecycle state,
+        enforce_provenance flag) won't persist across restarts — the stack will
+        always start in INITIALIZING state.
+
+        **Recommended override** for any backend that persists data:
+        implement all three methods.
+    """
 
     def get_stack_setting(self, key: str) -> Optional[str]:
         """Get a stack setting value by key.
@@ -1329,6 +1339,12 @@ class AtomicUpdateStorage(Protocol):
 
     These methods update an entire record atomically, optionally checking
     a version field to prevent lost writes.
+
+    Override guidance for custom backends:
+        Defaults return ``False`` (update silently fails). This is safe for
+        construction but means belief revision, goal updates, and relationship
+        changes will be no-ops. **Required override** for any backend used
+        with Stack's strict mode or the processing pipeline.
     """
 
     def update_belief_atomic(
@@ -1400,7 +1416,14 @@ class AtomicUpdateStorage(Protocol):
 
 @runtime_checkable
 class ProcessingStorage(Protocol):
-    """Storage interface for memory processing state and configuration."""
+    """Storage interface for memory processing state and configuration.
+
+    Override guidance for custom backends:
+        Defaults return ``False``/empty. A backend with defaults will allow
+        Stack construction but the processing pipeline (``kernle process run``)
+        won't mark memories as processed or persist configuration.
+        **Required override** if using memory processing (exhaust/promote).
+    """
 
     def mark_episode_processed(self, episode_id: str) -> bool:
         """Mark an episode as processed.
@@ -1463,7 +1486,15 @@ class ProcessingStorage(Protocol):
 
 @runtime_checkable
 class LineageStorage(Protocol):
-    """Storage interface for provenance/lineage queries and strength cascading."""
+    """Storage interface for provenance/lineage queries and strength cascading.
+
+    Override guidance for custom backends:
+        Defaults return empty lists/tuples and ``False``. Stack cascade logic
+        (forget → flag children, weaken → flag dormant, verify → boost sources)
+        depends on ``get_memories_derived_from`` and ``boost_memory_strength``.
+        **Required override** if using forgetting, strength cascade, or belief
+        revision features.
+    """
 
     def get_memories_derived_from(self, memory_type: str, memory_id: str) -> List[tuple]:
         """Find all memories that cite 'type:id' in their derived_from.
@@ -1526,7 +1557,13 @@ class LineageStorage(Protocol):
 
 @runtime_checkable
 class EmbeddingStorage(Protocol):
-    """Storage interface for embedding statistics and observability."""
+    """Storage interface for embedding statistics and observability.
+
+    Override guidance for custom backends:
+        Default returns a zeroed stats dict. **Optional override** — only
+        needed if the backend manages its own embedding storage and wants
+        to report provider statistics via ``kernle status``.
+    """
 
     def get_embedding_stats(self) -> Dict[str, Any]:
         """Get embedding provider statistics for observability.
