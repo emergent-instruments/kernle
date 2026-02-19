@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 
 # ============================================================================
 # Component hook failure log structure
@@ -21,8 +21,8 @@ class TestPartialFailureLogShape:
 
     @pytest.fixture
     def stack(self, tmp_path):
-        """SQLiteStack with a failing component."""
-        s = SQLiteStack(
+        """Stack with a failing component."""
+        s = Stack.from_sqlite(
             stack_id="test-pf",
             db_path=tmp_path / "pf.db",
             components=[],

@@ -1,7 +1,7 @@
 """Contract tests for StackProtocol.
 
-Verifies that SQLiteStack conforms to the StackProtocol contract.
-These tests use real SQLiteStack instances (not mocks) and exercise
+Verifies that Stack conforms to the StackProtocol contract.
+These tests use real Stack instances (not mocks) and exercise
 the full protocol surface: write/read roundtrips, search, load,
 meta-memory, composition hooks, and component registry.
 
@@ -23,7 +23,7 @@ from kernle.protocols import (
 from kernle.protocols import (
     SearchResult as ProtocolSearchResult,
 )
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.types import (
     Belief,
     Drive,
@@ -51,9 +51,11 @@ STACK_ID = "contract-test-stack"
 
 @pytest.fixture
 def stack(tmp_path):
-    """Create a fresh SQLiteStack for each test."""
+    """Create a fresh Stack for each test."""
     db_path = tmp_path / "contract_test.db"
-    return SQLiteStack(stack_id=STACK_ID, db_path=db_path, components=[], enforce_provenance=False)
+    return Stack.from_sqlite(
+        stack_id=STACK_ID, db_path=db_path, components=[], enforce_provenance=False
+    )
 
 
 def _uid() -> str:

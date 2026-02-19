@@ -4,7 +4,7 @@ Tests cover:
 - update_strength / update_strength_batch in SQLiteStorage
 - get_all_active_memories in SQLiteStorage
 - record_access strength boost in SQLiteStorage
-- Strength-based filtering in SQLiteStack (get_*, search)
+- Strength-based filtering in Stack (get_*, search)
 - ForgettingComponent on_maintenance strength decay + persistence
 """
 
@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from kernle.stack.components.forgetting import ForgettingComponent
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.storage.sqlite import SQLiteStorage
 from kernle.types import Belief, Episode, Goal, Note, Value
 
@@ -38,9 +38,9 @@ def storage(tmp_path):
 
 @pytest.fixture
 def stack(tmp_path):
-    """Create a bare SQLiteStack (no components) for testing."""
+    """Create a bare Stack (no components) for testing."""
     db_path = tmp_path / "test.db"
-    return SQLiteStack(STACK_ID, db_path=db_path, components=[], enforce_provenance=False)
+    return Stack.from_sqlite(STACK_ID, db_path=db_path, components=[], enforce_provenance=False)
 
 
 # ---- Helpers ----
@@ -321,12 +321,12 @@ class TestRecordAccessStrengthBoost:
 
 
 # ==============================================================================
-# SQLiteStack strength-based filtering in get_* methods
+# Stack strength-based filtering in get_* methods
 # ==============================================================================
 
 
 class TestStackStrengthFiltering:
-    """Tests for strength-based filtering in SQLiteStack get_* methods."""
+    """Tests for strength-based filtering in Stack get_* methods."""
 
     def test_get_episodes_excludes_forgotten(self, stack):
         ep = _ep()
@@ -401,7 +401,7 @@ class TestStackStrengthFiltering:
 
 
 # ==============================================================================
-# SQLiteStack search() strength filtering
+# Stack search() strength filtering
 # ==============================================================================
 
 

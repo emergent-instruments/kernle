@@ -1,4 +1,4 @@
-"""Tests for SQLiteStack conforming to StackProtocol.
+"""Tests for Stack conforming to StackProtocol.
 
 Tests cover:
 - Basic CRUD for each memory type through the stack
@@ -29,7 +29,7 @@ from kernle.protocols import (
 from kernle.protocols import (
     SyncResult as ProtocolSyncResult,
 )
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.types import (
     Belief,
     Drive,
@@ -56,8 +56,8 @@ def tmp_db(tmp_path):
 
 @pytest.fixture
 def stack(tmp_db):
-    """Create an SQLiteStack instance with a temp database."""
-    return SQLiteStack(
+    """Create an Stack instance with a temp database."""
+    return Stack.from_sqlite(
         stack_id="test-stack", db_path=tmp_db, components=[], enforce_provenance=False
     )
 
@@ -494,7 +494,7 @@ class TestLoad:
             _make_episode("test-stack", objective="Dormant", strength=0.1),
         ]
 
-        faded = SQLiteStack._filter_by_strength(
+        faded = Stack._filter_by_strength(
             episodes,
             include_forgotten=False,
             include_weak=False,
@@ -504,7 +504,7 @@ class TestLoad:
         assert "Weak" not in faded_ids
         assert "Dormant" not in faded_ids
 
-        weak_included = SQLiteStack._filter_by_strength(
+        weak_included = Stack._filter_by_strength(
             episodes,
             include_forgotten=False,
             include_weak=True,
@@ -514,7 +514,7 @@ class TestLoad:
         assert "Weak" in weak_included_ids
         assert "Dormant" not in weak_included_ids
 
-        all_included = SQLiteStack._filter_by_strength(
+        all_included = Stack._filter_by_strength(
             episodes,
             include_forgotten=True,
             include_weak=False,
@@ -855,7 +855,7 @@ class TestEmbeddingRetryBehavior:
                 return [0.1] * self.dimension
 
         embedder = _TransientEmbedder()
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id=stack_id,
             db_path=tmp_db,
             components=[],

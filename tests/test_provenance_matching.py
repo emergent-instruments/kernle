@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.storage.memory_ops import _exact_derived_from_match
 from kernle.types import Belief, Episode
 
@@ -52,8 +52,8 @@ def _make_belief(stack_id, derived_from=None, strength=1.0):
 
 @pytest.fixture
 def stack(tmp_path):
-    """Create an SQLiteStack with bare components for testing."""
-    return SQLiteStack(
+    """Create an Stack with bare components for testing."""
+    return Stack.from_sqlite(
         stack_id="test-provenance",
         db_path=tmp_path / "test.db",
         components=[],

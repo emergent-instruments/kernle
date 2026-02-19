@@ -35,7 +35,7 @@ from kernle.processing import (
     PromotionGateConfig,
     evaluate_triggers,
 )
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.storage.sqlite import SQLiteStorage
 from kernle.types import Belief, Episode, Note, RawEntry
 
@@ -64,7 +64,7 @@ def storage(tmp_path):
 
 @pytest.fixture
 def stack(tmp_path):
-    return SQLiteStack(
+    return Stack.from_sqlite(
         STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
     )
 
@@ -72,7 +72,7 @@ def stack(tmp_path):
 @pytest.fixture
 def entity(tmp_path):
     ent = Entity(core_id="test-core", data_dir=tmp_path / "entity")
-    st = SQLiteStack(
+    st = Stack.from_sqlite(
         STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
     )
     ent.attach_stack(st)
@@ -2205,7 +2205,7 @@ class TestNoInferenceEntity:
     def test_entity_process_no_model_blocks_all_transitions(self, tmp_path):
         """Entity.process() without model blocks all transitions."""
         ent = Entity(core_id="test-core", data_dir=tmp_path / "entity")
-        st = SQLiteStack(
+        st = Stack.from_sqlite(
             STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
         )
         ent.attach_stack(st)
@@ -2217,7 +2217,7 @@ class TestNoInferenceEntity:
     def test_entity_process_no_model_blocks_raw_layers(self, tmp_path):
         """Entity.process() without model blocks raw transitions."""
         ent = Entity(core_id="test-core", data_dir=tmp_path / "entity")
-        st = SQLiteStack(
+        st = Stack.from_sqlite(
             STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
         )
         ent.attach_stack(st)
@@ -2228,7 +2228,7 @@ class TestNoInferenceEntity:
     def test_entity_process_no_model_override_flag_still_blocked(self, tmp_path):
         """Entity.process() with override flag still blocks — overrides removed."""
         ent = Entity(core_id="test-core", data_dir=tmp_path / "entity")
-        st = SQLiteStack(
+        st = Stack.from_sqlite(
             STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
         )
         ent.attach_stack(st)
@@ -2239,7 +2239,7 @@ class TestNoInferenceEntity:
     def test_entity_process_no_model_value_always_blocked(self, tmp_path):
         """Entity.process() without model always blocks belief_to_value."""
         ent = Entity(core_id="test-core", data_dir=tmp_path / "entity")
-        st = SQLiteStack(
+        st = Stack.from_sqlite(
             STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
         )
         ent.attach_stack(st)
@@ -2260,7 +2260,7 @@ class TestNoInferenceEntity:
                 return R()
 
         ent = Entity(core_id="test-core", data_dir=tmp_path / "entity")
-        st = SQLiteStack(
+        st = Stack.from_sqlite(
             STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
         )
         ent.attach_stack(st)

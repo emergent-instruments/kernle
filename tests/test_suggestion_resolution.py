@@ -221,12 +221,12 @@ class TestStorageExpireSuggestions:
 
 
 class TestStackAcceptSuggestion:
-    """Test accept_suggestion on SQLiteStack."""
+    """Test accept_suggestion on Stack."""
 
     def test_accept_belief_suggestion(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -267,9 +267,9 @@ class TestStackAcceptSuggestion:
         assert len(audit) == 1
 
     def test_accept_episode_suggestion(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -294,9 +294,9 @@ class TestStackAcceptSuggestion:
         assert episodes[0].objective == "Deploy v2"
 
     def test_accept_note_suggestion(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -317,9 +317,9 @@ class TestStackAcceptSuggestion:
         assert notes[0].content == "Important observation"
 
     def test_accept_preserves_typed_episode_provenance_and_skips_raw_mark(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -350,9 +350,9 @@ class TestStackAcceptSuggestion:
         assert raw_entry.processed is False
 
     def test_accept_with_modifications(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -375,9 +375,9 @@ class TestStackAcceptSuggestion:
         assert beliefs[0].statement == "Refined statement"
 
     def test_accept_nonexistent_returns_none(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -388,9 +388,9 @@ class TestStackAcceptSuggestion:
         assert result is None
 
     def test_accept_already_resolved_returns_none(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -407,9 +407,9 @@ class TestStackAcceptSuggestionWithProvenance:
 
     def test_accept_belief_with_provenance_enforced(self, tmp_path):
         """Accepting a belief suggestion must not raise ProvenanceError."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -441,9 +441,9 @@ class TestStackAcceptSuggestionWithProvenance:
 
     def test_accept_episode_with_provenance_enforced(self, tmp_path):
         """Accepting an episode suggestion must not raise ProvenanceError."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -473,9 +473,9 @@ class TestStackAcceptSuggestionWithProvenance:
 
     def test_accept_note_with_provenance_enforced(self, tmp_path):
         """Accepting a note suggestion must not raise ProvenanceError."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -501,9 +501,9 @@ class TestStackAcceptSuggestionWithProvenance:
 
     def test_accept_with_modifications_provenance_enforced(self, tmp_path):
         """Accepting with modifications must not raise ProvenanceError."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -530,9 +530,9 @@ class TestStackAcceptSuggestionWithProvenance:
 
     def test_accept_multiple_source_raws_provenance_enforced(self, tmp_path):
         """Suggestion with multiple source_raw_ids should all get raw: prefix."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -623,12 +623,12 @@ class TestKernleAcceptWithStrictMode:
 
 
 class TestStackDismissSuggestion:
-    """Test dismiss_suggestion on SQLiteStack."""
+    """Test dismiss_suggestion on Stack."""
 
     def test_dismiss_pending(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -650,9 +650,9 @@ class TestStackDismissSuggestion:
         assert len(audit) == 1
 
     def test_dismiss_already_resolved_returns_false(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -665,12 +665,12 @@ class TestStackDismissSuggestion:
 
 
 class TestStackExpireSuggestions:
-    """Test expire_suggestions on SQLiteStack."""
+    """Test expire_suggestions on Stack."""
 
     def test_expire_logs_audit(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],

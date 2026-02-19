@@ -27,7 +27,7 @@ def _make_kernle(tmp_path, *, strict, storage=None):
     """Create a Kernle instance with the given strict setting.
 
     For strict=True tests, we patch _write_backend to avoid the
-    SQLiteStack requirement when using mock storage.
+    Stack requirement when using mock storage.
     """
     if storage is None:
         storage = _make_storage()

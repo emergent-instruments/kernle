@@ -32,7 +32,7 @@ from kernle.processing import (
     compute_content_hash,
     compute_provenance_hash,
 )
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.types import RawEntry
 
 # Relaxed promotion gates for tests that don't test gating behavior
@@ -53,7 +53,7 @@ STACK_ID = "test-stack"
 
 @pytest.fixture
 def stack(tmp_path):
-    return SQLiteStack(
+    return Stack.from_sqlite(
         STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
     )
 

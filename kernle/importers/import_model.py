@@ -24,10 +24,10 @@ class _NoopImportModel:
 
 def bind_import_model(k: "Kernle") -> None:
     """Bind a no-op inference model to satisfy the inference gate during import."""
-    from kernle.stack.sqlite_stack import SQLiteStack
+    from kernle.stack import Stack
 
     stack = k.stack
-    if stack is None or not isinstance(stack, SQLiteStack):
+    if stack is None or not isinstance(stack, Stack):
         return
     if getattr(stack, "_inference", None) is not None:
         return  # Already has a model, don't override

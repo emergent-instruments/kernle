@@ -61,7 +61,7 @@ class MetaMemoryComponent:
         self._inference = inference
 
     def set_storage(self, storage: Any) -> None:
-        """Called by SQLiteStack after attach to provide storage access."""
+        """Called by Stack after attach to provide storage access."""
         self._storage = storage
 
     # ---- Lifecycle Hooks ----

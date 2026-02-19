@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 import pytest
 
 from kernle.protocols import ProvenanceError, StackState
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.types import (
     VALID_SOURCE_TYPE_VALUES,
     Belief,
@@ -93,7 +93,7 @@ class TestToolDefinitionsAlignment:
 @pytest.fixture
 def active_enforced_stack(tmp_path):
     """Stack in ACTIVE state with provenance enforcement enabled."""
-    stack = SQLiteStack(
+    stack = Stack.from_sqlite(
         stack_id="test-strict",
         db_path=tmp_path / "test.db",
         components=[],
@@ -349,7 +349,7 @@ class TestSourceTypeNoEnforcement:
     """Without enforcement, unknown source_type values are allowed."""
 
     def test_allow_unknown_without_enforcement(self, tmp_path):
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-relaxed",
             db_path=tmp_path / "test.db",
             components=[],
@@ -368,7 +368,7 @@ class TestSourceTypeNoEnforcement:
         assert eid
 
     def test_allow_unknown_during_initializing(self, tmp_path):
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-init",
             db_path=tmp_path / "test.db",
             components=[],

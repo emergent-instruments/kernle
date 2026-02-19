@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.types import RawEntry
 
 
@@ -16,7 +16,7 @@ def tmp_db(tmp_path):
 
 @pytest.fixture
 def stack(tmp_db):
-    return SQLiteStack(
+    return Stack.from_sqlite(
         stack_id="test-stack", db_path=tmp_db, components=[], enforce_provenance=False
     )
 

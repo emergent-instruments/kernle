@@ -420,10 +420,10 @@ class TestEntityIntegration:
     def test_entity_set_model_wires_inference(self, anthropic_model, tmp_path):
         """Setting a model on Entity creates an InferenceService."""
         from kernle.entity import Entity
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
         entity = Entity(core_id="test-core")
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             stack_id="test-stack",
             db_path=tmp_path / "test.db",
             components=[],

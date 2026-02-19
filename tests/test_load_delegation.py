@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from kernle.core import Kernle
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.storage.sqlite import SQLiteStorage
 from kernle.types import Value
 from tests.conftest import bind_noop_model
@@ -35,9 +35,9 @@ def k(tmp_path):
 
 @pytest.fixture
 def stack(tmp_path):
-    """Create a bare SQLiteStack for testing stack.load() extensions."""
+    """Create a bare Stack for testing stack.load() extensions."""
     db_path = tmp_path / "test_stack_load.db"
-    return SQLiteStack(
+    return Stack.from_sqlite(
         stack_id="test-stack-load",
         db_path=db_path,
         enforce_provenance=False,

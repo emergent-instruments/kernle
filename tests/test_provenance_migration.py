@@ -16,7 +16,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.storage.sqlite import SQLiteStorage
 from kernle.types import Drive, Episode, Goal, Note, Relationship, Value
 
@@ -34,7 +34,7 @@ def storage(tmp_path):
 @pytest.fixture
 def stack(tmp_path):
     db_path = tmp_path / "test.db"
-    return SQLiteStack(STACK_ID, db_path=db_path, components=[], enforce_provenance=False)
+    return Stack.from_sqlite(STACK_ID, db_path=db_path, components=[], enforce_provenance=False)
 
 
 # ==============================================================================
@@ -720,7 +720,7 @@ class TestPreV09ProvenanceBypass:
 
     def test_pre_v09_annotation_bypasses_provenance(self, tmp_path):
         """Memories with kernle:pre-v0.9-migration pass provenance validation."""
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=True
         )
         stack._state = stack._state.__class__["ACTIVE"]
@@ -740,7 +740,7 @@ class TestPreV09ProvenanceBypass:
         """Other annotation-only refs still fail provenance validation."""
         from kernle.stack.sqlite_stack import ProvenanceError
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=True
         )
         stack._state = stack._state.__class__["ACTIVE"]

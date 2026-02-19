@@ -1,12 +1,15 @@
-"""SQLiteStack - StackProtocol implementation wrapping SQLiteStorage.
+"""Stack - StackProtocol implementation with pluggable storage backend.
 
-This is the default memory stack implementation. It wraps the existing
-SQLiteStorage backend and adds:
+This is the default memory stack implementation. It accepts any Storage
+protocol implementation and adds:
 - StackProtocol interface conformance
-- Feature mixins (anxiety, consolidation, emotions, forgetting, knowledge,
-  metamemory, suggestions) applied the same way as on Kernle
+- Feature mixins (consolidation, emotions, forgetting, knowledge,
+  metamemory, suggestions)
 - Composition hooks (on_attach, on_detach, on_model_changed)
-- Component registry infrastructure (for v0.5.0 stack components)
+- Component registry infrastructure (stack components)
+
+The storage backend is injected via the constructor. Use Stack.from_sqlite()
+for the common local-agent case with SQLite.
 """
 
 from __future__ import annotations
@@ -215,7 +218,7 @@ PROVENANCE_RULES: Dict[str, List[str]] = {
 ANNOTATION_REF_TYPES = {"context", "kernle"}
 
 
-class SQLiteStack(
+class Stack(
     ConsolidationMixin,
     EmotionsMixin,
     ForgettingMixin,
@@ -223,9 +226,11 @@ class SQLiteStack(
     MetaMemoryMixin,
     SuggestionsMixin,
 ):
-    """SQLite-backed memory stack conforming to StackProtocol.
+    """Memory stack conforming to StackProtocol with pluggable storage.
 
-    Wraps SQLiteStorage and exposes the full StackProtocol interface.
+    Accepts any Storage protocol implementation via the ``storage`` parameter.
+    Use ``Stack.from_sqlite()`` for the common local-agent case.
+
     Works in detached mode (no core attached) for read/write/search.
     Feature mixins are applied the same way as on Kernle.
     """
@@ -233,18 +238,12 @@ class SQLiteStack(
     def __init__(
         self,
         stack_id: str,
-        db_path: Optional[Path] = None,
-        cloud_storage: Optional[Any] = None,
-        embedder: Optional[Any] = None,
+        *,
+        storage: Any,  # Storage protocol — Any to avoid circular import
         components: Optional[List[StackComponentProtocol]] = None,
         enforce_provenance: bool = True,
     ):
-        self._backend = SQLiteStorage(
-            stack_id=stack_id,
-            db_path=db_path,
-            cloud_storage=cloud_storage,
-            embedder=embedder,
-        )
+        self._backend = storage
         # Alias for mixin compatibility (mixins access self._storage)
         self._storage = self._backend
 
@@ -280,6 +279,43 @@ class SQLiteStack(
 
         # Bootstrap self-trust if missing (e.g. after migration creates the table)
         self._ensure_self_trust()
+
+    @classmethod
+    def from_sqlite(
+        cls,
+        stack_id: str,
+        *,
+        db_path: Optional[Path] = None,
+        cloud_storage: Optional[Any] = None,
+        embedder: Optional[Any] = None,
+        components: Optional[List[StackComponentProtocol]] = None,
+        enforce_provenance: bool = True,
+    ) -> "Stack":
+        """Create a Stack backed by SQLiteStorage (convenience factory).
+
+        This is the common path for local agents (Claude Code, Codex, etc.).
+        For other backends, construct Stack directly with ``storage=``.
+
+        Args:
+            stack_id: Unique identifier for the stack
+            db_path: Path to SQLite database (auto-resolved if None)
+            cloud_storage: Optional cloud storage for hybrid search
+            embedder: Optional embedding provider
+            components: Stack components (None = defaults, [] = bare)
+            enforce_provenance: Whether to enforce provenance on writes
+        """
+        storage = SQLiteStorage(
+            stack_id=stack_id,
+            db_path=db_path,
+            cloud_storage=cloud_storage,
+            embedder=embedder,
+        )
+        return cls(
+            stack_id=stack_id,
+            storage=storage,
+            components=components,
+            enforce_provenance=enforce_provenance,
+        )
 
     def _ensure_self_trust(self) -> None:
         """Bootstrap self-trust assessment if missing after migration."""

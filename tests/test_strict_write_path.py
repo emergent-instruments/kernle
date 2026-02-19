@@ -4,7 +4,7 @@ These tests ensure that write methods in WritersMixin read existing data
 through _write_backend (which respects strict mode) rather than bypassing
 it by going directly to _storage.
 
-The key invariant: in strict mode, _write_backend returns a SQLiteStack
+The key invariant: in strict mode, _write_backend returns a Stack
 which enforces maintenance mode blocking, provenance validation, and
 stack component hooks. If a method reads via _storage directly, those
 enforcement layers are silently bypassed.
@@ -94,12 +94,12 @@ class TestStrictModeWithRealSQLite:
     """Verify strict mode works end-to-end with real SQLiteStorage.
 
     When strict=True with SQLiteStorage, _write_backend returns a real
-    SQLiteStack. Writes should succeed and route through the stack.
+    Stack. Writes should succeed and route through the stack.
     """
 
     def test_strict_mode_creates_stack_with_real_storage(self, tmp_path):
-        """strict=True + SQLiteStorage auto-creates a SQLiteStack."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        """strict=True + SQLiteStorage auto-creates a Stack."""
+        from kernle.stack.sqlite_stack import Stack
         from kernle.storage.sqlite import SQLiteStorage
 
         storage = SQLiteStorage(stack_id="test-real-strict", db_path=tmp_path / "test.db")
@@ -111,7 +111,7 @@ class TestStrictModeWithRealSQLite:
                 strict=True,
             )
             assert k.stack is not None
-            assert isinstance(k.stack, SQLiteStack)
+            assert isinstance(k.stack, Stack)
             assert k._write_backend is k.stack
         finally:
             storage.close()

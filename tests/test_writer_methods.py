@@ -68,7 +68,7 @@ def mocked_kernle():
         )
 
         # Bind noop model BEFORE replacing storage — this caches
-        # the SQLiteStack (with _inference set) so _require_inference passes.
+        # the Stack (with _inference set) so _require_inference passes.
         bind_noop_model(k)
 
         mock_storage = MagicMock()

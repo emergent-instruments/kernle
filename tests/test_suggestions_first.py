@@ -24,7 +24,7 @@ from kernle.processing import (
     ProcessingResult,
     PromotionGateConfig,
 )
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.types import Belief, Episode, MemorySuggestion, RawEntry
 
 # Relaxed promotion gates for tests that don't test gating behavior
@@ -45,7 +45,7 @@ STACK_ID = "test-stack"
 
 @pytest.fixture
 def stack(tmp_path):
-    return SQLiteStack(
+    return Stack.from_sqlite(
         STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
     )
 
@@ -53,7 +53,7 @@ def stack(tmp_path):
 @pytest.fixture
 def entity(tmp_path):
     ent = Entity(core_id="test-core", data_dir=tmp_path / "entity")
-    st = SQLiteStack(
+    st = Stack.from_sqlite(
         STACK_ID, db_path=tmp_path / "test.db", components=[], enforce_provenance=False
     )
     ent.attach_stack(st)

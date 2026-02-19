@@ -1,8 +1,9 @@
 """kernle.stack - Memory stack implementations.
 
-The default SQLiteStack wraps SQLiteStorage and conforms to StackProtocol.
+The default Stack accepts any Storage protocol backend.
+Use Stack.from_sqlite() for the common local-agent case.
 """
 
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 
-__all__ = ["SQLiteStack"]
+__all__ = ["Stack"]

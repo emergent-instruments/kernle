@@ -1,6 +1,6 @@
 """Tests for the Kernle compatibility layer (v0.4.0).
 
-Verifies that the Kernle class exposes Entity and SQLiteStack
+Verifies that the Kernle class exposes Entity and Stack
 via lazy properties, while preserving full backward compatibility
 with the existing _storage-based code paths.
 """
@@ -12,7 +12,7 @@ import pytest
 
 from kernle.core import Kernle
 from kernle.entity import Entity
-from kernle.stack.sqlite_stack import SQLiteStack
+from kernle.stack.sqlite_stack import Stack
 from kernle.storage import Note, SQLiteStorage
 
 
@@ -55,7 +55,7 @@ class TestStackProperty:
 
     def test_stack_returns_sqlite_stack(self, kernle_sqlite):
         s = kernle_sqlite.stack
-        assert isinstance(s, SQLiteStack)
+        assert isinstance(s, Stack)
 
     def test_stack_uses_same_db_path(self, kernle_sqlite):
         s = kernle_sqlite.stack

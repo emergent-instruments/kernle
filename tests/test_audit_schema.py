@@ -447,10 +447,10 @@ class TestExportAuditJsonl:
 class TestProcessingCorrelationId:
     def test_processing_emits_correlation_id(self, tmp_path):
         """All audit entries from one process() call share the same correlation_id."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
         db_path = tmp_path / "test_processing.db"
-        stack = SQLiteStack(stack_id="test-stack", db_path=db_path)
+        stack = Stack.from_sqlite(stack_id="test-stack", db_path=db_path)
         storage = stack._backend
 
         try:

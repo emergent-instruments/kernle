@@ -1194,7 +1194,7 @@ class TestBeliefProcessed:
 
 
 # ============================================================================
-# Integration-style: Component with SQLiteStack lifecycle
+# Integration-style: Component with Stack lifecycle
 # ============================================================================
 
 

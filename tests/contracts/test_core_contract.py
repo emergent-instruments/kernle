@@ -1,7 +1,7 @@
 """Contract tests for CoreProtocol.
 
 Verifies that Entity conforms to the CoreProtocol contract using
-real SQLiteStack instances for stack operations. Tests cover:
+real Stack instances for stack operations. Tests cover:
 - Stack attach/detach/set_active
 - Routed operations reach the stack
 - NoActiveStackError when no stack
@@ -28,7 +28,7 @@ from kernle.protocols import (
     PluginInfo,
     StackInfo,
 )
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 
 CORE_ID = "contract-test-core"
 STACK_ID = "contract-test-stack"
@@ -52,7 +52,7 @@ def entity(data_dir):
 @pytest.fixture
 def stack(tmp_path):
     db_path = tmp_path / "contract_core_test.db"
-    return SQLiteStack(stack_id=STACK_ID, db_path=db_path, enforce_provenance=False)
+    return Stack.from_sqlite(stack_id=STACK_ID, db_path=db_path, enforce_provenance=False)
 
 
 @pytest.fixture
@@ -122,8 +122,8 @@ class TestStackManagement:
     def test_set_active_stack(self, entity, tmp_path):
         db1 = tmp_path / "stack1.db"
         db2 = tmp_path / "stack2.db"
-        s1 = SQLiteStack(stack_id="s1", db_path=db1, enforce_provenance=False)
-        s2 = SQLiteStack(stack_id="s2", db_path=db2, enforce_provenance=False)
+        s1 = Stack.from_sqlite(stack_id="s1", db_path=db1, enforce_provenance=False)
+        s2 = Stack.from_sqlite(stack_id="s2", db_path=db2, enforce_provenance=False)
 
         entity.attach_stack(s1, alias="first", set_active=True)
         entity.attach_stack(s2, alias="second", set_active=False)
@@ -151,8 +151,8 @@ class TestStackManagement:
     def test_multiple_stacks(self, entity, tmp_path):
         db1 = tmp_path / "s1.db"
         db2 = tmp_path / "s2.db"
-        s1 = SQLiteStack(stack_id="s1", db_path=db1, enforce_provenance=False)
-        s2 = SQLiteStack(stack_id="s2", db_path=db2, enforce_provenance=False)
+        s1 = Stack.from_sqlite(stack_id="s1", db_path=db1, enforce_provenance=False)
+        s2 = Stack.from_sqlite(stack_id="s2", db_path=db2, enforce_provenance=False)
 
         entity.attach_stack(s1, alias="alpha")
         entity.attach_stack(s2, alias="beta", set_active=False)

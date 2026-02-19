@@ -170,27 +170,29 @@ class TestLoadComponentsFromDiscovery:
 
 
 # ---------------------------------------------------------------------------
-# SQLiteStack constructor + add_component / set_storage
+# Stack constructor + add_component / set_storage
 # ---------------------------------------------------------------------------
 
 
-class TestSQLiteStackComponents:
-    """Tests for SQLiteStack component auto-loading and set_storage."""
+class TestStackComponents:
+    """Tests for Stack component auto-loading and set_storage."""
 
     def test_constructor_loads_defaults(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack("test-stack", db_path=tmp_path / "test.db", enforce_provenance=False)
+        stack = Stack.from_sqlite(
+            "test-stack", db_path=tmp_path / "test.db", enforce_provenance=False
+        )
         assert len(stack.components) == 11
         # Verify embedding is present
         names = set(stack.components.keys())
         assert "embedding-ngram" in names
 
     def test_constructor_respects_explicit_components(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
         explicit = [EmbeddingComponent()]
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test-stack",
             db_path=tmp_path / "test.db",
             components=explicit,
@@ -199,9 +201,9 @@ class TestSQLiteStackComponents:
         assert "embedding-ngram" in stack.components
 
     def test_constructor_empty_list_loads_nothing(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -209,9 +211,9 @@ class TestSQLiteStackComponents:
         assert len(stack.components) == 0
 
     def test_add_component_calls_set_storage(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -224,9 +226,9 @@ class TestSQLiteStackComponents:
 
     def test_add_component_skips_set_storage_if_missing(self, tmp_path):
         """Components without set_storage don't cause errors."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "test-stack",
             db_path=tmp_path / "test.db",
             components=[],
@@ -253,9 +255,11 @@ class TestSQLiteStackComponents:
 
     def test_components_receive_storage_on_default_load(self, tmp_path):
         """All default components with set_storage get storage assigned."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack("test-stack", db_path=tmp_path / "test.db", enforce_provenance=False)
+        stack = Stack.from_sqlite(
+            "test-stack", db_path=tmp_path / "test.db", enforce_provenance=False
+        )
         for name, component in stack.components.items():
             if hasattr(component, "_storage") and hasattr(component, "set_storage"):
                 assert (
@@ -263,16 +267,20 @@ class TestSQLiteStackComponents:
                 ), f"Component '{name}' has set_storage but _storage is None"
 
     def test_remove_component_raises_for_required(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack("test-stack", db_path=tmp_path / "test.db", enforce_provenance=False)
+        stack = Stack.from_sqlite(
+            "test-stack", db_path=tmp_path / "test.db", enforce_provenance=False
+        )
         with pytest.raises(ValueError, match="Cannot remove required"):
             stack.remove_component("embedding-ngram")
 
     def test_remove_optional_component(self, tmp_path):
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack("test-stack", db_path=tmp_path / "test.db", enforce_provenance=False)
+        stack = Stack.from_sqlite(
+            "test-stack", db_path=tmp_path / "test.db", enforce_provenance=False
+        )
         assert "anxiety" in stack.components
         stack.remove_component("anxiety")
         assert "anxiety" not in stack.components
@@ -286,9 +294,9 @@ class TestSQLiteStackComponents:
 class TestComponentLifecycle:
     def test_full_lifecycle(self, tmp_path):
         """Create stack -> components auto-loaded -> maintenance -> model change."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "lifecycle-test", db_path=tmp_path / "test.db", enforce_provenance=False
         )
 
@@ -307,9 +315,9 @@ class TestComponentLifecycle:
 
     def test_add_remove_at_runtime(self, tmp_path):
         """Stack with minimal components can add/remove at runtime."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "runtime-test",
             db_path=tmp_path / "test.db",
             components=get_minimal_components(),
@@ -330,9 +338,9 @@ class TestComponentLifecycle:
 
     def test_on_attach_propagates_inference(self, tmp_path):
         """on_attach propagates inference to all components."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "attach-test",
             db_path=tmp_path / "test.db",
             components=get_minimal_components(),
@@ -345,9 +353,9 @@ class TestComponentLifecycle:
 
     def test_on_detach_clears_inference(self, tmp_path):
         """on_detach clears inference on all components."""
-        from kernle.stack.sqlite_stack import SQLiteStack
+        from kernle.stack.sqlite_stack import Stack
 
-        stack = SQLiteStack(
+        stack = Stack.from_sqlite(
             "detach-test",
             db_path=tmp_path / "test.db",
             components=get_minimal_components(),

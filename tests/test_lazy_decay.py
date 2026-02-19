@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from kernle.stack import SQLiteStack
+from kernle.stack import Stack
 from kernle.stack.components.forgetting import compute_decayed_strength
 from kernle.types import Belief, Episode, Note
 
@@ -28,7 +28,7 @@ def tmp_db(tmp_path):
 @pytest.fixture
 def stack(tmp_db):
     """Stack with forgetting component but provenance disabled."""
-    return SQLiteStack(
+    return Stack.from_sqlite(
         stack_id="test-lazy-decay",
         db_path=tmp_db,
         enforce_provenance=False,
@@ -38,7 +38,7 @@ def stack(tmp_db):
 @pytest.fixture
 def bare_stack(tmp_db):
     """Stack without any components."""
-    return SQLiteStack(
+    return Stack.from_sqlite(
         stack_id="test-lazy-decay",
         db_path=tmp_db,
         components=[],
