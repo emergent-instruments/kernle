@@ -54,6 +54,7 @@ from kernle.types import (
     VALID_SOURCE_TYPE_VALUES,
     Belief,
     Drive,
+    EntityModel,
     Episode,
     Epoch,
     Goal,
@@ -653,6 +654,21 @@ class Stack(
 
     # ---- Provenance Validation ----
 
+    def _check_maintenance(self, operation: str) -> None:
+        """Block writes during maintenance mode.
+
+        Lighter check than _validate_provenance — used for lifecycle/metadata
+        writes (epochs, summaries, narratives, entity models) that don't need
+        provenance validation but should respect maintenance mode.
+
+        Raises:
+            MaintenanceModeError: If stack is in maintenance mode.
+        """
+        if self._state == StackState.MAINTENANCE:
+            raise MaintenanceModeError(
+                f"Cannot save {operation} in maintenance mode. Use exit_maintenance() first."
+            )
+
     def _validate_provenance(
         self, memory_type: str, derived_from: Optional[list], source_entity: Optional[str] = None
     ) -> None:
@@ -879,19 +895,34 @@ class Stack(
         return result_id
 
     def save_epoch(self, epoch: Epoch) -> str:
+        self._check_maintenance("epoch")
         result_id = self._backend.save_epoch(epoch)
         self._dispatch_on_save("epoch", result_id, epoch)
         return result_id
 
+    def close_epoch(self, epoch_id: str, summary: Optional[str] = None) -> bool:
+        self._check_maintenance("epoch")
+        return self._backend.close_epoch(epoch_id, summary=summary)
+
     def save_summary(self, summary: Summary) -> str:
+        self._check_maintenance("summary")
         result_id = self._backend.save_summary(summary)
         self._dispatch_on_save("summary", result_id, summary)
         return result_id
 
     def save_self_narrative(self, narrative: SelfNarrative) -> str:
+        self._check_maintenance("narrative")
         result_id = self._backend.save_self_narrative(narrative)
         self._dispatch_on_save("self_narrative", result_id, narrative)
         return result_id
+
+    def deactivate_self_narratives(self, stack_id: str, narrative_type: str) -> None:
+        self._check_maintenance("narrative")
+        self._backend.deactivate_self_narratives(stack_id, narrative_type)
+
+    def save_entity_model(self, model: EntityModel) -> str:
+        self._check_maintenance("entity_model")
+        return self._backend.save_entity_model(model)
 
     def save_suggestion(self, suggestion: MemorySuggestion) -> str:
         result_id = self._backend.save_suggestion(suggestion)
