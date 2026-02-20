@@ -29,7 +29,6 @@ from kernle.features import (
     SuggestionsMixin,
     TrustMixin,
 )
-from kernle.storage import SQLiteStorage
 from kernle.utils import get_kernle_home
 
 logger = logging.getLogger(__name__)
@@ -113,13 +112,10 @@ class Kernle(
         if storage is not None:
             self._storage = storage
         else:
-            backend = os.environ.get("KERNLE_STORAGE_BACKEND", "sqlite")
-            if backend == "sqlite":
-                self._storage = SQLiteStorage(stack_id=self.stack_id)
-            else:
-                from kernle.storage.factory import create_storage
+            from kernle.storage.factory import create_storage
 
-                self._storage = create_storage(backend=backend, stack_id=self.stack_id)
+            backend = os.environ.get("KERNLE_STORAGE_BACKEND", "sqlite")
+            self._storage = create_storage(backend=backend, stack_id=self.stack_id)
 
         # Controls Stack enforcement (enforce_provenance, lint_on_save) and
         # error propagation in checkpoint/sync mixins.

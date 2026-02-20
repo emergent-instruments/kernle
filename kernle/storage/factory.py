@@ -19,10 +19,11 @@ def create_storage(
         **kwargs: Additional keyword arguments passed to the backend constructor.
 
     Returns:
-        A storage backend instance.
+        A storage backend instance implementing the Storage protocol.
 
     Raises:
         ValueError: If the backend name is not found in registered entry points.
+        TypeError: If the created instance lacks required Storage protocol methods.
     """
     from kernle.discovery import discover_storage, load_component
 
@@ -37,4 +38,15 @@ def create_storage(
         )
 
     cls = load_component(match)
-    return cls(stack_id=stack_id, **kwargs)
+    instance = cls(stack_id=stack_id, **kwargs)
+
+    # Verify the instance has core Storage protocol methods
+    required = ("get_episodes", "get_beliefs", "get_stats", "save_raw")
+    missing = [m for m in required if not callable(getattr(instance, m, None))]
+    if missing:
+        raise TypeError(
+            f"Storage backend '{backend}' ({cls.__name__}) is missing required "
+            f"methods: {', '.join(missing)}. Ensure it implements the Storage protocol."
+        )
+
+    return instance
