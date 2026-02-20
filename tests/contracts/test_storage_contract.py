@@ -668,40 +668,33 @@ class TestMetaMemoryOperations:
 
 
 class TestStackIsolation:
-    """Verify that storage respects stack_id boundaries."""
+    """Verify that storage respects stack_id boundaries.
 
-    def test_episodes_isolated_by_stack_id(self, storage, tmp_path):
-        # Save an episode to the default stack
+    Uses ``make_storage`` to create a sibling instance with a different
+    stack_id on the same backend — no hardcoded backend imports.
+    """
+
+    def test_episodes_isolated_by_stack_id(self, storage, make_storage):
+        # Save an episode to the primary stack
         ep = _make_episode()
         storage.save_episode(ep)
 
-        # Verify the default stack can see it
+        # Verify the primary stack can see it
         episodes = storage.get_episodes(limit=10)
         assert any(e.id == ep.id for e in episodes)
 
-        # Create a second storage instance with a different stack_id
-        # pointing at the same database file
-        from kernle.storage.sqlite import SQLiteStorage
-
-        other_storage = SQLiteStorage(
-            stack_id="other-stack-isolation-test",
-            db_path=tmp_path / "contract_test.db",
-        )
+        # Create a second storage with a different stack_id (same backend)
+        other_storage = make_storage("other-stack-isolation-test")
 
         # The other stack must NOT see the episode
         other_episodes = other_storage.get_episodes(limit=10)
         assert not any(e.id == ep.id for e in other_episodes)
 
-    def test_beliefs_isolated_by_stack_id(self, storage, tmp_path):
+    def test_beliefs_isolated_by_stack_id(self, storage, make_storage):
         b = _make_belief(statement="Isolation test belief")
         storage.save_belief(b)
 
-        from kernle.storage.sqlite import SQLiteStorage
-
-        other_storage = SQLiteStorage(
-            stack_id="other-stack-isolation-test",
-            db_path=tmp_path / "contract_test.db",
-        )
+        other_storage = make_storage("other-stack-isolation-test")
 
         # Other stack should not find the belief
         found = other_storage.find_belief("Isolation test belief")
