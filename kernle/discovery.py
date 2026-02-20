@@ -16,6 +16,7 @@ from kernle.protocols import (
     ENTRY_POINT_GROUP_PLUGINS,
     ENTRY_POINT_GROUP_STACK_COMPONENTS,
     ENTRY_POINT_GROUP_STACKS,
+    ENTRY_POINT_GROUP_STORAGE,
 )
 
 logger = logging.getLogger(__name__)
@@ -126,6 +127,16 @@ def discover_stack_components() -> list[DiscoveredComponent]:
     return [_entry_point_to_component(ep, ENTRY_POINT_GROUP_STACK_COMPONENTS) for ep in eps]
 
 
+def discover_storage() -> list[DiscoveredComponent]:
+    """Discover installed storage backends (kernle.storage entry point group).
+
+    Returns:
+        List of discovered storage backend components.
+    """
+    eps = _get_entry_points(ENTRY_POINT_GROUP_STORAGE)
+    return [_entry_point_to_component(ep, ENTRY_POINT_GROUP_STORAGE) for ep in eps]
+
+
 def discover_all() -> dict[str, list[DiscoveredComponent]]:
     """Discover all registered kernle components across all entry point groups.
 
@@ -137,6 +148,7 @@ def discover_all() -> dict[str, list[DiscoveredComponent]]:
         ENTRY_POINT_GROUP_STACKS: discover_stacks(),
         ENTRY_POINT_GROUP_MODELS: discover_models(),
         ENTRY_POINT_GROUP_STACK_COMPONENTS: discover_stack_components(),
+        ENTRY_POINT_GROUP_STORAGE: discover_storage(),
     }
 
 
