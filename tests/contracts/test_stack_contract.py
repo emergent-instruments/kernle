@@ -23,7 +23,6 @@ from kernle.protocols import (
 from kernle.protocols import (
     SearchResult as ProtocolSearchResult,
 )
-from kernle.stack import Stack
 from kernle.types import (
     Belief,
     Drive,
@@ -40,22 +39,11 @@ from kernle.types import (
     TrustAssessment,
     Value,
 )
+from tests.contracts.conftest import CONTRACT_STACK_ID
 
-STACK_ID = "contract-test-stack"
+STACK_ID = CONTRACT_STACK_ID
 
-
-# ============================================================================
-# Fixtures
-# ============================================================================
-
-
-@pytest.fixture
-def stack(tmp_path):
-    """Create a fresh Stack for each test."""
-    db_path = tmp_path / "contract_test.db"
-    return Stack.from_sqlite(
-        stack_id=STACK_ID, db_path=db_path, components=[], enforce_provenance=False
-    )
+# NOTE: The `stack` fixture is provided by conftest.py (parameterized by backend).
 
 
 def _uid() -> str:
