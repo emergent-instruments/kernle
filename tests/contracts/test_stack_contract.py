@@ -39,8 +39,9 @@ from kernle.types import (
     TrustAssessment,
     Value,
 )
+from tests.contracts.conftest import CONTRACT_STACK_ID
 
-STACK_ID = "contract-test-stack"
+STACK_ID = CONTRACT_STACK_ID
 
 # NOTE: The `stack` fixture is provided by conftest.py (parameterized by backend).
 

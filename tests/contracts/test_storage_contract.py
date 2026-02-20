@@ -24,8 +24,9 @@ from kernle.types import (
     Relationship,
     Value,
 )
+from tests.contracts.conftest import CONTRACT_STACK_ID
 
-STACK_ID = "contract-test-stack"
+STACK_ID = CONTRACT_STACK_ID
 
 
 # ============================================================================
@@ -501,7 +502,7 @@ class TestLineageQueries:
         assert len(result) == 2
 
     def test_get_ungrounded_memories(self, storage):
-        result = storage.get_ungrounded_memories(STACK_ID)
+        result = storage.get_ungrounded_memories(storage.stack_id)
         assert isinstance(result, list)
 
 
@@ -669,10 +670,39 @@ class TestMetaMemoryOperations:
 class TestStackIsolation:
     """Verify that storage respects stack_id boundaries."""
 
-    def test_episodes_isolated_by_stack_id(self, storage):
+    def test_episodes_isolated_by_stack_id(self, storage, tmp_path):
+        # Save an episode to the default stack
         ep = _make_episode()
         storage.save_episode(ep)
 
-        # Default get_episodes should see the episode
+        # Verify the default stack can see it
         episodes = storage.get_episodes(limit=10)
         assert any(e.id == ep.id for e in episodes)
+
+        # Create a second storage instance with a different stack_id
+        # pointing at the same database file
+        from kernle.storage.sqlite import SQLiteStorage
+
+        other_storage = SQLiteStorage(
+            stack_id="other-stack-isolation-test",
+            db_path=tmp_path / "contract_test.db",
+        )
+
+        # The other stack must NOT see the episode
+        other_episodes = other_storage.get_episodes(limit=10)
+        assert not any(e.id == ep.id for e in other_episodes)
+
+    def test_beliefs_isolated_by_stack_id(self, storage, tmp_path):
+        b = _make_belief(statement="Isolation test belief")
+        storage.save_belief(b)
+
+        from kernle.storage.sqlite import SQLiteStorage
+
+        other_storage = SQLiteStorage(
+            stack_id="other-stack-isolation-test",
+            db_path=tmp_path / "contract_test.db",
+        )
+
+        # Other stack should not find the belief
+        found = other_storage.find_belief("Isolation test belief")
+        assert found is None
