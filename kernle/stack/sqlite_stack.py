@@ -916,9 +916,9 @@ class Stack(
         self._dispatch_on_save("self_narrative", result_id, narrative)
         return result_id
 
-    def deactivate_self_narratives(self, stack_id: str, narrative_type: str) -> None:
+    def deactivate_self_narratives(self, stack_id: str, narrative_type: str) -> int:
         self._check_maintenance("narrative")
-        self._backend.deactivate_self_narratives(stack_id, narrative_type)
+        return self._backend.deactivate_self_narratives(stack_id, narrative_type)
 
     def save_entity_model(self, model: EntityModel) -> str:
         self._check_maintenance("entity_model")
