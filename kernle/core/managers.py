@@ -134,7 +134,7 @@ class ManagersMixin:
         # Close any currently open epoch
         current = self._storage.get_current_epoch()
         if current:
-            self._storage.close_epoch(current.id, summary=None)
+            self._write_backend.close_epoch(current.id, summary=None)
 
         # Determine next epoch number
         epochs = self._storage.get_epochs(limit=1)
@@ -150,7 +150,7 @@ class ManagersMixin:
             trigger_description=trigger_description,
         )
 
-        return self._storage.save_epoch(epoch)
+        return self._write_backend.save_epoch(epoch)
 
     def epoch_close(
         self,
@@ -177,7 +177,7 @@ class ManagersMixin:
         if summary is not None:
             summary = self._validate_string_input(summary, "summary", 2000)
 
-        return self._storage.close_epoch(epoch_id, summary=summary)
+        return self._write_backend.close_epoch(epoch_id, summary=summary)
 
     def get_current_epoch(self):
         """Get the currently active epoch, if any."""
@@ -243,7 +243,7 @@ class ManagersMixin:
             created_at=datetime.now(timezone.utc),
         )
 
-        return self._storage.save_summary(summary)
+        return self._write_backend.save_summary(summary)
 
     def summary_get(self, summary_id: str):
         """Get a specific summary by ID."""
@@ -292,7 +292,7 @@ class ManagersMixin:
         content = self._validate_string_input(content, "content", 10000)
 
         # Deactivate existing active narratives of the same type
-        self._storage.deactivate_self_narratives(self.stack_id, narrative_type)
+        self._write_backend.deactivate_self_narratives(self.stack_id, narrative_type)
 
         narrative = SelfNarrative(
             id=str(uuid.uuid4()),
@@ -306,7 +306,7 @@ class ManagersMixin:
             created_at=datetime.now(timezone.utc),
         )
 
-        return self._storage.save_self_narrative(narrative)
+        return self._write_backend.save_self_narrative(narrative)
 
     def narrative_get_active(self, narrative_type: str = "identity") -> Optional[SelfNarrative]:
         """Get the active self-narrative for a given type.
@@ -474,7 +474,7 @@ class ManagersMixin:
             subject_ids=[entity_name],  # Auto-populate
         )
 
-        self._storage.save_entity_model(model)
+        self._write_backend.save_entity_model(model)
         return model_id
 
     def get_entity_models(
