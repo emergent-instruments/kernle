@@ -20,6 +20,7 @@ from kernle.protocols import (
     ENTRY_POINT_GROUP_PLUGINS,
     ENTRY_POINT_GROUP_STACK_COMPONENTS,
     ENTRY_POINT_GROUP_STACKS,
+    ENTRY_POINT_GROUP_STORAGE,
 )
 
 
@@ -345,4 +346,5 @@ class TestLiveDiscovery:
             ENTRY_POINT_GROUP_STACKS,
             ENTRY_POINT_GROUP_MODELS,
             ENTRY_POINT_GROUP_STACK_COMPONENTS,
+            ENTRY_POINT_GROUP_STORAGE,
         }

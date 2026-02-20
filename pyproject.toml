@@ -78,6 +78,9 @@ kernle-mcp = "kernle.mcp.server:main"
 anthropic = "kernle.models.anthropic:AnthropicModel"
 ollama = "kernle.models.ollama:OllamaModel"
 
+[project.entry-points."kernle.storage"]
+sqlite = "kernle.storage.sqlite:SQLiteStorage"
+
 [project.entry-points."kernle.stack_components"]
 embedding = "kernle.stack.components.embedding:EmbeddingComponent"
 forgetting = "kernle.stack.components.forgetting:ForgettingComponent"
