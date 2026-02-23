@@ -627,7 +627,7 @@ class TestMCPToolCalls:
         assert "## Current Beliefs" in text
         assert "## Your Reflection Task" in text
         # Verify it includes guidance
-        assert "Pattern Recognition" in text
+        assert "Personality" in text
         assert "Belief Validation" in text
         assert "Kernle provides the data. You do the reasoning." in text
         # Verify episodes are shown
@@ -875,9 +875,9 @@ class TestEdgeCases:
         error_text = result[0].text.lower()
 
         # Verify this is a validation error, not a success
-        assert (
-            "invalid" in error_text or "error" in error_text
-        ), f"Large content should be rejected, got: {result[0].text}"
+        assert "invalid" in error_text or "error" in error_text, (
+            f"Large content should be rejected, got: {result[0].text}"
+        )
 
         # Error should mention the issue is with content length/size
         length_related_terms = [
@@ -1563,9 +1563,9 @@ class TestToolDefinitionsComplete:
             if tool.name in new_tool_names:
                 assert tool.description, f"{tool.name} missing description"
                 assert tool.inputSchema, f"{tool.name} missing inputSchema"
-                assert (
-                    tool.inputSchema.get("type") == "object"
-                ), f"{tool.name} should have object schema"
+                assert tool.inputSchema.get("type") == "object", (
+                    f"{tool.name} should have object schema"
+                )
                 assert "properties" in tool.inputSchema, f"{tool.name} missing properties"
                 if tool.name == "memory_sync":
                     assert tool.inputSchema.get("additionalProperties") is False
@@ -1588,9 +1588,9 @@ class TestMCPProvenanceParams:
             if tool.name in creation_tools:
                 props = tool.inputSchema["properties"]
                 assert "source_type" in props, f"{tool.name} missing source_type"
-                assert (
-                    props["source_type"]["enum"] == expected_enum
-                ), f"{tool.name} source_type enum mismatch"
+                assert props["source_type"]["enum"] == expected_enum, (
+                    f"{tool.name} source_type enum mismatch"
+                )
 
     def test_derived_from_in_all_creation_schemas(self):
         """All 5 memory creation tools should expose derived_from."""
@@ -1605,9 +1605,9 @@ class TestMCPProvenanceParams:
             if tool.name in creation_tools:
                 props = tool.inputSchema["properties"]
                 assert "derived_from" in props, f"{tool.name} missing derived_from"
-                assert (
-                    props["derived_from"]["type"] == "array"
-                ), f"{tool.name} derived_from should be array"
+                assert props["derived_from"]["type"] == "array", (
+                    f"{tool.name} derived_from should be array"
+                )
 
     def test_source_in_all_creation_schemas(self):
         """All 5 memory creation tools should expose source."""

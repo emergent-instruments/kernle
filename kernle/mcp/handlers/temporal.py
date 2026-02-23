@@ -129,7 +129,7 @@ def handle_memory_consolidate(args: Dict[str, Any], k: Kernle) -> str:
     lines.append("")
     lines.append("Consider the experiences above and ask yourself:")
     lines.append("")
-    lines.append("1. **Pattern Recognition**: What themes appear across multiple experiences?")
+    lines.append("1. **Personality**: What themes appear across multiple experiences?")
     lines.append("   - Are there repeated successes or failures?")
     lines.append("   - What approaches consistently work (or don't)?")
     lines.append("")
