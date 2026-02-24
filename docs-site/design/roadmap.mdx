@@ -547,6 +547,61 @@ These areas are acknowledged but not yet designed in detail:
 
 ---
 
+## Needed — Unphased
+
+These processes are required in the memory pipeline but not yet assigned to a milestone. Some may already exist in the codebase; all need to be verified, completed, or improved regardless of current implementation status.
+
+### Forgetting & Salience
+
+- **Calculate memory salience** — scoring formula: confidence x access frequency / time since last access
+- **Run forgetting cycle** — batch tombstoning of memories below salience threshold
+- **Forget memory explicitly** — single memory tombstone with audit trail
+- **Protect memory from forgetting** — immunity flag preventing strength decay and tombstoning
+- **Recover forgotten memory** — tombstone restoration back to active state
+- **Record memory access** — access tracking that feeds salience calculation
+- **Apply forgetting component behavior** — confidence suppression based on access patterns and age
+
+### Metacognition & Observability
+
+- **Log compliance/health events** — structured health event logging with checksums for audit integrity
+- **Check relationship table consistency** — relationship table health validation (orphaned refs, missing reciprocals)
+- **Compute health statistics** — aggregated health metrics across memory types and pipeline stages
+
+### Corpus & Import
+
+- **Import pipeline** — multi-format import (JSON, markdown, CSV, PDF) with provenance validation and source_type tagging
+- **Ingest repository docs/code** — file crawling with format-specific chunking respecting semantic boundaries
+- **Split Python sources** — AST-based chunking preserving function/class boundaries
+- **Split Markdown sources** — heading-based chunking preserving section structure
+- **Split generic content** — paragraph-sized chunking for unstructured text
+- **Stamp corpus entry metadata** — corpus format wrapping with source file, chunk index, and import provenance
+- **Deduplicate corpus content** — content-hash dedup with pagination for large corpus ingestion
+- **OpenClaw workspace import** — migration of SOUL/USER/IDENTITY/MEMORY files from OpenClaw format into kernle raw entries
+
+### Epochs & Summarization
+
+- **Create fractal summary** — protected summary creation at scope boundaries (daily, weekly, monthly, quarterly, yearly, epoch)
+- **Epoch lifecycle control** — trigger types (vote-based, manual, narrative-shift) and state transitions beyond the vote gate
+- **Time-based summaries** — automatic periodic summaries at daily, weekly, and monthly intervals (not just epoch-triggered)
+
+### Stack Lifecycle
+
+- **Run maintenance consolidation** — consolidation triggered via stack component hook during MAINTENANCE state (distinct from epoch-close consolidation)
+- **Enforce ACTIVE/MAINTENANCE gating** — state-based write policy enforcement mechanism (the states exist; the enforcement process needs verification)
+
+### Audit Events
+
+Structured audit event emission at pipeline transition points:
+
+- `raw.ingested` — raw entry captured and queued
+- `suggestion.created` — L2 suggestion generated from processing
+- `suggestion.resolved` — suggestion accepted, dismissed, or expired
+- `memory.promoted` — memory promoted from suggestion to stored type
+- `belief.revised` — belief contradicted or reinforced with confidence change
+- `belief.deactivated` — belief deactivated due to contradiction or manual action
+
+---
+
 ## Contributing
 
 Kernle is open source. If you're interested in contributing to any of these areas, check the [GitHub repository](https://github.com/emergent-instruments/kernle) for open issues.
