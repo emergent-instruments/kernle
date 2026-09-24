@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "kernle": {
-      "command": "kernle",
-      "args": ["mcp", "--stack", "claude-code"]
-    }
-  }
-}
