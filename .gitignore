@@ -1,79 +1,23 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-/lib/
-/lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# Rust
+/target/
+**/*.rs.bk
 
-# Virtual environments
-.venv/
-venv/
-ENV/
-
-# Node
-node_modules/
-.next/
-out/
-.npm
-*.tsbuildinfo
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# Testing
-.pytest_cache/
-.coverage
-coverage*.xml
-htmlcov/
-
-# Linting / type checking
-.mypy_cache/
-.ruff_cache/
-
-# Environment
+# Secrets and local environment
 .env
-.env.local
-.env.*.local
+.env.*
 
-# Logs
-*.log
-
-# OS
+# Editors, tools, and OS
 .DS_Store
 Thumbs.db
-
-# Obsidian
+.idea/
+.vscode/
 .obsidian/
-
-# Supabase
-supabase/.temp/
-supabase/.branches
-supabase/.env.keys
-supabase/.env.local
-supabase/.env.*.local
+.claude/
 
 # Kernle local data
 .kernle/
 
+# Scratch
 local/
 *tmp/
 *local/

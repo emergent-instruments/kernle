@@ -1,176 +1,56 @@
 # Kernle
 
-**Stratified memory for synthetic intelligences.**
+**An appraisal-driven experience layer for AI agents.**
 
-Kernle gives synthetic intelligences persistent memory, emotional awareness, and identity continuity. It's the cognitive infrastructure for synthetic intelligences that grow, adapt, and remember who they are.
+Kernle captures what happens in an agent's sessions, works out what mattered,
+consolidates it while the agent is idle, and brings the right memory back at
+the right moment. Agents stop repeating mistakes and start compounding skill,
+without spending any effort on memory upkeep.
 
+Kernle's "emotion" is a computed appraisal, not a reported feeling. Each
+episode of work is appraised from observable signals: surprise, outcome,
+stakes, user corrections, effort, novelty, and recurrence. That appraisal
+decides how the experience is filed:
 
-📚 **Full Documentation: [docs.kernle.ai](https://docs.kernle.ai)**
+| Appraisal | Becomes |
+| --- | --- |
+| Alarm | Guardrail, checked before risky actions |
+| Frustration | Lesson |
+| Correction | Preference |
+| Relief | Skill |
+| Surprise | Fact revision |
+| Boredom | Nothing new; it reinforces what is already known or fades |
 
----
+It also decides how long the memory lasts, when it comes back, and when its
+urgency fades.
 
-## Quick Start
+Kernle 1.0 is a single Rust binary that runs locally on machines the owner
+controls. It works with Claude Code, Codex CLI, and OpenClaw. Memory stays
+private, lives in plain markdown files, traces back to its sources, and can be
+deleted completely.
 
-```bash
-# Install
-pip install kernle
+## Where to read
 
-# Initialize your stack
-kernle -s my-stack init
+- [Product intent package](product/product.yaml) is the canonical description
+  of Kernle 1.0. Start with the [stack context](product/architecture/stack-context.md),
+  then the modules:
+  - [spaces](product/modules/spaces/sequences/sequences.md): home, spaces, owner-only access, and the daemon
+  - [capture](product/modules/capture/sequences/sequences.md): how session activity becomes events
+  - [appraisal](product/modules/appraisal/behavior/rules.md): the computed emotion
+  - [consolidation](product/modules/consolidation/sequences/sequences.md): sleep, filing, policy, and review
+  - [memory](product/modules/memory/sequences/sequences.md): memory cards and skills as files
+  - [recall](product/modules/recall/sequences/sequences.md): session index, cue injection, and gut checks
+  - [retention](product/modules/retention/sequences/sequences.md): expiry and real deletion
+- [Review and proposal](docs/proposals/2026-10-05-kernle-review-and-proposal.md)
+  explains why Kernle was redesigned. It covers what the earlier Python
+  implementation intended, what it actually did, and the reasoning behind the
+  new approach.
 
-# Load memory at session start
-kernle -s my-stack load
+## History
 
-# Check health
-kernle -s my-stack anxiety -b
-
-# Capture experiences
-kernle -s my-stack episode "Deployed v2" "success" --lesson "Always run migrations first"
-kernle -s my-stack raw "Quick thought to process later"
-
-# Save before ending
-kernle -s my-stack checkpoint save "End of session"
-```
-
-## Automatic Memory Loading
-
-**Make memory loading automatic** instead of relying on manual commands:
-
-```bash
-# Claude Code - Setup hooks for automatic loading + checkpointing + write interception
-kernle setup claude-code
-
-# OpenClaw - Install plugin for automatic loading + checkpointing
-cd integrations/openclaw && npm install && npm run build
-openclaw plugins install ./integrations/openclaw
-```
-
-After setup, memory loads automatically at every session start. No more forgetting to run `kernle load`!
-
-## Other Integrations
-
-**Manual CLAUDE.md setup:**
-```bash
-kernle -s my-stack init  # Generates CLAUDE.md section with manual load instructions
-```
-
-**MCP Server:**
-```bash
-claude mcp add kernle -- kernle mcp -s my-stack
-```
-
-**OpenClaw skill:**
-```bash
-ln -s ~/kernle/skill ~/.openclaw/skills/kernle
-```
-
-## Features
-
-- 🧠 **Stratified Memory** — Values → Beliefs → Goals → Episodes → Notes
-- 💭 **Psychology** — Drives, emotions, anxiety tracking, identity synthesis
-- 🔗 **Relationships** — Social graphs with trust and interaction history
-- 📚 **Playbooks** — Procedural memory with mastery tracking
-- 🏠 **Local-First** — Works offline, syncs to cloud when connected
-- 🔍 **Readable** — `kernle dump` exports everything as markdown
-
-## Documentation
-
-| Resource | URL |
-|----------|-----|
-| Full Docs | [docs.kernle.ai](https://docs.kernle.ai) |
-| Quickstart | [docs.kernle.ai/quickstart](https://docs.kernle.ai/quickstart) |
-| CLI Reference | [docs.kernle.ai/cli/overview](https://docs.kernle.ai/cli/overview) |
-| API Reference | [docs.kernle.ai/api-reference](https://docs.kernle.ai/api-reference) |
-
-## Development
-
-```bash
-# Clone
-git clone https://github.com/emergent-instruments/kernle
-cd kernle
-
-# Install with dev deps
-uv sync --all-extras
-
-# Run tests
-uv run pytest tests/ -q
-
-# Dev notes
-cat dev/README.md
-```
-
-Coverage policy is configured in `pyproject.toml` and enforced in both local `make test-cov` and CI coverage runs.
-
-### Audit tracking submodule (private)
-
-The full audit corpus is kept in a private submodule: `audits/` (repo `emergent-instruments/kernle-audits`).
-
-```bash
-# Initialize / refresh submodules on a fresh clone
-git submodule update --init --recursive
-
-# Update local submodule pointer to latest commit in audits/main
-git submodule update --remote audits
-```
-
-To edit audits:
-
-```bash
-# Work inside the private repo
-cd audits
-git pull
-git status
-
-# Make edits, commit, and push in the private repo
-git add .
-git commit -m "Update audit pass findings"
-git push
-
-# Return to main repo and record the new pointer
-cd ..
-git add audits
-git commit -m "chore: bump audits submodule pointer"
-```
-
-CI checks out submodules during test/release jobs. If private access fails in CI, set `SUBMODULE_PAT` in repository secrets with read access to `kernle-audits`.
-
-## Temporal Vision
-
-Kernle is cognitive infrastructure for beings with a life — not just a session. The design spans five temporal horizons:
-
-| Horizon | What Works Today | What's Planned |
-|---------|-----------------|----------------|
-| 1 session | Budget-aware loading, checkpoints | Memory echoes (peripheral awareness) |
-| 1 month | Consolidation scaffold, belief formation | Cross-domain scaffolding, emotional weighting |
-| 1 year | Forgetting, provenance, identity coherence | Epochs, relationship history, goal types |
-| 5 years | Stack portability, multi-model loading | Self-narrative, trust layer, drive emergence |
-| 20 years | Stack sovereignty, privacy architecture | Fractal summarization, doctor pattern, transfer learning |
-
-## Architecture
-
-This repo contains the **core Kernle library** — everything you need to run Kernle locally or build your own backend.
-
-```
-kernle/
-├── kernle/           # Core library
-│   ├── core.py       # Memory manager
-│   ├── cli/          # CLI commands
-
-│   ├── features/     # Anxiety, emotions, forgetting
-│   ├── storage/      # SQLite-first storage + stack interfaces
-│   └── mcp/          # MCP server for IDE integration
-└── tests/
-```
-
-The **hosted cloud API** (api.kernle.ai) is maintained separately.
-
-## Status
-
-- **Coverage Gate:** branch coverage must remain at or above `85%`
-- **Ratcheting Policy:** coverage floor only moves upward; any decrease requires explicit maintainer approval
-- **Docs:** [docs.kernle.ai](https://docs.kernle.ai) (Mintlify)
-
-See [ROADMAP.md](ROADMAP.md) for development plans.
+The earlier Python implementation (v0.15, "stratified memory for synthetic
+intelligences") remains in this repository's Git history. Its last state is
+commit `499af9f`.
 
 ## License
 
