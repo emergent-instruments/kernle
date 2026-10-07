@@ -1,0 +1,34 @@
+# Consolidation settings. Defaults live in config.toml under [dreamer] and
+# [sleep]. The process or rule that reads each value defines its use.
+
+dreamer:
+  provider:
+    values: [claude_cli, codex_cli, anthropic, openai_compatible, none]
+    default: chosen at init (spaces SEQ-001)
+    meaning: >-
+      claude_cli and codex_cli run the installed runtime CLI in headless mode
+      with the owner's existing plan. anthropic uses an API key from the
+      keychain. openai_compatible uses dreamer.endpoint, including local servers
+      such as Ollama or LM Studio. none disables judging and extraction.
+  model:
+    default: the provider's smallest current model that supports JSON output
+  endpoint:
+    default: null
+    meaning: Base URL for openai_compatible. A loopback host counts as local for the cross-provider check (spaces SEQ-002).
+
+sleep:
+  daily_token_budget: 1000000
+  judge_share: 0.4
+  session_debounce_minutes: 10
+  sleep_time: "03:30"
+  retention_time: "04:30"
+  volume_threshold_events: 500
+  replay_cap_per_run: 20
+  replay_min_salience: 0.35
+  need_similarity: 0.60
+  need_sessions_saturation: 5
+  reinforce_similarity: 0.85
+  related_cards_k: 8
+  native_dedupe_similarity: 0.90
+  extraction_max_attempts: 2
+  review_expiry_days: 30

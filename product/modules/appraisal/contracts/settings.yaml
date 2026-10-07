@@ -1,0 +1,41 @@
+# Appraisal settings. Defaults live in config.toml under [appraisal]. RULE-010
+# and RULE-011 own how each value is used.
+
+drives:
+  # What counts as a good outcome for this owner's agents (RULE-010 outcome).
+  correctness:   { weight: 1.0 }
+  user_approval: { weight: 0.8 }
+  safety:        { weight: 1.0, stakes_multiplier: 1.5 }
+  efficiency:    { weight: 0.3 }
+
+stakes_classes:
+  # RULE-010 stakes: the highest matching score among the episode's tool calls.
+  - score: 0.9
+    matches: destructive commands (recursive rm, git push --force, git reset --hard, git clean -f, DROP or TRUNCATE statements, kubectl delete, terraform destroy)
+  - score: 0.8
+    matches: deploy, release, publish, and database migration commands, and tools that send messages, email, or posts outside the machine
+  - score: 0.7
+    matches: writes to secrets, environment, CI workflow, infrastructure, or production configuration paths (.env*, *secret*, .github/workflows/, infra/, terraform/, k8s/)
+  - score: 0.3
+    matches: any other write, edit, or command execution
+  - score: 0.0
+    matches: read-only tools
+
+markers:
+  # Case-insensitive phrase lists. RULE-010 social, surprise, and directive.
+  frustration: ["!!!", all-caps message of at least 60 percent letters, profanity list]
+  correction: ["no,", "don't", "stop", "that's wrong", "not what i", "i told you", "why did you", "undo that", "revert"]
+  praise: ["perfect", "great", "exactly", "thanks, that works", "nice work", "looks good"]
+  directive: ["always", "never", "from now on", "remember", "don't ever", "in the future"]
+  self_correction: ["actually,", "i was wrong", "my mistake", "that didn't work", "let me try a different"]
+  environment_error: [timeout, ECONNRESET, ECONNREFUSED, "rate limit", "429", "502", "503", DNS, "no space left on device"]
+
+effort_baseline_default: 8
+recurrence_similarity: 0.80
+tag_window_events: 20
+session_idle_close_minutes: 60
+alarm_min_stakes: 0.7
+surprise_min: 0.6
+judge_min_salience: 0.5
+judge_max_per_run: 40
+judge_max_input_tokens: 6000

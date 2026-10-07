@@ -1,0 +1,42 @@
+# Capture settings. Defaults live in config.toml under [capture]. The process
+# that reads each value defines how it is used.
+
+hook_deadline_ms:
+  default: 500
+  read_by: modules/capture/sequences/sequences.md#seq-010-handle-a-runtime-hook-event
+
+max_event_chars:
+  default: 8000
+  meaning: Longer text keeps its first and last halves of this budget with an elision marker.
+  read_by: modules/capture/sequences/sequences.md#seq-011-ingest-session-records
+
+codex_idle_ingest_minutes:
+  default: 10
+  read_by: modules/capture/sequences/sequences.md#seq-011-ingest-session-records
+
+kernle_injection_marker:
+  value: "⟦kernle⟧"
+  meaning: Prefix of every context block Kernle injects, used by RULE-001 to drop Kernle-originated records.
+
+tool_categories:
+  # RULE-001: results of these tools are first-party confirmations of the agent's own writes.
+  local_write: [Edit, Write, MultiEdit, NotebookEdit, apply_patch]
+
+scrub_patterns:
+  # Each match is replaced with [REDACTED:<class>] before storage.
+  - class: private_key
+    matches: PEM private key blocks
+  - class: cloud_access_key
+    matches: AWS access key ids and secret keys, GCP service-account private keys
+  - class: vendor_token
+    matches: GitHub, Anthropic, OpenAI, Slack, and Stripe token formats
+  - class: jwt
+    matches: three base64url segments starting with eyJ
+  - class: auth_header
+    matches: Authorization and Proxy-Authorization header values
+  - class: credential_assignment
+    matches: assignments whose name contains KEY, SECRET, TOKEN, PASSWORD, PASSWD, or CREDENTIAL
+  - class: url_credentials
+    matches: user:password@ inside URLs
+  - class: high_entropy
+    matches: base64 or hex runs of 32 or more characters with high Shannon entropy

@@ -75,3 +75,6 @@ supabase/.env.*.local
 .kernle/
 
 local/
+*tmp/
+*local/
+*cache/

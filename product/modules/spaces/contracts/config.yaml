@@ -1,0 +1,32 @@
+# ~/.kernle/config.toml keys owned by the spaces module.
+# Other modules own their own settings files. Each key's meaning is defined by
+# the process that reads it.
+
+file:
+  path: ~/.kernle/config.toml
+  mode: '0600'
+  format: TOML
+
+keys:
+  embedding.available:
+    type: boolean
+    default: false
+    set_by: modules/spaces/sequences/sequences.md#seq-001-initialize-kernle-home
+    read_by: modules/recall/sequences/sequences.md#seq-055-maintain-the-search-index
+  embedding.model_id:
+    type: string
+    default: pinned model identifier compiled into the binary
+  runtimes.<runtime>.connected_at:
+    type: timestamp
+    runtime_values: [claude-code, codex, openclaw]
+    set_by: modules/spaces/sequences/sequences.md#seq-002-connect-a-runtime
+  runtimes.<runtime>.dreamer_allowed:
+    type: boolean
+    set_by: modules/spaces/sequences/sequences.md#seq-002-connect-a-runtime
+    read_by: modules/consolidation/sequences/sequences.md#seq-031-sleep-run
+
+credentials:
+  dreamer_api_key:
+    store: OS keychain service ai.kernle.dreamer
+    linux_fallback: ~/.kernle/credentials, mode 0600
+    never_in: config.toml

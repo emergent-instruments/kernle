@@ -1,0 +1,22 @@
+schema_version: 1
+status: illustrative_not_approved
+cases:
+  - id: ordinary_update_cannot_replace_origin
+    memory_type: episode
+    operation: update
+    actor:
+      requester: entity-a
+      capability: ordinary_write
+    existing:
+      source_type: experience
+      source_entity: entity-a
+      derived_from: [raw:raw-1]
+    incoming:
+      source_type: external
+      source_entity: kernle:forged
+      derived_from: [raw:raw-2]
+    expected:
+      decision: deny
+      reason: provenance_rewrite_forbidden
+      preserved_fields: [source_type, source_entity, derived_from]
+      audit_event: provenance_write_denied

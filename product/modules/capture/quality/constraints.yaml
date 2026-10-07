@@ -1,0 +1,22 @@
+constraints:
+  - id: QC-005
+    name: Kernle never breaks the agent's work
+    applies_to:
+      - CAP-002
+      - CAP-005
+      - SEQ-010
+    measure: Agent actions blocked or altered by Kernle, and handler outcomes after errors or deadline expiry.
+    target: >-
+      Two returns can block a tool call: the Kernle-home write guard and a
+      recall speed bump (recall SEQ-052). Nothing else Kernle does blocks,
+      delays beyond hook_deadline_ms, or alters an agent action. Every other
+      error returns an empty response with exit status 0.
+  - id: QC-006
+    name: Session activity is not lost to transient failures
+    applies_to:
+      - SEQ-011
+    measure: Session records that never become events, given the runtime still holds the record.
+    target: >-
+      Any complete record in a connected runtime's session records becomes an
+      event within one catch-up cycle after the daemon is running, regardless
+      of missed hooks or earlier ingestion errors.

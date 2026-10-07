@@ -1,0 +1,48 @@
+# Agent tools served by `kernle mcp` (stdio, stateless, per MCP 2026-07-28) and
+# registered with the same names and shapes by the OpenClaw plugin. The
+# requester's space comes from the server process's working directory (MCP)
+# or the session's workspace (OpenClaw), through spaces SEQ-003.
+
+server:
+  name: kernle
+  transport: stdio
+  state: stateless; every call carries what it needs
+
+tools:
+  recall:
+    process: modules/recall/sequences/sequences.md#seq-053-deliberate-recall
+    input:
+      query: { type: string, required: true }
+      limit: { type: integer, default: 8, max: 20 }
+      include_dormant: { type: boolean, default: false }
+    output: list of { name, kind, trust, date, description, score }
+  read:
+    process: modules/recall/sequences/sequences.md#seq-053-deliberate-recall
+    input:
+      card: { type: string, required: true, meaning: card name or id }
+    output: "{ name, kind, trust, appraisal, body, sources: list of { date, summary } } or not_found"
+  open_loops:
+    process: modules/recall/sequences/sequences.md#seq-053-deliberate-recall
+    input: {}
+    output: list of { name, description, date }
+  remember:
+    process: modules/capture/sequences/sequences.md#seq-013-remember-explicitly
+    input:
+      text: { type: string, required: true, max_chars: 2000 }
+      kind: { type: string, enum: [fact, preference, lesson, guardrail, open-loop] }
+    output: "{ status: captured, note: becomes memory after this session's sleep }"
+  feedback:
+    process: modules/recall/sequences/sequences.md#seq-054-feedback-and-recall-outcomes
+    input:
+      card: { type: string, required: true }
+      verdict: { type: string, enum: [helped, wrong, outdated], required: true }
+      note: { type: string, max_chars: 500 }
+    output: "{ status: recorded } or not_found"
+  forget:
+    process: modules/retention/sequences/sequences.md#seq-061-forget-on-request
+    input:
+      card: { type: string, required: true }
+    output: "{ status: forgotten } or { status: held_for_owner } or not_found"
+
+errors:
+  kernle_unavailable: Kernle is not initialized or its daemon is not running; nothing was recorded.

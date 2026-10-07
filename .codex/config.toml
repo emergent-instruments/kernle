@@ -1,0 +1,7 @@
+[mcp_servers.kernle]
+args = [
+    "mcp",
+    "--stack",
+    "claude-code",
+]
+command = "kernle"

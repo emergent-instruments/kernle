@@ -1,0 +1,12 @@
+constraints:
+  - id: QC-007
+    name: Bounded Dreamer spend
+    applies_to:
+      - CAP-004
+      - SEQ-021
+      - SEQ-031
+    measure: Provider-reported tokens across all spaces per local calendar day.
+    target: >-
+      Daily Dreamer tokens do not exceed daily_token_budget by more than one
+      in-flight request. When the budget is reached, judging and extraction
+      stop until the next day and kernle status shows it.

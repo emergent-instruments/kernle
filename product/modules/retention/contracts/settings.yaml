@@ -1,0 +1,14 @@
+# Retention settings. Defaults live in config.toml under [retention]. The
+# process or rule that reads each value defines its use.
+
+event_retention_days: 30                     # capture SEQ-011 sets event.expires_at
+episode_retention_days: 90                   # appraisal SEQ-020 sets episode.expires_at
+card_idle_days: 180                          # RULE-040
+card_idle_days_preference_guardrail: 365     # RULE-040
+superseded_retention_days: 90                # RULE-040
+dormant_below: 0.5                           # RULE-040
+card_op_retention_days: 90                   # SEQ-060
+recall_log_retention_days: 90                # recall SEQ-050 to SEQ-054 set recall_log.expires_at
+changelog_retention_days: 90                 # SEQ-060
+space_idle_days: 365                         # SEQ-062
+space_warning_days: 30                       # SEQ-062 and spaces FLOW-002

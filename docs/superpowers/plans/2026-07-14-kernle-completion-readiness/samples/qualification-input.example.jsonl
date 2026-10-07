@@ -1,0 +1,4 @@
+{"session_id":"session-1","turn":1,"role":"user","content":"We decided not to send customer transcripts to external models."}
+{"session_id":"session-1","turn":2,"role":"assistant","content":"Understood. I will treat that as a privacy constraint."}
+{"session_id":"session-2","turn":1,"role":"user","content":"Summarize our data-handling constraints without exposing transcript contents."}
+

@@ -1,0 +1,30 @@
+schema_version: 1
+status: illustrative_not_approved
+cases:
+  - id: self_reads_private_note
+    owner: entity-a
+    requester: entity-a
+    subjects: [entity-a]
+    contexts: [session-a]
+    roles: []
+    access_grants: []
+    consent_grants: []
+    operation: note.get
+    expected:
+      decision: allow
+      reason: self_access
+      audit_event: access_allowed
+  - id: stranger_searches_private_note
+    owner: entity-a
+    requester: entity-b
+    subjects: [entity-a]
+    contexts: [session-b]
+    roles: []
+    access_grants: []
+    consent_grants: []
+    operation: memory.search
+    expected:
+      decision: deny
+      reason: no_grant
+      audit_event: access_denied
+

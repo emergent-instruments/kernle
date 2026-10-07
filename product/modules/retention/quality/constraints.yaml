@@ -1,0 +1,28 @@
+constraints:
+  - id: QC-008
+    name: Deletion leaves nothing in Kernle's files
+    applies_to:
+      - CAP-007
+      - SEQ-060
+      - SEQ-061
+      - SEQ-062
+    measure: >-
+      Presence of a deleted card's text, or a deleted episode's or event's
+      content, in any file under ~/.kernle or any Kernle-projected skill folder
+      after the deleting operation returns.
+    target: >-
+      None. Databases use secure_delete, the full-text index is optimized, the
+      WAL is truncated, and files are unlinked. Filesystem-level recovery of
+      unlinked blocks and the runtimes' own transcripts are outside Kernle's
+      files.
+  - id: QC-009
+    name: Retention happens on schedule
+    applies_to:
+      - CAP-007
+      - SEQ-060
+      - SEQ-062
+    measure: Delay between a record becoming eligible for deletion and its deletion.
+    target: >-
+      At most 24 hours while the daemon runs. Immediately after the next daemon
+      start otherwise, because the scheduler runs the daily retention run at
+      start when one was missed.
