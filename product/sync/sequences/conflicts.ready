@@ -1,0 +1,38 @@
+ready: 1
+kind: sequence
+id: sync.seq.conflicts
+display_id: SEQ-SYNC-CONFLICTS
+module: sync
+title: Resolve sync conflicts
+summary: Shows held conflicts and applies the owner's choice of version through the memory write path.
+trigger:
+  trigger_kind: user
+  text: The owner runs the sync conflicts command
+operation: sync.op.conflicts
+participants:
+  - actor.owner
+  - sys.cli
+  - sys.daemon
+items:
+  - msg:
+      from: actor.owner
+      to: sys.cli
+      text: List conflicts
+      owner: crates/kernle-cli/src/commands/sync.rs::conflicts
+      ops:
+        - { op: read, entity: sync.data.sync-conflict, where: not resolved }
+  - loop:
+      while: conflicts remain and the owner chooses
+      items:
+        - msg:
+            from: actor.owner
+            to: sys.cli
+            text: Keep this machine's version, keep the cloud's, or keep both as separate memories
+            guards: [standard input and output are an interactive terminal]
+        - msg:
+            from: sys.cli
+            to: sys.daemon
+            text: Apply the chosen version as an owner edit and queue it for push
+            invokes: [memory.seq.update]
+            ops:
+              - { op: update, entity: sync.data.sync-conflict, by: [id], set: [resolution owner_chose, resolved_at now] }

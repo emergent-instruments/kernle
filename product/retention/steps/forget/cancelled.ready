@@ -1,0 +1,10 @@
+ready: 1
+kind: step
+id: retention.forget.cancelled
+journey: retention.forget
+title: Nothing is deleted
+step_kind: outcome
+surface: retention.surface.purge
+copy:
+  body:
+  - Nothing was deleted.

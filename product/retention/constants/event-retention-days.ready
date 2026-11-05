@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: retention.const.event-retention-days
+module: retention
+name: EVENT_RETENTION_DAYS
+value: "30"
+unit: days
+description: How long a transcript event is kept after capture.

@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: sync.account.sync
+journey: sync.account
+title: Sync
+step_kind: screen
+surface: sync.surface.sync
+copy:
+  body: ["Pushed {pushed}, pulled {pulled}, {conflicts} conflicts to review."]
+sequences: [sync.seq.sync]
+next:
+  - { to: sync.account.conflicts, when: conflicts are held, next_kind: result }
+  - { to: sync.account.done, when: no conflicts are held, next_kind: result }

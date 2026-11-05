@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: stacks.const.activity-touch
+module: stacks
+name: STACK_ACTIVITY_TOUCH
+value: "60"
+unit: minutes
+description: How often a stack's last activity time is refreshed at most.

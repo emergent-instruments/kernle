@@ -1,0 +1,55 @@
+ready: 1
+kind: entity
+id: memory.data.memory-change
+module: memory
+entity_kind: table
+table: memory_change
+name: memory_change
+summary: One content-free record that a memory changed.
+columns:
+  - name: id
+    type: INTEGER
+    keys: [PK]
+    rule: Ascending; the search index and sync each keep a cursor over it
+  - name: memory_id
+    type: TEXT
+    nullable: false
+    rule: No foreign key, because the row outlives a purged memory
+  - name: kind
+    type: TEXT
+    nullable: false
+  - name: change
+    type: TEXT
+    nullable: false
+    values: [added, updated, revised, superseded, reinforced, protected, unprotected, dormant, reactivated, forgotten, recovered, purged]
+  - name: actor
+    type: TEXT
+    nullable: false
+    values: [agent, owner, processing, sleep, sync, import, retention]
+  - name: run_id
+    type: TEXT
+    nullable: true
+  - name: reason
+    type: TEXT
+    nullable: true
+    rule: Why the change happened; never contains memory content
+  - name: created_at
+    type: TEXT
+    nullable: false
+    indexes: ["I1·1"]
+indexes:
+  - id: I1
+    name: memory_change_created_idx
+    columns: [created_at ASC]
+    purpose: Shows what changed in a period
+access:
+  writers:
+    - memory appends rows for its own writes
+    - retention appends rows for dormancy, forgetting, recovery, and purge
+relationships:
+  - to: memory.data.memory
+    on: [{from: memory_id, to: id}]
+    from_card: 0..many
+    to_card: 0..1
+    link: logical
+    label: records changes to

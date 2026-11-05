@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.index-poll-seconds
+module: recall
+name: INDEX_POLL_SECONDS
+value: "5"
+unit: seconds
+description: How often the daemon applies new memory changes to the search index.

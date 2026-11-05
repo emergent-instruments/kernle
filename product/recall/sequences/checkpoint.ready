@@ -1,0 +1,87 @@
+ready: 1
+kind: sequence
+id: recall.seq.checkpoint
+display_id: SEQ-RECALL-CHECKPOINT
+module: recall
+title: Save, load or clear a checkpoint
+summary: Saves where the agent left off and keeps only the latest few, returns the latest one, or clears them all.
+trigger:
+  trigger_kind: call
+  text: The agent saves or loads a checkpoint, or a hook saves one before compaction or at session end
+operation: recall.op.checkpoint
+participants:
+  - id: caller
+    is: [actor.agent, sys.cli, sys.openclaw-plugin]
+    label: Agent, hook handler or OpenClaw plugin
+  - sys.daemon
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - alt:
+      branches:
+        - when: saving
+          items:
+            - msg:
+                from: caller
+                to: sys.daemon
+                text: Save a checkpoint
+                call: Kernle.checkpoint(task, pending, context)
+                inputs:
+                  - { name: task, source: "The caller, or the last user message for a hook", source_kind: parameter }
+                  - { name: reason, source: "Manual, before compaction, at session end, or emergency", source_kind: parameter }
+            - alt:
+                branches:
+                  - when: the task is empty
+                    items:
+                      - msg:
+                          from: sys.daemon
+                          to: caller
+                          text: Refuse the checkpoint
+                          reply: true
+                          results:
+                            - { code: empty_task }
+                  - when: the task is given
+                    items:
+                      - transaction:
+                          items:
+                            - msg:
+                                from: sys.daemon
+                                to: db
+                                text: Store the checkpoint and remove all but the latest few
+                                constants: [recall.const.checkpoint-keep]
+                                ops:
+                                  - { op: insert, entity: recall.data.checkpoint, set: [id new, current_task, pending, context, reason, session_id, runtime, created_at now] }
+                                  - { op: delete, entity: recall.data.checkpoint, index: I1, where: beyond the newest kept rows }
+                      - msg:
+                          from: sys.daemon
+                          to: sys.daemon
+                          text: Capture the task and next steps as a raw entry for sleep
+                          invokes: [capture.op.raw]
+                      - msg: { from: sys.daemon, to: caller, text: Return the checkpoint id, reply: true }
+        - when: loading
+          items:
+            - msg:
+                from: caller
+                to: db
+                text: Read the latest checkpoint
+                ops:
+                  - { op: read, entity: recall.data.checkpoint, index: I1, limit: "1" }
+            - msg:
+                from: db
+                to: caller
+                text: Return the checkpoint, or nothing
+                reply: true
+                rules: [recall.rule.render]
+        - when: clearing
+          items:
+            - msg:
+                from: caller
+                to: sys.daemon
+                text: Clear all checkpoints
+                ops:
+                  - { op: delete, entity: recall.data.checkpoint }
+rationale: >-
+  Checkpoints are kept short and few because their job is to resume work, not
+  to remember it; what lasts is learned by sleep from the raw entry each save
+  captures.

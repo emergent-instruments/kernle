@@ -1,0 +1,51 @@
+ready: 1
+kind: sequence
+id: capture.seq.seed
+display_id: SEQ-CAPTURE-SEED
+module: capture
+title: Seed from a repository or documents
+summary: Reads allowed files from inside the configured seed root into third-party raw captures, skipping secrets, hidden files, and the Kernle home.
+trigger:
+  trigger_kind: call
+  text: An agent or the owner seeds memory from a repository or a folder of documents
+operation: capture.op.seed
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: capture
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Seed from this folder
+      call: Kernle.seed_repo(path) · seed_docs(path, extensions)
+      owner: crates/kernle-core/src/capture/seed.rs::seed
+      inputs:
+        - {name: seed_root, source: config.toml capture.seed_root, source_kind: config}
+        - {name: path, source: The folder to read, source_kind: parameter}
+      constants: [capture.const.seed-limits]
+  - msg: {from: core, to: core, text: Resolve and authorize the stack for this caller, invokes: [stacks.seq.resolve]}
+  - alt:
+      branches:
+        - when: no seed root is configured
+          items:
+            - msg: {from: core, to: caller, text: Refuse and name the setting to configure, reply: true, results: [{code: no_seed_root}]}
+        - when: the path, after following links, is outside the seed root or inside the Kernle home
+          items:
+            - msg: {from: core, to: caller, text: Refuse the path, reply: true, results: [{code: outside_root}]}
+        - when: the path is inside the seed root
+          items:
+            - loop:
+                while: each allowed file within the limits
+                items:
+                  - msg: {from: core, to: core, text: "Skip hidden, secret, binary, and oversized files"}
+                  - msg: {from: core, to: core, text: Capture the file's text as a third-party seed capture, invokes: [capture.seq.raw], rules: [capture.rule.scrub, trust.rule.source-tier]}
+            - msg: {from: core, to: caller, text: "Return files read, captures stored, and files skipped with reasons", reply: true}
+rationale: >-
+  The seed root comes only from configuration because an agent that chooses its own root can read
+  any file the account can, including credentials, and turn it into memory that syncs off the
+  machine.

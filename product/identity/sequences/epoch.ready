@@ -1,0 +1,102 @@
+ready: 1
+kind: sequence
+id: identity.seq.epoch
+display_id: SEQ-IDENTITY-EPOCH
+module: identity
+title: Open, close, and reflect on epochs
+summary: Opens a new epoch, closing the open one, closes the current epoch with a summary, and builds an epoch-closing scaffold.
+trigger:
+  trigger_kind: call
+  text: The agent or owner opens, closes, lists, or reflects on an epoch
+operation: identity.op.epoch
+participants:
+  - actor.agent
+  - id: core
+    is:
+      - sys.daemon
+      - sys.python
+    label: Kernle core
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: actor.agent
+      to: core
+      text: Epoch request
+      invokes:
+        - stacks.seq.resolve
+  - alt:
+      branches:
+        - when: opening an epoch
+          items:
+            - transaction:
+                label: Close any open epoch and open the next
+                items:
+                  - msg:
+                      from: core
+                      to: db
+                      text: Close the open epoch and open the new one with the next number
+                      ops:
+                        - op: update
+                          entity: identity.data.epoch
+                          index: P1
+                          set:
+                            - ended_at now
+                        - op: insert
+                          entity: identity.data.epoch
+                          index: P1
+                          set:
+                            - epoch_number next
+                            - name
+                            - trigger_type
+                            - trigger_description
+                            - started_at now
+        - when: closing the current epoch
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Close it with the summary and its key memories
+                ops:
+                  - op: update
+                    entity: identity.data.epoch
+                    index: P1
+                    set:
+                      - ended_at now
+                      - summary
+                      - key_memory_ids
+                results:
+                  - code: no_open_epoch
+                    when: no epoch is open
+        - when: reflecting on an epoch's close
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Read the epoch's episodes with their appraisal, its narrative, and its beliefs
+                ops:
+                  - op: read
+                    entity: memory.data.memory
+                    by:
+                      - epoch_id
+                  - op: read
+                    entity: appraisal.data.appraisal
+                    by:
+                      - episode
+                  - op: read
+                    entity: identity.data.self-narrative
+                    index: P1
+            - note:
+                over:
+                  - core
+                text: Build the closing scaffold, its steps, successes and failures, high-arousal episodes, and low-salience archive candidates; it records nothing
+  - msg:
+      from: core
+      to: actor.agent
+      text: The result
+      reply: true
+rationale: >-
+  The closing scaffold suggests archiving low-salience memories but never archives them itself;
+  retention decides forgetting from use, and the agent may protect or forget explicitly.

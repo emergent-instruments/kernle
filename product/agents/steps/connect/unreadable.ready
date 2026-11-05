@@ -1,0 +1,12 @@
+ready: 1
+kind: step
+id: agents.connect.unreadable
+journey: agents.connect
+title: Configuration cannot be read
+step_kind: error
+surface: agents.surface.setup
+copy:
+  body: ["Kernle could not read {file}: {error}. Fix the file and run setup again. Nothing was changed."]
+rules: [agents.rule.settings-merge]
+next:
+  - { to: agents.connect.run, label: Run setup again, next_kind: action }

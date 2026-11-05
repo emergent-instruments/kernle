@@ -1,0 +1,14 @@
+ready: 1
+kind: operation
+id: stacks.op.daemon
+display_id: kernle.daemon
+module: stacks
+name: kernle daemon start | stop | status
+summary: Starts, stops, or reports the per-user daemon through the OS service manager.
+params:
+  - { name: action, source: The subcommand, source_kind: parameter, type: string }
+returns: Whether the daemon runs, its uptime, and stacks marked unavailable
+sequence: stacks.seq.daemon-start
+owner: crates/kernle-cli/src/commands/daemon.rs::run
+tags:
+  - { tag: cli, text: "kernle daemon" }

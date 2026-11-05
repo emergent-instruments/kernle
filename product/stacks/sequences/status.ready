@@ -1,0 +1,66 @@
+ready: 1
+kind: sequence
+id: stacks.seq.status
+display_id: SEQ-STACKS-STATUS
+module: stacks
+title: Report memory status
+summary: Shows the daemon, connected runtimes, model provider and today's spend, and each stack's size,
+  activity, and pending work.
+trigger:
+  trigger_kind: call
+  text: The owner runs the status command, or an agent calls the status tool
+operation: stacks.op.status
+participants:
+- id: caller
+  label: Owner command or agent tool
+  is:
+  - sys.cli
+  - sys.python
+- sys.daemon
+- sys.home
+items:
+- msg:
+    from: caller
+    to: sys.daemon
+    text: Ask for status
+    owner: crates/kernle-core/src/stacks/status.rs::status
+    invokes:
+    - stacks.seq.resolve
+- alt:
+    branches:
+    - when: the daemon answers
+      items:
+      - msg:
+          from: sys.daemon
+          to: sys.home
+          text: Read each readable stack's counts, last activity, last sleep, pending suggestions, sync
+            state, and unavailable stacks
+          ops:
+          - op: read
+            entity: stacks.data.stack
+            by:
+            - stack_id
+          - op: read
+            entity: consolidation.data.run
+            by:
+            - latest run per kind
+          - op: read
+            entity: consolidation.data.suggestion
+            by:
+            - status pending
+            note: count only
+    - when: the daemon does not answer
+      items:
+      - msg:
+          from: caller
+          to: sys.home
+          text: Read the same counts from read-only databases and say the daemon is stopped
+- msg:
+    from: sys.daemon
+    to: caller
+    text: Return status
+    reply: true
+    results:
+    - when: the caller is an agent, only the request's own stack is described
+    - when: the caller is the owner, every stack is listed, with stacks scheduled for deletion and their
+        dates

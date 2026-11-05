@@ -1,0 +1,41 @@
+ready: 1
+kind: operation
+id: recall.op.load
+display_id: kernle.load
+module: recall
+name: Kernle.load(budget, truncate, context, query)
+summary: >-
+  Returns the stack's working memory, chosen by kind, strength, salience and
+  relevance within a token budget and rendered as labeled notes. Read-only for
+  memory content; inclusion is logged but is not use.
+params:
+  - name: budget
+    type: int
+    source: Caller, default DEFAULT_TOKEN_BUDGET, clamped to the minimum and maximum
+    source_kind: parameter
+  - name: truncate
+    type: bool
+    source: Caller, default true; shortens long memories at a word boundary to fit more
+    source_kind: parameter
+  - name: context
+    type: str | None
+    source: Caller; a description of the work at hand that narrows ranking
+    source_kind: parameter
+  - name: query
+    type: str | None
+    source: Caller; a search phrase that narrows ranking
+    source_kind: parameter
+returns: >-
+  A working-memory object with the rendered text, the selected memories by kind,
+  the latest checkpoint, boot settings, and budget metadata (used, total, left
+  out count).
+errors:
+  - code: stack_unavailable
+    when: The stack cannot be resolved or its database cannot be opened
+    copy: Kernle could not open this agent's memory.
+sequence: recall.seq.load
+owner: crates/kernle-core/src/recall/load.rs::load
+tags:
+  - { tag: cli, text: "kernle load" }
+  - { tag: mcp, text: memory_load }
+  - { tag: python, text: "Kernle.load, Kernle.format_memory" }

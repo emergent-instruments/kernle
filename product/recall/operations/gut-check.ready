@@ -1,0 +1,23 @@
+ready: 1
+kind: operation
+id: recall.op.gut-check
+display_id: kernle.recall.gut_check
+module: recall
+name: GutCheck(stack, session, tool_name, tool_input)
+summary: Returns nothing, a warning to add beside a tool call, or a one-time pause with the guardrail as the reason.
+params:
+  - name: tool_name
+    type: str
+    source: The runtime's pre-tool hook payload
+    source_kind: payload
+  - name: tool_input
+    type: object
+    source: The runtime's pre-tool hook payload
+    source_kind: payload
+  - name: session_id
+    type: str
+    source: The runtime's hook payload
+    source_kind: payload
+returns: "none, advise with text, or speed bump with a reason"
+sequence: recall.seq.gut-check
+owner: crates/kernle-core/src/recall/gut_check.rs::gut_check

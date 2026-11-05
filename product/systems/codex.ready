@@ -1,0 +1,9 @@
+ready: 1
+kind: system
+id: sys.codex
+name: Codex CLI
+role: The owner's coding agent runtime, which calls Kernle through MCP tools and writes its own session files
+system_kind: external
+connections:
+  - to: sys.cli
+    label: Runs the MCP server

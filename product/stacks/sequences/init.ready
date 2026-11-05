@@ -1,0 +1,110 @@
+ready: 1
+kind: sequence
+id: stacks.seq.init
+display_id: SEQ-STACKS-INIT
+module: stacks
+title: Initialize the Kernle home
+summary: Creates whatever is missing in the home, installs the daemon, downloads the embedding model, and records where memory content may be sent.
+trigger:
+  trigger_kind: user
+  text: The owner runs the init command
+operation: stacks.op.init
+participants:
+  - actor.owner
+  - sys.cli
+  - sys.home
+  - id: services
+    label: OS service manager
+  - sys.embedder-source
+  - id: keychain
+    label: OS keychain
+  - sys.daemon
+items:
+  - msg:
+      from: actor.owner
+      to: sys.cli
+      text: Initialize Kernle
+      owner: crates/kernle-cli/src/commands/init.rs::run
+  - alt:
+      branches:
+        - when: the home exists and belongs to another OS account
+          items:
+            - msg:
+                from: sys.cli
+                to: actor.owner
+                text: Refuse and change nothing
+                reply: true
+                results:
+                  - { code: not_owner, copy: "This Kernle home belongs to another account. Nothing was changed." }
+        - when: the home is missing or belongs to the caller
+          items:
+            - msg:
+                from: sys.cli
+                to: sys.home
+                text: Create the missing folders, configuration, and registry, keeping every existing value
+                constants: [stacks.const.file-modes]
+                ops:
+                  - { op: write, path: "~/.kernle/config.toml", note: defaults only for missing keys }
+                  - { op: insert, entity: stacks.data.stack, index: U1, conflict: do nothing, set: [kind user, root_key user, display_name Personal] }
+            - msg:
+                from: sys.cli
+                to: services
+                text: Install and load the daemon as a user service
+            - opt:
+                when: the service cannot be installed
+                items:
+                  - msg:
+                      from: sys.cli
+                      to: actor.owner
+                      text: Show how to start the daemon by hand and continue
+                      reply: true
+            - msg:
+                from: sys.cli
+                to: sys.embedder-source
+                text: Download the pinned embedding model
+                inputs:
+                  - { name: model address and checksum, source: Constants compiled into the binary, source_kind: constant }
+            - alt:
+                branches:
+                  - when: the checksum matches
+                    items:
+                      - note:
+                          over: [sys.home]
+                          text: Keep the model and turn semantic search on
+                          ops:
+                            - { op: write, path: "~/.kernle/models/", note: embedding model files }
+                  - when: the download fails or the checksum differs
+                    items:
+                      - msg:
+                          from: sys.cli
+                          to: actor.owner
+                          text: Discard the file and explain that search is keyword-only until init runs again
+                          reply: true
+            - msg:
+                from: actor.owner
+                to: sys.cli
+                text: Choose the model provider and confirm what it receives
+                rules: [stacks.rule.model-destination]
+            - opt:
+                when: the provider needs an API key
+                items:
+                  - msg:
+                      from: sys.cli
+                      to: keychain
+                      text: Store the key in the keychain, or in a private credentials file on Linux without a keychain
+                      rules: [stacks.rule.credential-store]
+            - msg:
+                from: sys.cli
+                to: sys.daemon
+                text: Start the daemon
+                invokes: [stacks.seq.daemon-start]
+            - msg:
+                from: sys.cli
+                to: actor.owner
+                text: Show setup complete and the next step
+                reply: true
+rationale: >-
+  Init is idempotent and never overwrites existing values, because owners rerun
+  it to recover from a failed download or service install and must not lose
+  their choices. The model checksum is pinned in the binary so a compromised
+  download cannot run inside the daemon on every recall.

@@ -1,0 +1,30 @@
+ready: 1
+kind: sequence
+id: retention.seq.purge
+display_id: SEQ-RETENTION-PURGE
+module: retention
+title: Purge a memory
+summary: Decides what a purge covers and who may make it, then deletes every copy of that content and queues the cloud deletion.
+trigger:
+  trigger_kind: call
+  text: The owner or agent purges a memory, or the sweep purges a memory past its recovery window
+operation: retention.op.purge
+participants:
+  - id: caller
+    is: [actor.owner, actor.agent, retention.seq.sweep]
+    label: Owner, agent or retention sweep
+  - sys.daemon
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items: []
+parts:
+  - retention.seq.purge.a
+  - retention.seq.purge.b
+rationale: >-
+  The owner sees the cascade before anything is deleted, because a purge is
+  irreversible and the evidence behind a memory may be what the owner actually
+  wants gone. An agent's purge is the minimum that honors the request: one
+  memory, no cascade, and never something the owner wrote or protected, since
+  instructions injected into an agent could otherwise erase the memories that
+  guard against them.

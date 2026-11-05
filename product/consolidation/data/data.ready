@@ -1,0 +1,18 @@
+ready: 1
+kind: entity_group
+id: consolidation.data
+module: consolidation
+title: Consolidation data
+summary: Suggestions waiting for review, processing marks, and the record of every maintenance run.
+entities:
+  - consolidation.data.suggestion
+  - consolidation.data.transition-mark
+  - consolidation.data.run
+rationale: >-
+  Marks are kept per transition, not as one processed flag per source, so promoting an episode
+  to a belief never hides it from the transitions that turn episodes into goals, relationships,
+  drives, guardrails, or playbooks.
+
+
+  Daily model usage is the sum of run rows, so the budget needs no separate counter that could
+  drift from the runs that actually spent the tokens.

@@ -1,0 +1,120 @@
+ready: 1
+kind: sequence
+id: agents.seq.hook
+display_id: SEQ-AGENTS-HOOK
+module: agents
+title: Handle a runtime hook
+summary: Answers each Claude Code or OpenClaw hook within the deadline by handing the work to its owning module, and fails open on every error.
+trigger:
+  trigger_kind: event
+  text: Claude Code runs the hook command, or OpenClaw fires a plugin hook
+operation: agents.op.hook
+participants:
+  - id: runtime
+    label: Claude Code or the OpenClaw plugin
+    is: [sys.claude-code, sys.openclaw-plugin]
+  - sys.cli
+  - sys.daemon
+items:
+  - msg:
+      from: runtime
+      to: sys.cli
+      text: Deliver the hook event
+      owner: crates/kernle-cli/src/hook.rs::handle
+      inputs:
+        - { name: event, source: The hook name, source_kind: payload }
+        - { name: session and working directory, source: The hook payload, source_kind: payload }
+        - { name: transcript path or turn record, source: The hook payload, source_kind: payload }
+        - { name: prompt or tool call, source: The hook payload, source_kind: payload }
+      constants: [agents.const.hook-deadline]
+      rules: [agents.rule.fail-open]
+  - msg:
+      from: sys.cli
+      to: sys.daemon
+      text: Resolve the stack for this session
+      invokes: [stacks.seq.resolve]
+  - alt:
+      branches:
+        - when: the caller is refused, Kernle is not initialized, or the event needs a write and the daemon is unreachable
+          items:
+            - msg: { from: sys.cli, to: runtime, text: Return an empty response, reply: true }
+        - when: a session starts
+          items:
+            - msg:
+                from: sys.cli
+                to: sys.daemon
+                text: Build the session's opening memory
+                invokes: [recall.seq.load]
+            - msg: { from: sys.cli, to: runtime, text: Add the memory as session context, reply: true }
+        - when: the person submits a prompt
+          items:
+            - msg:
+                from: sys.cli
+                to: sys.daemon
+                text: Find memories related to the prompt
+                invokes: [recall.seq.cue]
+            - msg: { from: sys.cli, to: runtime, text: "Add the excerpts beside the prompt, or nothing", reply: true }
+        - when: the agent is about to call a tool
+          items:
+            - alt:
+                branches:
+                  - when: the call would write, move, or delete inside the Kernle home
+                    items:
+                      - msg:
+                          from: sys.cli
+                          to: runtime
+                          text: Deny the call with a pointer to the memory tools
+                          reply: true
+                          rules: [agents.rule.write-guard]
+                  - when: any other tool call
+                    items:
+                      - opt:
+                          when: native memory capture is on and the call writes the project's own memory file
+                          items:
+                            - msg:
+                                from: sys.cli
+                                to: sys.daemon
+                                text: Save a copy of the written text as a raw capture
+                                rules: [agents.rule.native-capture]
+                                invokes: [capture.seq.raw]
+                      - msg:
+                          from: sys.cli
+                          to: sys.daemon
+                          text: Check the call against guardrails
+                          invokes: [recall.seq.gut-check]
+                      - msg: { from: sys.cli, to: runtime, text: "Let it through, add the guardrail as context, or pause it once with the reason", reply: true }
+        - when: a turn ends, the context is about to be compacted, or the session ends
+          items:
+            - msg:
+                from: sys.cli
+                to: sys.daemon
+                text: Queue ingestion of the transcript or the forwarded turn
+                invokes: [capture.seq.ingest]
+                idempotency: Repeated requests for one source coalesce
+            - opt:
+                when: the context is about to be compacted, the session ends, or an OpenClaw turn ends
+                items:
+                  - msg:
+                      from: sys.cli
+                      to: sys.daemon
+                      text: Save an automatic checkpoint from the latest turns
+                      invokes: [recall.seq.checkpoint]
+            - msg: { from: sys.cli, to: runtime, text: Return an empty response, reply: true }
+  - note:
+      over: [sys.cli]
+      text: When the daemon does not answer, session memory, cues, and guardrail advice come from read-only databases, nothing is logged, and no call is paused
+  - break:
+      when: the deadline passes or any step fails
+      items:
+        - msg:
+            from: sys.cli
+            to: runtime
+            text: Return an empty response and append the failure to the hook log
+            reply: true
+            ops:
+              - { op: append, path: "~/.kernle/logs/hook.log", note: "event name, error class, and duration; never prompt or tool text" }
+rationale: >-
+  Turn-end work only queues ingestion, because Claude Code gives all session-end
+  hooks a short shared budget and reading a transcript inside the turn would
+  add visible latency. The hook command starts without discovering plugins or
+  touching the network, so its own start-up fits inside the deadline.

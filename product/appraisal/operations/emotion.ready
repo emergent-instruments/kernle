@@ -1,0 +1,40 @@
+ready: 1
+kind: operation
+id: appraisal.op.emotion
+display_id: kernle.get_emotional_summary
+module: appraisal
+name: Kernle.get_emotional_summary(days) · search_by_emotion(…) · get_mood_relevant_memories(…) · add_emotional_association(…)
+summary: Summarizes the agent's emotional pattern over a period, finds memories by emotion or mood, and sets an episode's emotion explicitly.
+params:
+  - name: days
+    type: integer
+    source: The period to summarize; defaults to 7
+    source_kind: parameter
+  - name: valence_range
+    type: pair of numbers
+    source: For search, the valence to match
+    source_kind: parameter
+  - name: arousal_range
+    type: pair of numbers
+    source: For search, the arousal to match
+    source_kind: parameter
+  - name: current_valence
+    type: number
+    source: For mood-relevant recall, the agent's current mood
+    source_kind: parameter
+  - name: episode_id
+    type: string
+    source: For an explicit association, the episode to tag
+    source_kind: parameter
+returns: >-
+  For a summary, average valence and arousal, a day-by-day trajectory, and the most common labels
+  and emotion tags. For search and mood recall, ranked memories. For an association, the updated
+  appraisal.
+errors:
+  - code: not_found
+    when: the episode does not exist
+auth: The caller's account owns the Kernle home
+sequence: appraisal.seq.emotion
+owner: crates/kernle-core/src/appraisal/emotion.rs::summary
+tags:
+  - {tag: cli, text: "kernle emotion summary, kernle emotion search, kernle mood, kernle emotion tag"}

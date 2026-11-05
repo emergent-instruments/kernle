@@ -1,0 +1,99 @@
+ready: 1
+kind: sequence
+id: retention.seq.stack-delete
+display_id: SEQ-RETENTION-STACK-DELETE
+module: retention
+title: Delete a whole stack
+summary: Removes a stack's directory and registry entry after the owner confirms, and queues the cloud
+  copy's deletion when the owner asks.
+trigger:
+  trigger_kind: call
+  text: The owner deletes a stack
+participants:
+- actor.owner
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+- id: registry
+  is:
+  - sys.home
+  label: Registry database
+- id: dir
+  is:
+  - sys.home
+  label: Stack directory
+items:
+- msg:
+    from: actor.owner
+    to: sys.daemon
+    text: Delete this stack
+    inputs:
+    - name: stack_id
+      source: The owner's command
+      source_kind: parameter
+- alt:
+    branches:
+    - when: the request does not come from an interactive terminal
+      items:
+      - msg:
+          from: sys.daemon
+          to: actor.owner
+          text: Refuse; deleting a stack needs a terminal
+          reply: true
+          results:
+          - code: needs_terminal
+    - when: the owner is at an interactive terminal
+      items:
+      - msg:
+          from: sys.daemon
+          to: actor.owner
+          text: Show the stack's memory counts, whether it syncs, and ask to confirm
+          results:
+          - copy: Delete {stack} and its {count} memories permanently? Type the stack name to confirm.
+      - opt:
+          when: the stack syncs to the cloud and the owner asks to delete the cloud copy too
+          items:
+          - msg:
+              from: sys.daemon
+              to: db
+              text: Queue the cloud deletion of the whole stack
+              ops:
+              - op: enqueue
+                entity: sync.data.sync-queue
+                set:
+                - change = stack_deleted
+                - state = pending
+          - msg:
+              from: sys.daemon
+              to: sys.daemon
+              text: Push the deletion before removing local files
+              invokes:
+              - sync.seq.sync
+      - msg:
+          from: sys.daemon
+          to: sys.daemon
+          text: Stop the stack's runs and remove its projected skills
+          note: Waits for any running maintenance run on the stack to finish
+      - msg:
+          from: sys.daemon
+          to: dir
+          text: Remove the stack directory recursively, with its database and its log files
+      - msg:
+          from: sys.daemon
+          to: registry
+          text: Remove the stack from the registry
+          ops:
+          - op: delete
+            entity: stacks.data.stack
+            by:
+            - stack_id
+      - msg:
+          from: sys.daemon
+          to: actor.owner
+          text: Deleted
+          reply: true
+rationale: Removing the whole directory leaves nothing behind in database pages, which row deletion cannot
+  promise. A stack that syncs pushes its deletion first, so the next sync from another device does not
+  bring it back.

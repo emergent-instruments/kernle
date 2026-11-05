@@ -1,0 +1,71 @@
+ready: 1
+kind: sequence
+id: appraisal.seq.emotion
+display_id: SEQ-APPRAISAL-EMOTION
+module: appraisal
+title: Emotion queries and explicit associations
+summary: Detects emotion in text, summarizes mood over a period, finds memories by emotion, or sets an episode's emotion explicitly.
+trigger:
+  trigger_kind: call
+  text: An agent or the owner asks about emotion or mood
+operation: appraisal.op.emotion
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: appraisal
+  - id: db
+    is: [sys.home]
+    label: Stack database
+  - sys.model
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Ask about emotion
+      call: Kernle.detect_emotion(text) · get_emotional_summary(days) · search_by_emotion(…) · get_mood_relevant_memories(…) · add_emotional_association(…)
+      owner: crates/kernle-core/src/appraisal/emotion.rs
+  - msg: {from: core, to: core, text: Resolve and authorize the stack for this caller, invokes: [stacks.seq.resolve]}
+  - alt:
+      branches:
+        - when: detect emotion in text
+          items:
+            - alt:
+                branches:
+                  - when: a model is bound to the stack
+                    items:
+                      - msg: {from: core, to: sys.model, text: "Ask for valence, arousal, and emotion tags"}
+                      - msg: {from: core, to: caller, text: Return the clamped values with the model's confidence, reply: true}
+                  - when: no model is bound
+                    items:
+                      - msg: {from: core, to: caller, text: Return neutral values with zero confidence, reply: true}
+        - when: summarize mood
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Read the period's appraised episodes
+                ops:
+                  - {op: read, entity: appraisal.data.appraisal, join: [{entity: memory.data.memory, on: memory_id = id}], where: created within the period}
+            - msg: {from: core, to: caller, text: "Return averages, the daily trajectory, and the most common labels", reply: true}
+        - when: find memories by emotion or mood
+          items:
+            - msg:
+                from: core
+                to: core
+                text: Search with the emotion filter, or ordered toward the current mood
+                invokes: [recall.op.search]
+            - msg: {from: core, to: caller, text: Return the ranked memories, reply: true}
+        - when: set an episode's emotion
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Store the explicit values and mirror them onto the memory
+                ops:
+                  - {op: upsert, entity: appraisal.data.appraisal, index: PK, set: [valence, arousal, method explicit]}
+                  - {op: update, entity: memory.data.memory, index: PK, set: [valence, arousal, salience]}
+            - msg: {from: core, to: caller, text: Return the updated appraisal, reply: true}

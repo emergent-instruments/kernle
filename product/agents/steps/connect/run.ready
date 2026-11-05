@@ -1,0 +1,14 @@
+ready: 1
+kind: step
+id: agents.connect.run
+journey: agents.connect
+title: Run setup for a runtime
+step_kind: action
+surface: agents.surface.setup
+does:
+  - Runs setup naming the runtime and, optionally, project scope
+sequences: [agents.seq.setup]
+next:
+  - { to: agents.connect.not-found, when: the runtime is not installed, next_kind: result }
+  - { to: agents.connect.unreadable, when: its configuration does not parse, next_kind: result }
+  - { to: agents.connect.provider, when: the configuration was merged, next_kind: result }

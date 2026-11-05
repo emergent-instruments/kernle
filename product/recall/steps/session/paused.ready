@@ -1,0 +1,15 @@
+ready: 1
+kind: step
+id: recall.session.paused
+journey: recall.session
+title: The call is paused once with the guardrail as the reason
+step_kind: error
+surface: recall.surface.agent-context
+presentation: inline
+copy:
+  body:
+  - 'Kernle guardrail: {guardrail}. If you have accounted for this, run the same command again.'
+next:
+- to: recall.session.plan-tool
+  label: Change the plan, or repeat the identical call, which proceeds
+  next_kind: action

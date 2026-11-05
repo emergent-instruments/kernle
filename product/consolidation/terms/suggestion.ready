@@ -1,0 +1,9 @@
+ready: 1
+kind: term
+id: consolidation.term.suggestion
+module: consolidation
+name: Suggestion
+definition: A proposed memory change that waits for the agent or the owner to accept, edit, or reject it.
+synonyms:
+  - held change
+  - review item

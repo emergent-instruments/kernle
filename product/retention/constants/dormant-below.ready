@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: retention.const.dormant-below
+module: retention
+name: DORMANT_BELOW
+value: "0.5"
+unit: strength
+description: Below this strength a memory leaves working memory and cues but stays searchable.

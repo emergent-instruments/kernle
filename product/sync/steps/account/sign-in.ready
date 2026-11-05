@@ -1,0 +1,11 @@
+ready: 1
+kind: step
+id: sync.account.sign-in
+journey: sync.account
+title: Sign in
+step_kind: action
+surface: sync.surface.sync
+does: [Runs auth register or auth login and enters their email]
+sequences: [sync.seq.auth]
+next:
+  - { to: sync.account.link, when: sign-in succeeds, next_kind: result }

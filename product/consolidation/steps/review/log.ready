@@ -1,0 +1,21 @@
+ready: 1
+kind: step
+id: consolidation.review.log
+journey: consolidation.review
+title: Read recent runs
+step_kind: screen
+surface: consolidation.surface.log
+sees:
+  - Each recent run with its counts and budget note
+sequences:
+  - consolidation.seq.status
+next:
+  - to: consolidation.review.run
+    label: Choose a run
+    next_kind: action
+  - to: consolidation.review.list
+    label: Review held changes
+    next_kind: action
+  - to: $return
+    label: Done
+    next_kind: action

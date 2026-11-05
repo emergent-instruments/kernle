@@ -1,0 +1,7 @@
+ready: 1
+kind: actor
+id: actor.agent
+name: Agent
+side: product
+description: An AI agent, running in Claude Code, Codex CLI, OpenClaw, or a script that imports Kernle, whose memory Kernle keeps.
+goal: Receive the memory relevant to the current moment and record what it learns, without spending effort on memory upkeep.

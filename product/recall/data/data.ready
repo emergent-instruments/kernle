@@ -1,0 +1,19 @@
+ready: 1
+kind: entity_group
+id: recall.data
+module: recall
+title: Recall data
+summary: What recall keeps for itself; memories themselves belong to the memory module.
+entities:
+  - recall.data.checkpoint
+  - recall.data.boot-config
+  - recall.data.recall-log
+  - recall.data.usage
+  - recall.data.search-index
+  - recall.data.index-state
+rationale: >-
+  Recall keeps only state about how memory is brought back. The usage counts
+  outlive the recall log because ranking needs a memory's whole helped and hurt
+  history, while the log itself holds session-level detail that expires. The
+  search index is derived from memory.data.memory-change and can be rebuilt at
+  any time.

@@ -1,0 +1,20 @@
+ready: 1
+kind: constant
+id: recall.const.type-weights
+module: recall
+name: TYPE_WEIGHTS
+description: How much each kind of memory counts toward a place in the working memory, before strength, salience and relevance.
+table:
+  columns: [kind, weight]
+  rows:
+    - [value, "0.90"]
+    - [self-narrative, "0.90"]
+    - [guardrail, "0.85"]
+    - [belief, "0.70"]
+    - [goal, "0.65"]
+    - [drive, "0.60"]
+    - [playbook, "0.55"]
+    - [episode, "0.40"]
+    - [note, "0.35"]
+    - [relationship, "0.30"]
+    - [entity model, "0.30"]

@@ -1,0 +1,50 @@
+ready: 1
+kind: entity
+id: recall.data.checkpoint
+display_id: DATA-CHECKPOINT
+module: recall
+entity_kind: table
+table: checkpoint
+name: checkpoint
+summary: One saved record of where the agent left off in a stack.
+columns:
+  - name: id
+    type: TEXT
+    keys: [PK]
+    rule: ULID
+  - name: current_task
+    type: TEXT
+    nullable: false
+    rule: What the agent was doing, in its own words
+  - name: pending
+    type: TEXT
+    nullable: false
+    default: "'[]'"
+    rule: JSON array of next steps
+  - name: context
+    type: TEXT
+    nullable: true
+  - name: reason
+    type: TEXT
+    nullable: false
+    values: [manual, pre_compact, session_end, emergency]
+  - name: session_id
+    type: TEXT
+    nullable: true
+  - name: runtime
+    type: TEXT
+    nullable: true
+  - name: created_at
+    type: TEXT
+    nullable: false
+    indexes: [I1·1]
+indexes:
+  - id: I1
+    name: checkpoint_created_idx
+    columns: [created_at DESC]
+    purpose: Finds the latest checkpoint for load and prunes beyond the kept count
+    serves:
+      - recall.seq.checkpoint
+      - recall.seq.load
+      - recall.seq.session-index
+lifecycle: At most CHECKPOINT_KEEP rows per stack; older rows are deleted when a new one is saved.

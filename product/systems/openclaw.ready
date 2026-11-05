@@ -1,0 +1,9 @@
+ready: 1
+kind: system
+id: sys.openclaw
+name: OpenClaw gateway
+role: The owner's always-on personal agent runtime, which loads the Kernle plugin
+system_kind: external
+connections:
+  - to: sys.openclaw-plugin
+    label: Loads the Kernle plugin

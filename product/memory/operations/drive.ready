@@ -1,0 +1,61 @@
+ready: 1
+kind: operation
+id: memory.op.drive
+display_id: kernle.drive
+module: memory
+name: Kernle.drive(drive_type, intensity, focus_areas, …)
+summary: Records or adjusts one of the agent's drives; satisfying a drive lowers its intensity.
+params:
+  - name: drive_type
+    type: string
+    source: existence, growth, curiosity, connection, or reproduction
+    source_kind: parameter
+  - name: intensity
+    type: number
+    source: From 0 to 1; defaults to 0.5
+    source_kind: parameter
+  - name: focus_areas
+    type: list of strings
+    source: What the drive is aimed at
+    source_kind: parameter
+  - name: amount
+    type: number
+    source: For satisfy_drive, how much to lower the intensity
+    source_kind: parameter
+  - name: derived_from
+    type: list of kind:id references
+    source: Captures or memories the caller says this came from
+    source_kind: parameter
+  - name: context
+    type: string
+    source: Where the memory applies, as the caller describes it
+    source_kind: parameter
+  - name: context_tags
+    type: list of strings
+    source: Tags that scope where the memory applies
+    source_kind: parameter
+  - name: source
+    type: string
+    source: The person, agent, or source the content came from
+    source_kind: parameter
+  - name: source_type
+    type: string
+    source: How the memory was acquired; defaults to direct experience
+    source_kind: parameter
+returns: >-
+  The drive's memory id. A stack holds one drive memory per drive type, so a repeated call updates
+  it as a new version.
+errors:
+  - code: invalid_input
+    when: a required field is missing or a value is out of range for the kind
+  - code: too_long
+    when: the content is longer than the content limit
+  - code: kernle_unavailable
+    when: Kernle is not initialized for this account, or the stack cannot be opened
+auth: The caller's account owns the Kernle home
+sequence: memory.seq.write
+owner: crates/kernle-core/src/memory/write.rs::write_memory
+tags:
+  - {tag: cli, text: "kernle drive set, kernle drive satisfy"}
+  - {tag: mcp, text: memory_drive}
+  - {tag: python, text: "drive, satisfy_drive"}

@@ -1,0 +1,10 @@
+ready: 1
+kind: step
+id: capture.remember.owner-result
+journey: capture.remember
+title: The owner sees what was stored
+step_kind: outcome
+surface: capture.surface.cli
+sees:
+  - For one memory, its kind and id
+  - For an import, how many were written, repeated, held for review, and refused, with reasons

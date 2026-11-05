@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: retention.const.retention-time
+module: retention
+name: RETENTION_TIME
+value: "04:30"
+unit: local
+description: time

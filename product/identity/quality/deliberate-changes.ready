@@ -1,0 +1,16 @@
+ready: 1
+kind: quality
+id: identity.quality.deliberate-changes
+display_id: QC-IDENTITY-DELIBERATE
+module: identity
+title: Identity layers change only deliberately
+applies_to:
+  - identity.seq.narrative
+  - consolidation.rule.promotion-gates
+  - consolidation.seq.sleep
+measure: >-
+  Changes to values, foundational beliefs, and self-narratives, classified by what caused them,
+  over a run of sleep, processing, exhaust, and imports.
+target: >-
+  Every change comes from the agent's deliberate call or an accepted suggestion; none comes from
+  sleep, processing, or exhaust directly.

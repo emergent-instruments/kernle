@@ -1,0 +1,27 @@
+ready: 1
+kind: rule
+id: recall.rule.session-index
+display_id: RULE-RECALL-SESSION-INDEX
+module: recall
+title: What the session-start index lists
+summary: The session index lists pointers to the memories most likely to matter before the first prompt, within its budget.
+table:
+  columns: [order, group, ordering inside the group]
+  rows:
+    - ["1", Boot settings and the active self-narrative, as saved]
+    - ["2", Protected memories and values, by priority]
+    - ["3", Guardrails then preference beliefs, by strength times salience]
+    - ["4", Where you left off, the latest checkpoint]
+    - ["5", Active goals and open questions, newest first and at most five]
+    - ["6", Playbooks as name and one-line description, by strength times salience]
+    - ["7", Other memories, by the working-memory score]
+default: When the next line does not fit, stop and add one line saying how many more memories the recall tool can find
+rules:
+  - recall.rule.priority
+constants:
+  - recall.const.session-index-budget
+rationale: >-
+  Guardrails and preferences come early because they change behavior before the
+  first prompt; a guardrail that arrives after the risky step is too late. The
+  index is a list of pointers, not full memories, so the agent's work keeps most
+  of its context and any memory can be read on demand.

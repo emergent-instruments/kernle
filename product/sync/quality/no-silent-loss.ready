@@ -1,0 +1,9 @@
+ready: 1
+kind: quality
+id: sync.quality.no-silent-loss
+display_id: QC-SYNC-NO-LOSS
+module: sync
+title: Sync never loses an edit silently
+applies_to: [sync.seq.sync, sync.rule.conflict]
+measure: Content edits made on any machine that are absent from every machine after both have synced, and deleted memories that reappear
+target: None. Every edit is either applied everywhere, kept in version history, or held as a visible conflict, and no deleted memory comes back.

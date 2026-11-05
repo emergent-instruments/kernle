@@ -1,0 +1,77 @@
+ready: 1
+kind: sequence
+id: agents.seq.setup
+display_id: SEQ-AGENTS-SETUP
+module: agents
+title: Connect a runtime
+summary: Installs the runtime's adapter by merging Kernle's entries into its configuration with a backup, then offers to import recent history.
+trigger:
+  trigger_kind: user
+  text: The owner runs setup for Claude Code, Codex, or OpenClaw
+operation: agents.op.setup
+participants:
+  - actor.owner
+  - sys.cli
+  - id: config
+    label: The runtime's configuration files
+  - sys.daemon
+items:
+  - msg:
+      from: actor.owner
+      to: sys.cli
+      text: Connect a runtime
+      owner: crates/kernle-cli/src/commands/setup.rs::install
+      inputs:
+        - { name: runtime, source: The command argument, source_kind: parameter }
+        - { name: scope, source: "The scope option: this user, or this project only", source_kind: parameter }
+  - msg:
+      from: sys.cli
+      to: config
+      text: Find the runtime and read its configuration
+  - alt:
+      branches:
+        - when: the runtime is not installed
+          items:
+            - msg:
+                from: sys.cli
+                to: actor.owner
+                text: Show where Kernle looked and install nothing
+                reply: true
+                results:
+                  - { code: runtime_not_found, copy: "Kernle could not find {runtime} on this machine. Nothing was installed." }
+        - when: the configuration does not parse
+          items:
+            - msg:
+                from: sys.cli
+                to: actor.owner
+                text: Show the parse error and change nothing
+                reply: true
+                results:
+                  - { code: config_unreadable, copy: "Kernle could not read {file}: {error}. Fix the file and run setup again. Nothing was changed." }
+        - when: the configuration parses
+          items:
+            - msg:
+                from: sys.cli
+                to: config
+                text: Back up the file, merge Kernle's hooks, server, or plugin entries, and write it atomically
+                rules: [agents.rule.settings-merge]
+                ops:
+                  - { op: write, path: "the runtime's configuration file", note: backup copied first; temporary file renamed into place }
+            - msg:
+                from: sys.cli
+                to: actor.owner
+                text: Ask whether this runtime's episodes may go to the chosen model provider when it is a different provider
+                rules: [stacks.rule.model-destination]
+            - opt:
+                when: the runtime keeps importable history and the owner accepts the import
+                items:
+                  - msg:
+                      from: sys.cli
+                      to: sys.daemon
+                      text: Import the last thirty days of this runtime's sessions
+                      invokes: [capture.seq.import]
+            - msg:
+                from: sys.cli
+                to: actor.owner
+                text: Show what was installed, where the backup is, and the restart hint
+                reply: true

@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: sync.account.link
+journey: sync.account
+title: Link the stack
+step_kind: action
+surface: sync.surface.sync
+does: [Runs sync enable in the stack's project or with its name]
+copy:
+  body: ["Linked {stack}. Its memories go to your Kernle cloud account and nowhere else."]
+sequences: [sync.seq.auth]
+next:
+  - { to: sync.account.sync, next_kind: action }

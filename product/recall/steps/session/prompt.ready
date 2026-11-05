@@ -1,0 +1,15 @@
+ready: 1
+kind: step
+id: recall.session.prompt
+journey: recall.session
+title: Related memories appear beside a prompt
+step_kind: system
+surface: recall.surface.agent-context
+presentation: inline
+sees:
+  - Up to five short excerpts relevant to the prompt that the session has not seen yet
+sequences: [recall.seq.cue]
+rules: [recall.rule.relevance]
+next:
+  - to: recall.session.plan-tool
+    next_kind: auto

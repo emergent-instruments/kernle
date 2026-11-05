@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: recall.session.search
+journey: recall.session
+title: The agent searches or reads memory
+step_kind: action
+does:
+  - Searches by words, meaning, kind or emotion
+  - Asks what happened in a period
+sequences: [recall.seq.search, recall.seq.when]
+next:
+  - to: recall.session.feedback
+    next_kind: action

@@ -1,0 +1,6 @@
+ready: 1
+kind: step
+id: recall.session.end
+journey: recall.session
+title: The session ends with its work captured for sleep
+step_kind: outcome

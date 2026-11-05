@@ -1,0 +1,116 @@
+ready: 1
+kind: sequence
+id: memory.seq.write.b
+display_id: SEQ-MEMORY-WRITE-b
+module: memory
+title: Write a memory — store, appraise, and signal
+part_of: memory.seq.write
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: memory
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: core
+      to: db
+      text: Look for a live memory of this kind with the same content
+      ops:
+        - op: read
+          entity: memory.data.memory
+          index: U1
+          by: [kind and content hash]
+  - alt:
+      branches:
+        - when: the same content already exists
+          items:
+            - msg:
+                from: core
+                to: caller
+                text: Return the existing memory
+                reply: true
+                results:
+                  - code: duplicate
+                    when: the content repeats a live memory of the same kind
+        - when: a drive or relationship of the same type or entity already exists
+          items:
+            - transaction:
+                label: Update the existing drive or relationship as a new version
+                items:
+                  - note:
+                      over: [core, db]
+                      text: The drive's intensity or the relationship's notes and sentiment change, and a relationship's interaction count rises
+                      ops:
+                        - op: update
+                          entity: memory.data.memory
+                          index: PK
+                          set: [content, payload, current_version + 1, content_hash, updated_at = now, last_used_at = now]
+                        - op: insert
+                          entity: memory.data.memory-version
+                        - op: append
+                          entity: memory.data.memory-change
+                          set: [change updated]
+        - when: the content is new
+          items:
+            - transaction:
+                label: Store the memory, its first version, its links, and its change record together
+                items:
+                  - msg:
+                      from: core
+                      to: db
+                      text: Insert the memory and its first version
+                      ops:
+                        - op: insert
+                          entity: memory.data.memory
+                          set: [id, kind, content, payload, status active, trust_tier, source_type, source_entity, confidence, author, current_version 1, content_hash, created_at, updated_at, last_used_at = created_at, epoch_id = the current epoch]
+                        - op: insert
+                          entity: memory.data.memory-version
+                          set: [memory_id, version 1, author, op_id, content, payload, confidence]
+                  - msg:
+                      from: core
+                      to: db
+                      text: Link the memory to what it came from and who it is about
+                      ops:
+                        - op: insert
+                          entity: memory.data.memory-link
+                          set: [relation derived_from for each reference, evidence for transcript events, about_entity for relationships and entity models]
+                        - op: append
+                          entity: memory.data.memory-change
+                          set: [change added, actor, reason]
+  - break:
+      when: the commit fails
+      items:
+        - msg:
+            from: core
+            to: caller
+            text: Report that nothing was written
+            reply: true
+            results:
+              - code: kernle_unavailable
+  - opt:
+      when: the memory is an episode written on this device rather than pulled by sync
+      items:
+        - msg:
+            from: core
+            to: core
+            text: Appraise the episode
+            invokes: [appraisal.seq.appraise]
+  - msg:
+      from: core
+      to: core
+      text: Signal that the search index has a change to pick up
+      invokes: [recall.seq.index]
+      note: Sync reads the same change record after its own cursor, so nothing else is queued here
+  - msg:
+      from: core
+      to: caller
+      text: Return the memory id
+      reply: true
+      results:
+        - code: written

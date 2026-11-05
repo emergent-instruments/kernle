@@ -1,0 +1,31 @@
+ready: 1
+kind: module
+id: retention
+name: Retention
+summary: >-
+  Owns forgetting: memory strength and how it fades, dormancy, forgetting and
+  recovery, protection, real deletion with its cascade, scheduled expiry of raw
+  captures and events, and deletion of a whole stack. It runs in the daemon's
+  daily sweep and through owner and agent requests.
+runs_in:
+  - sys.daemon
+  - sys.cli
+  - sys.python
+owns:
+  - memory strength and status changes from fading
+  - the forgetting lifecycle
+  - purge and stack deletion
+invariants:
+  - A memory fades only when it goes unused; loading it is not use.
+  - Protected memories and the identity core never fade.
+  - A forgotten memory is recoverable until its recovery window ends, then it is purged.
+  - After a purge or stack deletion returns, none of the deleted content remains in any Kernle file, and cloud deletion is queued.
+  - An agent can purge only one unprotected memory it did not get from the owner; anything wider waits for the owner.
+rationale: >-
+  Forgetting is what keeps a long-lived memory useful: idle memories fade out of
+  working memory so the ones that keep helping stay visible. Retention owns no
+  tables because every row it changes belongs to another module; it changes
+  them through those modules' entities under its own sequences, so there is one
+  place that decides when something fades or is deleted. Real deletion is
+  separate from forgetting because the owner needs both: a reversible way to
+  drop something from view, and a way to make it gone.

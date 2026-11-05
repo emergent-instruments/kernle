@@ -1,0 +1,36 @@
+ready: 1
+kind: operation
+id: trust.op.gate
+display_id: kernle.gate_memory_input
+module: trust
+name: Kernle.gate_memory_input(memory_type, content, sources, source_type)
+summary: >-
+  Decides whether a proposed memory change applies now, waits for review, or is quarantined,
+  and returns the trust tier it carries. Every write path calls it; agents may call it to ask
+  how a memory would be treated before writing it. Asking records nothing.
+params:
+  - name: memory_type
+    type: str
+    source: The kind of memory the caller proposes
+    source_kind: parameter
+  - name: content
+    type: str
+    source: The proposed memory text
+    source_kind: parameter
+  - name: sources
+    type: list[str]
+    source: Typed references to the memories, raw entries, or events the claim depends on
+    source_kind: parameter
+  - name: source_type
+    type: str
+    source: How the memory was acquired (direct experience, inference, external, processing, and so on)
+    source_kind: parameter
+returns: "A decision: apply, review, or quarantine, with the trust tier and a plain reason"
+errors:
+  - code: unknown_kind
+    when: the memory type is not one Kernle stores
+sequence: trust.seq.gate
+owner: crates/kernle-core/src/trust/gate.rs::gate
+tags:
+  - tag: python
+    text: Kernle.gate_memory_input

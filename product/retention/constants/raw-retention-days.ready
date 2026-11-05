@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: retention.const.raw-retention-days
+module: retention
+name: RAW_RETENTION_DAYS
+value: "30"
+unit: days
+description: How long a raw capture is kept after every processing step has handled it.

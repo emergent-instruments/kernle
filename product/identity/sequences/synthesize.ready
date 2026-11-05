@@ -1,0 +1,58 @@
+ready: 1
+kind: sequence
+id: identity.seq.synthesize
+display_id: SEQ-IDENTITY-SYNTHESIZE
+module: identity
+title: Synthesize the agent's identity
+summary: Reads the identity layers and returns who the agent is, with how settled that identity is.
+trigger:
+  trigger_kind: call
+  text: The agent or owner asks for the identity, or load includes it
+operation: identity.op.synthesize
+participants:
+  - actor.agent
+  - id: core
+    is:
+      - sys.daemon
+      - sys.python
+    label: Kernle core
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: actor.agent
+      to: core
+      text: Who am I
+      invokes:
+        - stacks.seq.resolve
+  - msg:
+      from: core
+      to: db
+      text: Read the identity layers
+      ops:
+        - op: read
+          entity: identity.data.self-narrative
+          index: P1
+          where: active
+        - op: read
+          entity: memory.data.memory
+          where: active values, foundational and strongest beliefs, active goals, drives, relationships
+          order: priority and strength
+        - op: read
+          entity: identity.data.epoch
+          index: P1
+          where: open
+  - note:
+      over:
+        - core
+      text: Score how settled the identity is
+      rules:
+        - identity.rule.identity-confidence
+  - msg:
+      from: core
+      to: actor.agent
+      text: The identity and its confidence
+      reply: true
+      note: Inclusion in a synthesis is not a use of the memories, so it does not keep them alive.

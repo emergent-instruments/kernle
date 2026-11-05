@@ -1,0 +1,22 @@
+ready: 1
+kind: operation
+id: recall.op.when
+display_id: kernle.what_happened
+module: recall
+name: Kernle.what_happened(when)
+summary: Returns a timeline of the episodes, notes, decisions and checkpoints from a period, oldest first.
+params:
+  - name: when
+    type: str
+    source: "Caller: today, yesterday, this week, last week, last N days, or a date range"
+    source_kind: parameter
+returns: The period's start and end, and its memories grouped by day.
+errors:
+  - code: invalid_period
+    when: The period cannot be read as a date range
+    copy: Kernle could not understand that period. Try today, last week, or a date range.
+sequence: recall.seq.when
+owner: crates/kernle-core/src/recall/when.rs::what_happened
+tags:
+  - { tag: cli, text: "kernle when" }
+  - { tag: mcp, text: memory_when }

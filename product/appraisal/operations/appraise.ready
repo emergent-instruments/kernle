@@ -1,0 +1,16 @@
+ready: 1
+kind: operation
+id: appraisal.op.appraise
+display_id: kernle.appraise
+module: appraisal
+name: Appraise an episode
+summary: Computes or recomputes an episode's appraisal and label and mirrors salience, valence, arousal, and label onto the memory.
+params:
+  - name: memory_id
+    type: string
+    source: The episode just written or updated
+    source_kind: return
+returns: The appraisal with its label and method.
+auth: Kernle core only; called by the write and update paths
+sequence: appraisal.seq.appraise
+owner: crates/kernle-core/src/appraisal/appraise.rs::appraise

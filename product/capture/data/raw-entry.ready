@@ -1,0 +1,77 @@
+ready: 1
+kind: entity
+id: capture.data.raw-entry
+display_id: DATA-RAW
+module: capture
+entity_kind: table
+table: raw_entry
+name: raw_entry
+summary: One unstructured capture waiting to be turned into memory.
+columns:
+  - name: id
+    type: TEXT
+    keys: [PK]
+  - name: content
+    type: TEXT
+    nullable: false
+    rule: Scrubbed before storage; at most the raw capture limit
+    constants: [capture.const.max-raw-chars]
+    indexes: ["F1·1"]
+  - name: source
+    type: TEXT
+    nullable: false
+    values: [cli, mcp, python, hook, auto_capture, import, seed, native_memory]
+  - name: source_ref
+    type: TEXT
+    nullable: true
+    rule: The file, session, or call the capture came from
+  - name: session_id
+    type: TEXT
+    nullable: true
+  - name: trust_tier
+    type: TEXT
+    nullable: false
+    values: [principal, first_party, agent_inferred, third_party]
+  - name: tags
+    type: TEXT
+    nullable: true
+  - name: content_hash
+    type: TEXT
+    nullable: false
+    indexes: ["U1·1"]
+  - name: captured_at
+    type: TEXT
+    nullable: false
+    indexes: ["I1·1"]
+  - name: expires_at
+    type: TEXT
+    nullable: false
+    rule: captured_at plus the raw retention window
+    constants: [capture.const.raw-retention-days]
+    indexes: ["I2·1"]
+indexes:
+  - id: U1
+    name: raw_entry_content_key
+    unique: true
+    columns: [content_hash ASC]
+    purpose: The same capture stored twice is kept once
+    serves: [capture.seq.raw]
+  - id: I1
+    name: raw_entry_captured_idx
+    columns: [captured_at DESC]
+    purpose: Lists recent captures
+    serves: [capture.seq.raw-search]
+  - id: I2
+    name: raw_entry_expires_idx
+    columns: [expires_at ASC]
+    purpose: Finds expired captures for the retention sweep
+  - id: F1
+    name: raw_fts
+    method: FTS5
+    columns: [content]
+    purpose: Full-text search over captures; rows are removed with the capture
+    serves: [capture.seq.raw-search]
+access:
+  writers:
+    - capture inserts rows
+    - retention deletes expired and purged rows, including their full-text rows

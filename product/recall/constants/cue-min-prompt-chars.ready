@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.cue-min-prompt-chars
+module: recall
+name: CUE_MIN_PROMPT_CHARS
+value: "12"
+unit: characters
+description: Prompts shorter than this get no cues.

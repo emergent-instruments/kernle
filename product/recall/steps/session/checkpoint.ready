@@ -1,0 +1,12 @@
+ready: 1
+kind: step
+id: recall.session.checkpoint
+journey: recall.session
+title: Where the agent left off is saved
+step_kind: system
+does:
+  - The agent saves a checkpoint, or the hook saves one before compaction and at session end
+sequences: [recall.seq.checkpoint]
+next:
+  - to: recall.session.end
+    next_kind: auto

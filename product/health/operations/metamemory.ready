@@ -1,0 +1,25 @@
+ready: 1
+kind: operation
+id: health.op.metamemory
+display_id: kernle.get_memory_confidence
+module: health
+name: Kernle.get_memory_confidence(memory_type, memory_id) · get_uncertain_memories · detect_knowledge_gaps(query) · find_contradictions · get_competence_boundaries · identify_learning_opportunities
+summary: >-
+  Reports how sure the agent can be of what it remembers: a memory's confidence
+  after decay, the uncertain memories, gaps around a topic, contradicting
+  beliefs, and where it is and is not competent. Changing a memory's confidence
+  or source goes through the memory module.
+params:
+  - { name: memory_type, type: str | None, source: Caller, source_kind: parameter }
+  - { name: memory_id, type: str | None, source: Caller, source_kind: parameter }
+  - { name: query, type: str | None, source: "Caller, for knowledge gaps", source_kind: parameter }
+  - { name: threshold, type: float | None, source: "Caller, default the uncertainty threshold", source_kind: parameter }
+returns: The requested report, with each memory's kind, confidence, trust tier and date.
+errors:
+  - code: not_found
+    when: The named memory is not in the caller's stack
+sequence: health.seq.metamemory
+owner: crates/kernle-core/src/health/metamemory.rs
+tags:
+  - { tag: cli, text: "kernle meta confidence|uncertain|gaps|conflicts|competence|learn" }
+  - { tag: python, text: "get_knowledge_map, find_semantic_contradictions, get_confidence_with_decay, propagate_confidence, set_memory_source" }

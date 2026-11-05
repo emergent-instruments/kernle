@@ -1,0 +1,25 @@
+ready: 1
+kind: rule
+id: stacks.rule.model-destination
+display_id: RULE-STACKS-MODEL
+module: stacks
+title: Where memory content may be sent
+summary: Only the model provider the owner chose receives memory content, and only the excerpts a request needs.
+table:
+  columns: [Provider, What it receives, Cross-provider check]
+  rows:
+    - ["The Anthropic API with the owner's key", "Excerpts for appraisal judging, extraction, and emotion detection", Asked once per runtime whose own provider differs]
+    - [An OpenAI-compatible endpoint, The same excerpts, "Asked when the endpoint is remote; a loopback endpoint is local"]
+    - [A runtime command-line tool in headless mode, The same excerpts, "Asked when the runtime's provider differs from the episode's runtime"]
+    - [The host agent through MCP sampling, The same excerpts, Never asked; the host already holds the session]
+    - [None, Nothing, Never asked]
+default: None until the owner chooses
+constraints:
+  - text: A runtime the owner declines never has its episodes sent to the provider; its explicit writes still apply locally.
+    hard: true
+  - text: Sessions run by a headless provider are marked as Kernle's own, never captured as experience, and run without Kernle hooks.
+    hard: true
+rationale: >-
+  The provider is the one place private session content can leave the machine,
+  so the owner chooses it knowingly. None is a complete choice: capture, recall,
+  and explicit writes work, and only model-assisted consolidation stops.

@@ -1,0 +1,91 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.sleep.a
+display_id: SEQ-CONSOLIDATION-SLEEP-a
+module: consolidation
+title: Sleep run, appraise and select
+part_of: consolidation.seq.sleep
+participants:
+  - id: core
+    is:
+      - sys.daemon
+    label: Sleep run
+    owner: crates/kernle-core/src/consolidation/sleep.rs::run
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: core
+      to: db
+      text: Work out today's remaining model allowance
+      rules:
+        - consolidation.rule.budget
+      ops:
+        - op: read
+          entity: consolidation.data.run
+          index: I1
+          where: started today, local calendar day, in every stack
+          returns: tokens spent today
+  - msg:
+      from: core
+      to: core
+      text: Segment new transcript events and appraise new episodes
+      invokes:
+        - appraisal.seq.appraise
+  - opt:
+      when: allowance remains
+      items:
+        - msg:
+            from: core
+            to: core
+            text: Judge the most salient episodes within the judging share
+            invokes:
+              - appraisal.seq.judge
+            constants:
+              - consolidation.const.judge-share
+  - msg:
+      from: core
+      to: db
+      text: Load episodes waiting for replay
+      ops:
+        - op: read
+          entity: appraisal.data.appraisal
+          where: replay pending
+          returns: salience, label, and explicit-request flag of each pending episode
+  - note:
+      over:
+        - core
+      text: Choose episodes to replay, to only reinforce, or to leave for the next run
+      rules:
+        - consolidation.rule.replay
+  - loop:
+      while: an episode is chosen to only reinforce
+      items:
+        - msg:
+            from: core
+            to: core
+            text: Find the closest existing memory
+            invokes:
+              - recall.op.search
+            constants:
+              - consolidation.const.reinforce-similarity
+        - alt:
+            branches:
+              - when: a memory is close enough
+                items:
+                  - msg:
+                      from: core
+                      to: core
+                      text: Reinforce it
+                      invokes:
+                        - memory.seq.update
+              - when: nothing is close enough
+                items:
+                  - note:
+                      over:
+                        - core
+                      text: Mark the episode skipped for replay
+  - continue:
+      to: consolidation.seq.sleep.b

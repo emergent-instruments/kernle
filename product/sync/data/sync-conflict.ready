@@ -1,0 +1,40 @@
+ready: 1
+kind: entity
+id: sync.data.sync-conflict
+display_id: DATA-SYNC-CONFLICT
+module: sync
+entity_kind: table
+table: sync_conflict
+name: sync_conflict
+summary: One disagreement between this machine and the cloud about one memory, kept until resolved.
+columns:
+  - name: id
+    type: TEXT
+    keys: [PK]
+  - name: memory_id
+    type: TEXT
+    nullable: false
+    indexes: [I1·1]
+  - name: local_version
+    type: INTEGER
+    nullable: false
+  - name: cloud_version
+    type: INTEGER
+    nullable: false
+  - name: resolution
+    type: TEXT
+    nullable: true
+    values: [local_kept, cloud_kept, both_kept, owner_chose]
+  - name: summary
+    type: TEXT
+    nullable: false
+    rule: A short description of the two sides with no full memory content
+  - name: resolved_at
+    type: TEXT
+    nullable: true
+indexes:
+  - id: I1
+    name: sync_conflict_memory_idx
+    columns: [memory_id ASC]
+    purpose: Lists a memory's conflicts and removes them when the memory is purged
+lifecycle: Deleted with its memory, and a set number of days after resolution.

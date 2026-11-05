@@ -1,0 +1,47 @@
+ready: 1
+kind: sequence
+id: stacks.seq.model
+display_id: SEQ-STACKS-MODEL
+module: stacks
+title: Bind or change the model provider
+summary: Records the model provider and model for the home, or for one stack, after confirming what the provider will receive.
+trigger:
+  trigger_kind: call
+  text: The owner runs the model command, or a script binds a model on its Kernle instance
+operation: stacks.op.model
+participants:
+  - id: caller
+    label: Owner command or Python script
+    is: [sys.cli, sys.python]
+  - sys.home
+  - id: keychain
+    label: OS keychain
+items:
+  - msg:
+      from: caller
+      to: sys.home
+      text: Read the current binding and each runtime's permission
+      owner: crates/kernle-core/src/stacks/model.rs::bind
+  - msg:
+      from: caller
+      to: caller
+      text: Show the destination and what it receives, and ask the owner for each runtime whose own provider differs
+      rules: [stacks.rule.model-destination]
+  - opt:
+      when: the provider needs a key
+      items:
+        - msg:
+            from: caller
+            to: keychain
+            text: Store the key
+            rules: [stacks.rule.credential-store]
+  - msg:
+      from: caller
+      to: sys.home
+      text: Save the provider, model, endpoint, daily token budget, and runtime permissions
+      ops:
+        - { op: write, path: "~/.kernle/config.toml", note: "model section, and per-stack overrides" }
+notes: >-
+  A Python script may also pass a model object to its own Kernle instance for
+  the life of that process; that binding is never persisted and the same
+  destination rule applies to it.

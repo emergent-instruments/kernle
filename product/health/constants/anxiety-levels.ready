@@ -1,0 +1,14 @@
+ready: 1
+kind: constant
+id: health.const.anxiety-levels
+module: health
+name: ANXIETY_LEVELS
+description: How an anxiety score reads as a level.
+table:
+  columns: [score from, score to, level]
+  rows:
+    - ["0", "30", calm]
+    - ["31", "50", aware]
+    - ["51", "70", elevated]
+    - ["71", "85", high]
+    - ["86", "100", critical]

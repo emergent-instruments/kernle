@@ -1,0 +1,27 @@
+ready: 1
+kind: step
+id: retention.forget.preview
+journey: retention.forget
+title: The owner reviews what the purge removes
+step_kind: screen
+surface: retention.surface.purge
+copy:
+  body:
+  - 'Delete permanently: {memory}, {versions} versions, {captures} captures and {events} events. Claude
+    Code and Codex keep their own transcripts of those sessions.'
+  actions:
+  - Confirm
+  - Cancel
+sees:
+- Memories that depend on this one, as optional additions
+sequences:
+- retention.seq.purge
+rules:
+- retention.rule.purge-scope
+next:
+- to: retention.forget.purged
+  label: Confirm
+  next_kind: action
+- to: retention.forget.cancelled
+  label: Cancel
+  next_kind: action

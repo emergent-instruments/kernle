@@ -1,0 +1,16 @@
+ready: 1
+kind: operation
+id: identity.op.synthesize
+display_id: kernle.synthesize_identity
+module: identity
+name: Kernle.synthesize_identity() · get_identity_confidence()
+summary: >-
+  Builds the agent's identity from its records: active narrative, values by priority,
+  foundational and strongest beliefs, active goals, drives, key relationships, the current
+  epoch, and an identity confidence score. Reads only.
+returns: "Narrative, values, beliefs, goals, drives, relationships, current epoch, and identity confidence from 0 to 1"
+sequence: identity.seq.synthesize
+owner: crates/kernle-core/src/identity/synthesize.rs::synthesize
+tags:
+  - tag: cli
+    text: kernle identity show|confidence

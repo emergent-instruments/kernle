@@ -1,0 +1,46 @@
+ready: 1
+kind: rule
+id: identity.rule.identity-confidence
+display_id: RULE-IDENTITY-CONFIDENCE
+module: identity
+title: How settled the agent's identity is
+summary: A score from 0 to 1 built from how well each identity layer is defined and supported.
+owner: crates/kernle-core/src/identity/confidence.rs::score
+inputs:
+- name: identity layers
+  source: >-
+    Active values, beliefs, goals, drives, and relationships with their confidence and strength
+  source_kind: stored
+- name: experience
+  source: Episodes with lessons, and the active self-narrative
+  source_kind: stored
+table:
+  columns:
+  - Part
+  - Weight
+  - Counts
+  rows:
+  - - Values
+    - '0.20'
+    - Defined values, weighted by confidence; protected values count fully
+  - - Beliefs
+    - '0.20'
+    - Number of active beliefs and their mean confidence
+  - - Goals
+    - '0.15'
+    - Active goals with a description
+  - - Episodes
+    - '0.20'
+    - Episodes from the last 90 days and the share with lessons
+  - - Drives
+    - '0.15'
+    - Drives with intensity and focus areas
+  - - Relationships
+    - '0.10'
+    - Relationships with at least one interaction
+calculations:
+- name: confidence
+  expr: sum of weight × part score, each part score from 0 to 1, saturating at five items per part
+- name: narrative adjustment
+  expr: × 0.9 when no active identity narrative exists
+default: 0 for an empty stack

@@ -1,0 +1,11 @@
+ready: 1
+kind: quality
+id: health.quality.one-score
+display_id: QC-HEALTH-ONE-SCORE
+module: health
+title: One anxiety score everywhere
+applies_to:
+  - health.seq.anxiety
+  - health.rule.anxiety
+measure: Anxiety scores reported for the same stack, moment and context figures by the Python package, the command line, the tool server and status
+target: Identical scores and levels from every entry point

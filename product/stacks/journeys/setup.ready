@@ -1,0 +1,17 @@
+ready: 1
+kind: journey
+id: stacks.setup
+display_id: FLOW-STACKS-SETUP
+module: stacks
+actors: [actor.owner]
+title: Set up Kernle
+summary: The owner initializes the home, chooses where memory content may go, and is pointed to connecting a runtime.
+trigger: The owner has installed the Kernle package
+steps:
+  - stacks.setup.run-init
+  - stacks.setup.choose-provider
+  - stacks.setup.keyword-only
+  - stacks.setup.done
+sequences: [stacks.seq.init]
+related:
+  - { to: agents.connect, label: Connect a runtime, relation: leads_to }

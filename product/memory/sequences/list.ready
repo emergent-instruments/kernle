@@ -1,0 +1,78 @@
+ready: 1
+kind: sequence
+id: memory.seq.list
+display_id: SEQ-MEMORY-LIST
+module: memory
+title: List or get memories
+summary: Lists memories of one kind with filters, or returns one memory with its versions; an agent's read of one memory counts as use.
+trigger:
+  trigger_kind: call
+  text: An agent or the owner lists memories of a kind, or opens one by id
+operation: memory.op.list
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: memory
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: List memories of this kind, or get one
+      call: Kernle.load_<kind>s(limit, filters) · get_<kind>(id)
+      owner: crates/kernle-core/src/memory/list.rs::list_memories
+  - msg: {from: core, to: core, text: Resolve and authorize the stack for this caller, invokes: [stacks.seq.resolve]}
+  - alt:
+      branches:
+        - when: one memory by id
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Load the memory and its versions
+                ops:
+                  - op: read
+                    entity: memory.data.memory
+                    index: PK
+                    where: status is not forgotten
+                  - op: read
+                    entity: memory.data.memory-version
+                    index: PK
+            - opt:
+                when: the reader is an agent
+                items:
+                  - msg:
+                      from: core
+                      to: core
+                      text: Record the read as use of the memory
+                      invokes: [recall.seq.feedback]
+        - when: a list of one kind
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Read the kind's memories in strength order
+                ops:
+                  - op: read
+                    entity: memory.data.memory
+                    index: I1
+                    where: kind, status active unless dormant is asked for, and the caller's filters
+                    order: strength descending, then updated_at descending
+  - msg:
+      from: core
+      to: caller
+      text: Return the memories with their trust tier, appraisal, and dates
+      reply: true
+      results:
+        - code: listed
+        - code: not_found
+          when: no memory has the id
+rationale: >-
+  Listing does not count as use, because a list shows everything whether or not it helps, and
+  counting it would keep every listed memory from ever fading.

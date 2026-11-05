@@ -1,0 +1,28 @@
+ready: 1
+kind: entity
+id: sync.data.sync-state
+display_id: DATA-SYNC-STATE
+module: sync
+entity_kind: table
+table: sync_state
+name: sync_state
+summary: The single row holding a synced stack's position in the cloud and in its own change ledger.
+columns:
+  - name: cloud_cursor
+    type: TEXT
+    nullable: true
+    rule: The opaque position the cloud returned with the last page pulled; pulling resumes from it
+  - name: ledger_cursor
+    type: INTEGER
+    nullable: false
+    default: "0"
+    rule: The last memory change ledger entry turned into a queue row
+  - name: last_push_at
+    type: TEXT
+    nullable: true
+  - name: last_pull_at
+    type: TEXT
+    nullable: true
+  - name: cloud_stack_id
+    type: TEXT
+    nullable: true

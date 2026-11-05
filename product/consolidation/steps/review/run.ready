@@ -1,0 +1,15 @@
+ready: 1
+kind: step
+id: consolidation.review.run
+journey: consolidation.review
+title: Read what one run changed
+step_kind: screen
+surface: consolidation.surface.log
+sees:
+  - Each change with the memory, why it mattered, and its source sessions
+sequences:
+  - consolidation.seq.status
+next:
+  - to: consolidation.review.log
+    label: Back
+    next_kind: action

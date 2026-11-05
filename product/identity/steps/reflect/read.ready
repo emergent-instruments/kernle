@@ -1,0 +1,12 @@
+ready: 1
+kind: step
+id: identity.reflect.read
+journey: identity.reflect
+title: Read the patterns
+step_kind: screen
+surface: consolidation.surface.scaffold
+sees:
+  - Patterns from recent memory with dated evidence and a prompt for each
+next:
+  - to: identity.reflect.decide
+    next_kind: auto

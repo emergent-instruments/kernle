@@ -1,0 +1,73 @@
+ready: 1
+kind: sequence
+id: identity.seq.summary
+display_id: SEQ-IDENTITY-SUMMARY
+module: identity
+title: Save or read a period summary
+summary: Stores a summary of a period, retiring the summaries it supersedes, or reads summaries.
+trigger:
+  trigger_kind: call
+  text: The agent saves or reads a summary
+operation: identity.op.summary
+participants:
+  - actor.agent
+  - id: core
+    is:
+      - sys.daemon
+      - sys.python
+    label: Kernle core
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: actor.agent
+      to: core
+      text: Summary request
+      invokes:
+        - stacks.seq.resolve
+      guards:
+        - The scope is one of month, quarter, year, decade, or epoch
+        - The period ends after it starts
+      results:
+        - code: invalid_scope
+        - code: invalid_period
+  - alt:
+      branches:
+        - when: saving
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Store the summary and log it for sync
+                ops:
+                  - op: insert
+                    entity: identity.data.summary
+                    set:
+                      - content
+                      - scope
+                      - period_start
+                      - period_end
+                      - key_themes
+                      - supersedes
+                      - epoch_id
+                  - op: enqueue
+                    entity: sync.data.sync-queue
+                    set:
+                      - the summary change
+        - when: reading
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Read summaries of the scope, newest first, without superseded ones
+                ops:
+                  - op: read
+                    entity: identity.data.summary
+                    index: I1
+  - msg:
+      from: core
+      to: actor.agent
+      text: The result
+      reply: true

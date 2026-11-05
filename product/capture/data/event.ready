@@ -1,0 +1,91 @@
+ready: 1
+kind: entity
+id: capture.data.event
+display_id: DATA-EVENT
+module: capture
+entity_kind: table
+table: event
+name: event
+summary: One scrubbed record from a runtime session.
+columns:
+  - name: id
+    type: TEXT
+    keys: [PK]
+  - name: session_id
+    type: TEXT
+    nullable: false
+    indexes: ["I1·1", "P1·1"]
+  - name: seq
+    type: INTEGER
+    nullable: false
+    indexes: ["I1·2", "P1·2"]
+  - name: runtime
+    type: TEXT
+    nullable: false
+    values: [claude-code, codex, openclaw]
+  - name: source_key
+    type: TEXT
+    nullable: false
+    indexes: ["U1·1"]
+  - name: source_pos
+    type: INTEGER
+    nullable: false
+    indexes: ["U1·2"]
+  - name: kind
+    type: TEXT
+    nullable: false
+    values: [user_message, interrupt, assistant_message, tool_call, tool_status, tool_output, compaction, session_start, session_end]
+  - name: actor
+    type: TEXT
+    nullable: false
+    values: [person, agent, tool, external]
+  - name: trust_tier
+    type: TEXT
+    nullable: false
+    values: [principal, first_party, agent_inferred, third_party]
+  - name: payload
+    type: TEXT
+    nullable: false
+    rule: Scrubbed JSON, at most the event text limit
+    constants: [capture.const.max-event-chars]
+  - name: episode_id
+    type: TEXT
+    nullable: true
+    keys: [FK]
+    fk: {entity: memory.data.memory, column: id, on_delete: SET NULL}
+    rule: The episode memory the event belongs to; empty until the episode closes
+    indexes: ["P1·where"]
+  - name: expires_at
+    type: TEXT
+    nullable: false
+    constants: [capture.const.event-retention-days]
+    indexes: ["I2·1"]
+indexes:
+  - id: U1
+    name: event_source_position_key
+    unique: true
+    columns: [source_key ASC, source_pos ASC]
+    purpose: Each record position becomes at most one event
+    serves: [capture.seq.ingest]
+  - id: I1
+    name: event_session_seq_idx
+    columns: [session_id ASC, seq ASC]
+    purpose: Reads an episode's evidence window
+    serves: [appraisal.seq.judge]
+  - id: P1
+    name: event_unsegmented_idx
+    columns: [session_id ASC, seq ASC]
+    where: episode_id IS NULL
+    purpose: Finds events not yet in an episode
+    serves: [capture.seq.ingest]
+  - id: I2
+    name: event_expires_idx
+    columns: [expires_at ASC]
+    purpose: Finds expired events for the retention sweep
+relationships:
+  - to: memory.data.memory
+    on: [{from: episode_id, to: id}]
+    from_card: 0..many
+    to_card: 0..1
+    link: fk
+    label: belongs to an episode

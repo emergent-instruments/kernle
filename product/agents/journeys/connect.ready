@@ -1,0 +1,20 @@
+ready: 1
+kind: journey
+id: agents.connect
+display_id: FLOW-AGENTS-CONNECT
+module: agents
+actors: [actor.owner]
+title: Connect an agent runtime
+summary: The owner connects Claude Code, Codex, or OpenClaw, and can disconnect it later without losing their own settings.
+entries:
+  - { label: After setup, from: stacks.setup.done, to: agents.connect.run }
+  - { label: Disconnect later, to: agents.connect.remove }
+steps:
+  - agents.connect.run
+  - agents.connect.not-found
+  - agents.connect.unreadable
+  - agents.connect.provider
+  - agents.connect.import
+  - agents.connect.done
+  - agents.connect.remove
+sequences: [agents.seq.setup, agents.seq.remove]

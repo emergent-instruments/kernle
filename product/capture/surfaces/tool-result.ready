@@ -1,0 +1,7 @@
+ready: 1
+kind: surface
+id: capture.surface.tool-result
+module: capture
+name: Tool result in the agent's context
+surface_kind: user_side
+summary: What a capture or memory tool returns to the agent, which the person can read in the runtime's transcript.

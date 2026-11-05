@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.suggestion-expiry-days
+module: consolidation
+name: SUGGESTION_EXPIRY_DAYS
+value: "30"
+unit: days
+source: config.toml#review.expiry_days
+description: How long a suggestion waits before it expires unapplied.

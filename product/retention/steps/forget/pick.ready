@@ -1,0 +1,11 @@
+ready: 1
+kind: step
+id: retention.forget.pick
+journey: retention.forget
+title: The owner picks which memory to purge
+step_kind: screen
+surface: retention.surface.purge
+sees:
+  - Memories matching the name, id or text, including dormant and forgotten ones
+next:
+  - { to: retention.forget.preview, label: Pick one, next_kind: action }

@@ -1,0 +1,18 @@
+ready: 1
+kind: operation
+id: retention.op.recover
+display_id: kernle.recover
+module: retention
+name: Kernle.recover(memory_type, memory_id) · get_forgotten_memories(limit)
+summary: Lists forgotten memories that can still be recovered, and returns one to active use at full strength.
+params:
+  - { name: memory_type, type: str, source: Caller, source_kind: parameter }
+  - { name: memory_id, type: str, source: Caller, source_kind: parameter }
+returns: Recovered, or the list of recoverable memories with their purge dates.
+errors:
+  - code: not_found
+    when: No forgotten memory with that id; purged memories cannot be recovered
+sequence: retention.seq.recover
+owner: crates/kernle-core/src/retention/forget.rs::recover
+tags:
+  - { tag: cli, text: "kernle recover" }

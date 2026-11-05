@@ -1,0 +1,13 @@
+ready: 1
+kind: operation
+id: stacks.op.status
+display_id: kernle.status
+module: stacks
+name: Kernle.status()
+summary: Describes the daemon, provider, and stacks; agents see only their own stack.
+returns: Daemon state, connected runtimes, provider and today's tokens against the budget, and per-stack counts, last activity, last sleep, pending suggestions, sync state
+sequence: stacks.seq.status
+owner: crates/kernle-core/src/stacks/status.rs::status
+tags:
+  - { tag: cli, text: "kernle status" }
+  - { tag: mcp, text: memory_status }

@@ -1,0 +1,15 @@
+ready: 1
+kind: constant
+id: appraisal.const.outcome-weights
+module: appraisal
+name: OUTCOME_WEIGHTS
+source: config.toml#appraisal.outcome_weights
+description: How much each kind of evidence counts toward whether an episode went well.
+table:
+  columns: [Evidence, Weight]
+  rows:
+    - [correctness of the last test, build, or check, "1.0"]
+    - [the person's approval or disapproval, "0.8"]
+    - [safety of high-stakes actions, "1.0"]
+    - [efficiency against the stack's usual effort, "0.3"]
+    - [the stated outcome type of an explicit episode, "1.0"]

@@ -1,0 +1,138 @@
+ready: 1
+kind: sequence
+id: recall.seq.feedback
+display_id: SEQ-RECALL-FEEDBACK
+module: recall
+title: Record recall feedback and use
+summary: Updates a memory's helped and hurt counts and its last use from agent feedback, deliberate use,
+  or sleep's verdicts on recalled memories.
+trigger:
+  trigger_kind: call
+  text: The agent reports on or uses a memory, or a sleep run reports verdicts
+operation: recall.op.feedback
+participants:
+- id: caller
+  is:
+  - actor.agent
+  - consolidation.seq.sleep
+  label: Agent or sleep run
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+items:
+- msg:
+    from: caller
+    to: sys.daemon
+    text: Report on a memory
+    call: Kernle.feedback(memory_id, verdict, note)
+    inputs:
+    - name: memory_id
+      source: The caller
+      source_kind: parameter
+    - name: verdict
+      source: 'The caller: helped, wrong, outdated; from sleep also hurt or irrelevant; or a deliberate
+        use'
+      source_kind: parameter
+    invokes:
+    - stacks.seq.resolve
+- msg:
+    from: sys.daemon
+    to: db
+    text: Find the memory in the caller's stack
+    ops:
+    - op: read
+      entity: memory.data.memory
+      by:
+      - id
+- alt:
+    branches:
+    - when: the memory is not in the stack
+      items:
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Not found
+          reply: true
+          results:
+          - code: not_found
+    - when: the verdict is helped
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Count the help and the use
+          ops:
+          - op: upsert
+            entity: recall.data.usage
+            by:
+            - memory_id
+            set:
+            - helped_count + 1
+            - last_feedback_at now
+          - op: update
+            entity: memory.data.memory
+            by:
+            - id
+            set:
+            - last_used_at now
+            - times_accessed + 1
+    - when: the verdict is wrong, outdated or hurt
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Count the harm; the memory itself is unchanged
+          ops:
+          - op: upsert
+            entity: recall.data.usage
+            by:
+            - memory_id
+            set:
+            - hurt_count + 1
+            - last_feedback_at now
+    - when: the call is a deliberate use
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Count the use
+          call: Kernle.record_access(memory_type, memory_id)
+          ops:
+          - op: update
+            entity: memory.data.memory
+            by:
+            - id
+            set:
+            - last_used_at now
+            - times_accessed + 1
+    - when: the verdict is irrelevant
+      items:
+      - note:
+          over:
+          - sys.daemon
+          text: No count changes
+- msg:
+    from: sys.daemon
+    to: db
+    text: Record the outcome
+    ops:
+    - op: insert
+      entity: recall.data.recall-log
+      set:
+      - tier = feedback
+      - memory_id
+      - outcome
+      - session_id
+      - created_at now
+      - expires_at
+- msg:
+    from: sys.daemon
+    to: caller
+    text: Recorded
+    reply: true
+rationale: Helpfulness, not exposure, keeps a memory alive and ranks it higher. Wrong or outdated feedback
+  never edits or deletes the memory, because the feedback may itself come from a manipulated agent; it
+  only lowers ranking, and deletion stays with retention and the owner. A wrong verdict also becomes evidence
+  for the next sleep, which can revise the memory through its own policy.

@@ -1,0 +1,42 @@
+ready: 1
+kind: operation
+id: capture.op.import
+display_id: kernle.import_memories
+module: capture
+name: kernle import <file> [--format json|csv|markdown] · kernle import <runtime> [--since]
+summary: Imports memories from a file, or a runtime's recent session history, through the normal write path.
+params:
+  - name: source
+    type: string
+    source: A file path, or claude-code or codex for history
+    source_kind: parameter
+  - name: format
+    type: string
+    source: json, csv, or markdown; inferred from the file when omitted
+    source_kind: parameter
+  - name: since
+    type: string
+    source: For history, how far back to read; defaults to the history import window
+    source_kind: parameter
+  - name: as_mine
+    type: boolean
+    source: The owner states the file is their own words; only accepted from an owner command
+    source_kind: parameter
+  - name: dry_run
+    type: boolean
+    source: Report what would be imported without writing
+    source_kind: parameter
+returns: Counts of memories written, repeats skipped, held for review, and rows refused with reasons.
+errors:
+  - code: unreadable
+    when: the file cannot be read or parsed in the given format
+  - code: not_available
+    when: history import is asked for OpenClaw, which keeps no readable history
+  - code: kernle_unavailable
+    when: Kernle is not initialized for this account, or the stack cannot be opened
+auth: Owner command, or an agent call that cannot set as_mine
+sequence: capture.seq.import
+owner: crates/kernle-core/src/capture/import.rs::import_memories
+tags:
+  - {tag: cli, text: kernle import}
+  - {tag: python, text: import_memories}

@@ -1,0 +1,168 @@
+ready: 1
+kind: entity
+id: consolidation.data.suggestion
+display_id: DATA-SUGGESTION
+module: consolidation
+entity_kind: table
+table: suggestion
+name: suggestion
+summary: One proposed memory change waiting for the agent or owner to accept, modify, or reject it.
+columns:
+  - name: id
+    type: TEXT
+    keys:
+      - PK
+  - name: memory_kind
+    type: TEXT
+    nullable: false
+    values:
+      - episode
+      - note
+      - belief
+      - value
+      - goal
+      - drive
+      - relationship
+      - playbook
+      - entity_model
+      - guardrail
+      - self_narrative
+  - name: change
+    type: TEXT
+    nullable: false
+    values:
+      - add
+      - update
+      - revise
+      - supersede
+      - forget
+    rule: Forget is a held agent request to forget a protected memory or a guardrail
+  - name: target_id
+    type: TEXT
+    nullable: true
+    keys:
+      - FK
+    fk:
+      entity: memory.data.memory
+      column: id
+      on_delete: CASCADE
+    rule: The memory the change targets; empty for an add
+  - name: target_version
+    type: INTEGER
+    nullable: true
+    rule: The target's version when the change was proposed; accepting a stale proposal shows the current memory first
+  - name: proposal
+    type: TEXT
+    nullable: false
+    rule: JSON body of the proposed memory in the kind's shape
+  - name: source_ids
+    type: TEXT
+    nullable: false
+    rule: JSON list of typed references to the memories, raw entries, and events the claim depends on
+  - name: evidence_tier
+    type: TEXT
+    nullable: false
+    values:
+      - principal
+      - first_party
+      - agent_inferred
+      - third_party
+  - name: hold_reason
+    type: TEXT
+    nullable: false
+    values:
+      - identity_layer
+      - owner_content
+      - third_party_only
+      - preference_not_stated
+      - low_confidence
+      - review_requested
+    rule: Why the change waits; quarantine is the third-party-only hold
+  - name: confidence
+    type: REAL
+    nullable: false
+  - name: run_id
+    type: TEXT
+    nullable: true
+    keys:
+      - FK
+    fk:
+      entity: consolidation.data.run
+      column: id
+  - name: status
+    type: TEXT
+    nullable: false
+    values:
+      - pending
+      - promoted
+      - modified
+      - rejected
+      - dismissed
+      - expired
+    indexes:
+      - P1·where
+  - name: created_at
+    type: TEXT
+    nullable: false
+    indexes:
+      - P1·1
+    rule: Starts the expiry window
+    constants:
+      - consolidation.const.suggestion-expiry-days
+  - name: resolved_at
+    type: TEXT
+    nullable: true
+    rule: Starts the retention window after which the proposal text is removed
+    constants:
+      - consolidation.const.suggestion-retention-days
+  - name: promoted_to
+    type: TEXT
+    nullable: true
+    keys:
+      - FK
+    fk:
+      entity: memory.data.memory
+      column: id
+      on_delete: SET NULL
+indexes:
+  - id: P1
+    name: suggestion_pending_idx
+    columns:
+      - created_at ASC
+    where: status = 'pending'
+    purpose: Lists waiting changes oldest first and finds the ones that expire
+    serves:
+      - consolidation.seq.review
+      - consolidation.seq.expire
+relationships:
+  - to: memory.data.memory
+    on:
+      - from: target_id
+        to: id
+    from_card: 0..many
+    to_card: 0..1
+    link: fk
+    on_delete: CASCADE
+    label: A change proposed for an existing memory
+    reason: Purging the target purges the proposals about it
+  - to: memory.data.memory
+    on:
+      - from: promoted_to
+        to: id
+    from_card: 0..1
+    to_card: 0..1
+    link: fk
+    on_delete: SET NULL
+    label: The memory an accepted suggestion became
+  - to: consolidation.data.run
+    on:
+      - from: run_id
+        to: id
+    from_card: 0..many
+    to_card: 0..1
+    link: fk
+    label: The run that proposed the change
+lifecycle: >-
+  Pending suggestions expire unapplied after the expiry window. Resolved suggestions keep their
+  status and reason for the retention window, then their proposal text is removed. Purging a
+  memory purges every suggestion that cites it or promoted into it.

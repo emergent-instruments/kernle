@@ -1,0 +1,7 @@
+ready: 1
+kind: capability
+id: cap.recall
+name: Recall at the right moment
+outcome: The agent receives its working memory at session start, related memories beside prompts, and a pause before risky actions, all within a small context budget.
+actors: [actor.agent]
+owners: [recall]

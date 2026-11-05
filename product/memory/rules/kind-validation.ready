@@ -1,0 +1,36 @@
+ready: 1
+kind: rule
+id: memory.rule.kind-validation
+display_id: RULE-MEMORY-KIND
+module: memory
+title: Each kind's fields are complete and in range
+summary: A write or update is refused when the kind's required fields are missing, a value is out of range, or the text is too long.
+table:
+  columns: [Kind, Required, Limits]
+  rows:
+    - [episode, objective and outcome, "outcome type is success, failure, mixed, or neutral; explicit valence -1 to 1 and arousal 0 to 1"]
+    - [note, content, note type from the note types list]
+    - [belief, statement, "confidence 0 to 1; belief type from the belief types list"]
+    - [value, name and statement, priority 0 to 100]
+    - [goal, title, "goal type task, aspiration, commitment, or exploration; status active, completed, paused, or abandoned"]
+    - [drive, drive type, "intensity 0 to 1; drive type existence, growth, curiosity, connection, or reproduction"]
+    - [relationship, entity name, sentiment -1 to 1]
+    - [playbook, "name, description, and at least one step", success rate 0 to 1]
+    - [entity_model, entity name and observation, "model type behavioral, preference, or capability"]
+    - [guardrail, the rule and at least one trigger list, "each pattern is valid; each path is a glob"]
+default: The fields are accepted
+inputs:
+  - name: fields
+    source: "The kind and its fields from the caller"
+    source_kind: parameter
+constants:
+  - memory.const.max-content-chars
+constraints:
+  - text: The canonical content of every kind is at most the content limit
+    hard: true
+  - text: Derived-from references name existing memories or captures in the same stack, written as kind and id
+    hard: true
+files:
+  - path: product/memory/files/memory-kinds.ts
+    title: Fields for each memory kind
+    role: contract

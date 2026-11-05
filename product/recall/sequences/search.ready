@@ -1,0 +1,142 @@
+ready: 1
+kind: sequence
+id: recall.seq.search
+display_id: SEQ-RECALL-SEARCH
+module: recall
+title: Search memory
+summary: Finds memories by words and meaning, applies kind, context and emotion filters, gates on relevance,
+  and ranks what remains.
+trigger:
+  trigger_kind: call
+  text: The agent or owner searches
+operation: recall.op.search
+participants:
+- id: caller
+  is:
+  - actor.agent
+  - actor.owner
+  label: Agent or owner
+- id: api
+  is:
+  - sys.python
+  - sys.cli
+  label: Kernle Python package, command line or tool server
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+items:
+- msg:
+    from: caller
+    to: api
+    text: Search for memories
+    call: Kernle.search(query, limit, record_types, context, include_dormant, valence_range, arousal_range)
+    inputs:
+    - name: query
+      source: The caller
+      source_kind: parameter
+    - name: record_types
+      source: The caller
+      source_kind: parameter
+    - name: valence_range
+      source: The caller
+      source_kind: parameter
+    - name: arousal_range
+      source: The caller
+      source_kind: parameter
+    constants:
+    - recall.const.search-default-limit
+- alt:
+    branches:
+    - when: an emotion range is out of bounds or a kind is unknown
+      items:
+      - msg:
+          from: api
+          to: caller
+          text: Refuse the search
+          reply: true
+          results:
+          - code: invalid_range
+          - code: unknown_kind
+    - when: the request is valid
+      items:
+      - msg:
+          from: api
+          to: sys.daemon
+          text: Resolve the stack and run the search
+          invokes:
+          - stacks.seq.resolve
+      - opt:
+          when: the stack has an embedding model
+          items:
+          - msg:
+              from: sys.daemon
+              to: sys.daemon
+              text: Embed the query with the stack's embedding model
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Find candidates by words and by meaning
+          ops:
+          - op: read
+            entity: recall.data.search-index
+            index: I1
+            note: full-text match plus brute-force similarity over this stack's vectors
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Keep candidates that pass the filters
+          ops:
+          - op: read
+            entity: memory.data.memory
+            by:
+            - id
+            where: status = active, or dormant when asked; kind, context and emotion ranges as requested
+          note: Forgotten and superseded memories are never returned by search
+      - msg:
+          from: sys.daemon
+          to: sys.daemon
+          text: Gate on relevance, then rank by relevance, strength, salience and usage
+          rules:
+          - recall.rule.relevance
+          - recall.rule.priority
+          constants:
+          - recall.const.search-min-relevance
+      - opt:
+          when: the caller is the agent
+          items:
+          - msg:
+              from: sys.daemon
+              to: db
+              text: Record the results
+              ops:
+              - op: insert
+                entity: recall.data.recall-log
+                set:
+                - tier = search
+                - memory_id
+                - session_id
+                - created_at now
+                - expires_at
+              - op: upsert
+                entity: recall.data.usage
+                by:
+                - memory_id
+                set:
+                - recalled_count + 1
+              note: A search result is not use until the agent opens the memory or reports on it
+      - msg:
+          from: api
+          to: caller
+          text: Return the ranked results with kind, trust tier, date and score
+          reply: true
+- note:
+    over:
+    - api
+    - db
+    text: Without the daemon the search runs read-only over the stack database, by words only when the
+      model is not loaded, and logs nothing
+rationale: Emotion filters narrow by stored appraisal, while ranking still starts with relevance, so a
+  mood-congruent search returns memories that are both relevant and emotionally close. The owner browsing
+  with the command line never changes usage.

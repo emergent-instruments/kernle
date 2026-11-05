@@ -1,0 +1,8 @@
+ready: 1
+kind: surface
+id: sync.surface.sync
+module: sync
+name: Sync screens
+surface_kind: screen
+system: sys.cli
+summary: Terminal output of the auth, sync, and conflicts commands.

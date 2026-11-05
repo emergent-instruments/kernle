@@ -1,0 +1,51 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.expire
+display_id: SEQ-CONSOLIDATION-EXPIRE
+module: consolidation
+title: Expire stale suggestions
+summary: >-
+  Daily, closes suggestions that waited past the expiry window without applying them, and
+  removes the proposal text of long-resolved suggestions.
+trigger:
+  trigger_kind: schedule
+  text: Once a day with each stack's retention run
+participants:
+  - id: sched
+    is:
+      - sys.daemon
+    label: Scheduler
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: sched
+      to: db
+      text: Expire pending suggestions older than the expiry window
+      constants:
+        - consolidation.const.suggestion-expiry-days
+      ops:
+        - op: update
+          entity: consolidation.data.suggestion
+          index: P1
+          where: created before the expiry window
+          set:
+            - status expired
+            - resolved_at now
+  - msg:
+      from: sched
+      to: db
+      text: Remove the proposal text of suggestions resolved before the retention window
+      constants:
+        - consolidation.const.suggestion-retention-days
+      ops:
+        - op: update
+          entity: consolidation.data.suggestion
+          where: resolved before the retention window
+          set:
+            - proposal cleared
+rationale: >-
+  Held changes expire rather than accumulate, so a queue nobody reads never becomes a backlog
+  that later applies stale memories in bulk. Expiring changes nothing in memory.

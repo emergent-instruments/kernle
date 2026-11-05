@@ -1,0 +1,12 @@
+ready: 1
+kind: operation
+id: sync.op.conflicts
+display_id: kernle.sync_conflicts
+module: sync
+name: kernle sync conflicts
+summary: Lists held conflicts and lets the owner choose which version to keep.
+returns: Each conflict's memory, both versions' summaries, and the owner's resolution
+sequence: sync.seq.conflicts
+owner: crates/kernle-cli/src/commands/sync.rs::conflicts
+tags:
+  - { tag: cli, text: "kernle sync conflicts" }

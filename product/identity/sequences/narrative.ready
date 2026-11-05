@@ -1,0 +1,104 @@
+ready: 1
+kind: sequence
+id: identity.seq.narrative
+display_id: SEQ-IDENTITY-NARRATIVE
+module: identity
+title: Save or read a self-narrative
+summary: >-
+  Makes a new narrative the active one of its type and keeps the previous one inactive, or
+  reads narratives.
+trigger:
+  trigger_kind: call
+  text: The agent saves or reads a narrative, or the owner accepts a narrative suggestion
+operation: identity.op.narrative
+participants:
+  - actor.agent
+  - id: core
+    is:
+      - sys.daemon
+      - sys.python
+    label: Kernle core
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: actor.agent
+      to: core
+      text: Save or read a narrative
+      invokes:
+        - stacks.seq.resolve
+      inputs:
+        - name: requester
+          source: The agent's deliberate call, or the owner accepting a suggestion
+          source_kind: session
+  - alt:
+      branches:
+        - when: reading
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Read the active narrative or the list
+                ops:
+                  - op: read
+                    entity: identity.data.self-narrative
+                    index: P1
+            - msg:
+                from: core
+                to: actor.agent
+                text: The narratives
+                reply: true
+        - when: the agent replaces a narrative the owner wrote
+          items:
+            - msg:
+                from: core
+                to: actor.agent
+                text: Refuse; the owner wrote it
+                reply: true
+                results:
+                  - code: owner_only
+                    copy: The owner wrote this narrative. Propose a change with a suggestion instead.
+        - when: saving
+          items:
+            - msg:
+                from: core
+                to: core
+                text: Work out the narrative's trust tier from the memories it cites
+                rules:
+                  - trust.rule.source-tier
+            - transaction:
+                label: Replace the active narrative of this type
+                items:
+                  - msg:
+                      from: core
+                      to: db
+                      text: Retire the current narrative and store the new one as active
+                      ops:
+                        - op: update
+                          entity: identity.data.self-narrative
+                          index: P1
+                          set:
+                            - is_active 0
+                        - op: insert
+                          entity: identity.data.self-narrative
+                          set:
+                            - content
+                            - narrative_type
+                            - key_themes
+                            - unresolved_tensions
+                            - author
+                            - trust_tier
+                            - is_active 1
+                            - supersedes the previous one
+                            - epoch_id current by default
+                        - op: enqueue
+                          entity: sync.data.sync-queue
+                          set:
+                            - the narrative change
+            - msg:
+                from: core
+                to: actor.agent
+                text: The new narrative id
+                reply: true

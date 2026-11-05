@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: identity.reflect.record
+journey: identity.reflect
+title: Record a conclusion as memory
+step_kind: system
+does:
+  - Writes the memory through its normal call, citing the memories it rests on, so the trust gate and provenance apply
+sequences:
+  - memory.seq.write
+next:
+  - to: identity.reflect.decide
+    next_kind: result

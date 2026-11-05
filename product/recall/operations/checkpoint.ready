@@ -1,0 +1,33 @@
+ready: 1
+kind: operation
+id: recall.op.checkpoint
+display_id: kernle.checkpoint
+module: recall
+name: Kernle.checkpoint(task, pending, context)
+summary: >-
+  Saves, loads or clears the record of where the agent left off. Saving keeps
+  the latest few checkpoints and also captures the task as a raw entry so sleep
+  can learn from it.
+params:
+  - name: task
+    type: str
+    source: Caller; what the agent is doing
+    source_kind: parameter
+  - name: pending
+    type: list[str] | None
+    source: Caller; next steps
+    source_kind: parameter
+  - name: context
+    type: str | None
+    source: Caller
+    source_kind: parameter
+returns: The saved checkpoint's id; for load, the latest checkpoint or nothing.
+errors:
+  - code: empty_task
+    when: The task is empty
+sequence: recall.seq.checkpoint
+owner: crates/kernle-core/src/recall/checkpoint.rs
+tags:
+  - { tag: cli, text: "kernle checkpoint save|load|clear" }
+  - { tag: mcp, text: "memory_checkpoint_save, memory_checkpoint_load" }
+  - { tag: python, text: "Kernle.checkpoint, load_checkpoint, clear_checkpoint, emergency_save" }

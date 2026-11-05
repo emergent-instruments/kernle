@@ -1,0 +1,8 @@
+ready: 1
+kind: step
+id: sync.account.done
+journey: sync.account
+title: In sync
+step_kind: outcome
+surface: sync.surface.sync
+sees: [The stack is linked and syncs in the background]

@@ -1,0 +1,27 @@
+ready: 1
+kind: journey
+id: consolidation.review
+display_id: FLOW-CONSOLIDATION-REVIEW
+module: consolidation
+actors:
+  - actor.owner
+title: See what Kernle learned and decide held changes
+summary: The owner reads the log of recent runs and decides each change that waits for review.
+trigger: The owner wants to know what changed in memory, or status shows changes waiting
+entries:
+  - label: kernle log
+    to: consolidation.review.log
+  - label: kernle review
+    to: consolidation.review.list
+steps:
+  - consolidation.review.log
+  - consolidation.review.run
+  - consolidation.review.list
+  - consolidation.review.decide
+  - consolidation.review.edit
+  - consolidation.review.conflict
+  - consolidation.review.read-only
+  - consolidation.review.done
+sequences:
+  - consolidation.seq.status
+  - consolidation.seq.review

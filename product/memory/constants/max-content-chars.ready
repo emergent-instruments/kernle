@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: memory.const.max-content-chars
+module: memory
+name: MAX_CONTENT_CHARS
+value: "20000"
+unit: characters
+description: The longest canonical text one memory can hold.

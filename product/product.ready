@@ -1,0 +1,71 @@
+ready: 1
+kind: product
+id: product
+name: Kernle
+release: "1.0.0"
+outcome: >-
+  AI agents keep a stratified memory of who they are and what they have lived
+  through, recall the right part of it at the right moment, and stop repeating
+  mistakes, while the person who runs them can see, correct, and truly delete
+  every memory.
+summary: >-
+  A local memory engine for AI agents. It captures experience automatically and
+  through deliberate calls, appraises what mattered, consolidates it into
+  beliefs, values, goals, guardrails, and playbooks while the agent is idle,
+  and brings it back as labeled notes at session start, beside prompts, and
+  before risky actions.
+boundary:
+  text: >-
+    A Rust engine with a per-user daemon, shipped as a Python package with the
+    native command-line tool, for macOS and Linux machines the owner controls.
+  includes:
+    - The Python API, the command-line tool, and the MCP tool server
+    - Adapters for Claude Code, Codex CLI, and OpenClaw
+    - Automatic capture from runtime transcripts and explicit memory writes
+    - Computed appraisal that decides filing, ranking, and decay
+    - Background consolidation with suggestions for owner and agent review
+    - Recall at session start, beside prompts, and before risky actions
+    - Decay, forgetting, recovery, and complete deletion
+    - Optional sync of a stack to the Kernle cloud service
+  excludes:
+    - The Kernle cloud service itself, which is an external system
+    - Windows hosts
+exclusions:
+  - Shared or team memory stacks edited by several people
+  - Rewriting or blocking a runtime's own native memory files by default
+  - Training or fine-tuning models from memory
+  - Telemetry, analytics, or crash reports sent anywhere
+measures:
+  - On recurring task sequences, agents with Kernle repeat a previously corrected or failed approach less often than the same agents with native memory alone.
+  - Appraisal-weighted filing and ranking lower the repeat-error rate compared with an otherwise identical recency-and-relevance configuration, without raising unnecessary hesitation on safe actions.
+  - Injected memories are judged relevant to the moment they appear in at least 70 percent of sampled cases.
+  - The owner can trace any memory to the experience that justifies it and remove it, with its sources, completely.
+  - No hook call ever blocks or breaks the agent's work except a deliberate guardrail pause.
+dcl:
+  level: 4
+  basis: >-
+    Kernle is published as a package and used by real agents every day. The
+    core capture, recall, and write paths must be reliable and recover from
+    common failures, and memory is never lost or corrupted. Background work
+    may pause and resume, and rare cases may need the owner's manual repair.
+    Privacy, complete deletion, and never breaking the agent apply in full.
+rationale: >-
+  Memory is stratified because agents need different kinds of memory to last
+  differently: raw captures are cheap and short-lived, episodes hold what
+  happened, beliefs and playbooks generalize it, and values and the
+  self-narrative change only through repeated evidence.
+
+
+  Emotion is a computed appraisal from observable signals, never a reported
+  feeling, so every memory's importance can be explained and tested against a
+  plain recency-and-relevance baseline.
+
+
+  Everything stays on the owner's machine except what the owner sends to a
+  chosen model provider and, when enabled, to their own cloud sync account,
+  because agent transcripts are among the most sensitive data a developer has.
+
+
+  The engine is Rust with a daemon so hooks answer within the agent's deadline
+  and the warm index and model are loaded once, while the Python package keeps
+  the established calls working for agents and scripts that import Kernle.

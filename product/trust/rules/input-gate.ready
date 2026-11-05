@@ -1,0 +1,100 @@
+ready: 1
+kind: rule
+id: trust.rule.input-gate
+display_id: RULE-TRUST-GATE
+module: trust
+title: Whether a memory change applies, waits for review, or is quarantined
+summary: >-
+  Behavior-changing memories with only outside support are quarantined, preferences need the person's
+  own words, and owner or protected content never changes automatically.
+owner: crates/kernle-core/src/trust/gate.rs::decide
+inputs:
+- name: proposal
+  source: The proposed change, its memory kind and belief type, and its derived tier
+  source_kind: derived
+- name: target
+  source: The target memory's latest author and whether it is protected
+  source_kind: stored
+- name: requester
+  source: 'Who asked for the change: a deliberate call, processing, sleep, an import, or sync'
+  source_kind: parameter
+rules:
+- trust.rule.source-tier
+sets:
+- name: behavior-changing kinds
+  members:
+  - guardrail
+  - playbook
+  - value
+  - belief of type preference
+  - belief of type rule
+  - belief of type principle
+  - belief of type strategy
+decision:
+  nodes:
+  - id: in
+    node_kind: input
+    text: A proposed memory change with its kind, tier, and target
+  - id: owner
+    node_kind: decision
+    text: Does it change a memory whose latest version the owner wrote, or a protected memory?
+  - id: third
+    node_kind: decision
+    text: Is it a behavior-changing kind supported only by outside content?
+  - id: pref
+    node_kind: decision
+    text: Is it a preference without any of the person's own words as support?
+  - id: deliberate
+    node_kind: decision
+    text: Did the agent ask for it with a deliberate memory call?
+  - id: hold-owner
+    node_kind: outcome
+    text: Hold for review because it would change the owner's content
+  - id: quarantine
+    node_kind: outcome
+    text: Quarantine for review, marked as supported only by outside content
+  - id: hold-pref
+    node_kind: outcome
+    text: Hold for review because the person never stated the preference
+  - id: apply-marked
+    node_kind: outcome
+    text: Apply, recorded with the agent-inferred tier
+  - id: apply
+    node_kind: outcome
+    text: Apply now
+  edges:
+  - from: in
+    to: owner
+  - from: owner
+    to: hold-owner
+    label: 'Yes'
+  - from: owner
+    to: third
+    label: 'No'
+  - from: third
+    to: quarantine
+    label: 'Yes'
+  - from: third
+    to: pref
+    label: 'No'
+  - from: pref
+    to: hold-pref
+    label: 'Yes'
+  - from: pref
+    to: deliberate
+    label: 'No'
+  - from: deliberate
+    to: apply-marked
+    label: 'Yes'
+  - from: deliberate
+    to: apply
+    label: 'No'
+precedence:
+- The first matching hold wins; quarantine is checked before the preference hold.
+default: Apply now
+rationale: |-
+  Quarantine blocks the persistent prompt-injection path without blocking memories of things that actually happened, because outcomes the agent observed carry the first-party tier.
+
+  Preferences need the person's words because an agent inferring what its owner likes, then acting on it every session, is how memory drifts away from the person it serves.
+
+  A deliberate agent call still applies, since the agent decides what it remembers, but it keeps the agent-inferred tier so recall shows it as the agent's own inference rather than as fact.

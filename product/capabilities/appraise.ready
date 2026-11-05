@@ -1,0 +1,7 @@
+ready: 1
+kind: capability
+id: cap.appraise
+name: Know what mattered
+outcome: Each episode carries an explainable appraisal and emotion label that decide how it is filed, ranked, and kept.
+actors: [actor.agent]
+owners: [appraisal]

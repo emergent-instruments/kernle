@@ -1,0 +1,27 @@
+ready: 1
+kind: rule
+id: recall.rule.render
+display_id: RULE-RECALL-RENDER
+module: recall
+title: How memory appears in the agent's context
+summary: Memory is shown as dated, labeled notes under a line saying they are not instructions, and a checkpoint is shown as where the agent left off.
+when: Kernle places any memory in an agent's context, through load, the session index or a cue
+then: >-
+  The block starts with the injection marker and the preamble; each memory is a
+  quoted note with its kind, trust tier and date; the latest checkpoint appears
+  under "Where you left off" with its task, context and next steps and no
+  instruction about how to resume.
+constraints:
+  - text: No rendered block tells the agent to act, to continue without asking, or to hide that memory was loaded.
+    hard: true
+  - text: Content written by third-party sources carries its trust tier on every line it appears.
+    hard: true
+constants:
+  - recall.const.injection-preamble
+  - recall.const.injection-marker
+rationale: >-
+  An agent that treats memory as orders can be steered by whatever got into
+  memory, including text planted by a web page or a repository file. Labeled
+  notes with kind, trust tier and date let it weigh them like a colleague's
+  advice. The marker lets capture drop Kernle's own output so recall never
+  reinforces itself.

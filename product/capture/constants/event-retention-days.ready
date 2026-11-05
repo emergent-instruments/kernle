@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: capture.const.event-retention-days
+module: capture
+name: EVENT_RETENTION_DAYS
+value: "30"
+unit: days
+source: config.toml#retention.event_retention_days
+description: How long a transcript event is kept after it is stored; its episode lives on.

@@ -1,0 +1,83 @@
+ready: 1
+kind: rule
+id: health.rule.anxiety
+display_id: RULE-HEALTH-ANXIETY
+module: health
+title: How anxious the agent's memory is
+summary: Anxiety is a weighted average of six dimensions, each scored from 0 to 100, over the dimensions
+  that can be measured at that moment.
+inputs:
+- name: context figures
+  source: The caller or hook
+  source_kind: parameter
+- name: checkpoint age
+  source: The latest checkpoint
+  source_kind: stored
+- name: review backlog
+  source: Pending suggestions
+  source_kind: stored
+- name: identity confidence
+  source: Identity synthesis
+  source_kind: return
+- name: uncertain count
+  source: Active memories' confidence after decay
+  source_kind: derived
+- name: epoch age
+  source: The current epoch
+  source_kind: stored
+table:
+  columns:
+  - dimension
+  - weight
+  - scores 0 when
+  - scores 100 when
+  - resolved by
+  rows:
+  - - context pressure
+    - '0.25'
+    - under half the context limit is used
+    - the context is full
+    - checkpoint, then let the runtime compact
+  - - unsaved work
+    - '0.20'
+    - a checkpoint is under 15 minutes old
+    - no checkpoint for 3 hours or more
+    - checkpoint
+  - - review backlog
+    - '0.15'
+    - no suggestion or held deletion waits
+    - 20 or more wait or one is older than 14 days
+    - suggestions review
+  - - identity coherence
+    - '0.15'
+    - identity confidence is 0.9 or more
+    - identity confidence is 0.3 or less
+    - consolidate, then save a self-narrative
+  - - memory uncertainty
+    - '0.15'
+    - no active memory is uncertain
+    - a fifth or more of active memories are uncertain
+    - verify or revise beliefs; give feedback
+  - - epoch staleness
+    - '0.10'
+    - the current epoch is under 6 months old
+    - the current epoch is 2 years old or there is none
+    - close the epoch and start a new one
+calculations:
+- name: dimension score
+  expr: linear between its 0 and 100 points, clamped to 0..100
+- name: score
+  expr: Σ(weight × dimension score) ÷ Σ(weight) over measurable dimensions, rounded
+- name: level
+  expr: the anxiety level whose range holds the score
+- name: recommended actions
+  expr: each dimension scoring 50 or more, highest weighted score first, with the call that resolves it
+default: A dimension that cannot be measured, such as context pressure without context figures, is left
+  out of both sums
+constants:
+- health.const.anxiety-levels
+- health.const.uncertain-below
+rationale: 'Leaving unmeasured dimensions out of the average, rather than counting them as calm, is what
+  lets one calculation serve every caller: the command line knows nothing about context, while a hook
+  near compaction does. Processing debt is not a dimension, because sleep handles it without the agent;
+  counting it would push agents to spend their work on upkeep.'

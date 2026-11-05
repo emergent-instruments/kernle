@@ -1,0 +1,57 @@
+ready: 1
+kind: entity
+id: stacks.data.stack
+display_id: DATA-STACK
+module: stacks
+entity_kind: table
+table: stack
+name: stack
+summary: One memory stack registered in the Kernle home; its data lives in its own directory and database.
+columns:
+  - name: stack_id
+    type: TEXT
+    keys: [PK]
+    rule: A slug that names the directory stacks/<stack_id>/; never reused after deletion
+  - name: kind
+    type: TEXT
+    nullable: false
+    values: [user, project, agent, named]
+    rule: The personal stack is the one user row; project stacks follow a repository, agent stacks follow an OpenClaw agent, named stacks are chosen explicitly
+  - name: root_key
+    type: TEXT
+    nullable: false
+    keys: [UK]
+    indexes: [U1·1]
+    rule: The identity the resolver matches, such as a normalized git origin, a repository path, an OpenClaw agent id, or an explicit name
+  - name: display_name
+    type: TEXT
+    nullable: false
+  - name: sync_enabled
+    type: INTEGER
+    nullable: false
+    default: "0"
+    rule: Set when the owner links this stack to their cloud account; only synced stacks queue changes for push
+  - name: last_active_at
+    type: TEXT
+    nullable: false
+    rule: Last capture, recall, or write in this stack, updated at most once per touch interval
+    constants: [stacks.const.activity-touch]
+  - name: schema_version
+    type: INTEGER
+    nullable: false
+    rule: The stack database's schema; a database newer than the binary is opened read-only and shown as needing an upgrade
+  - name: created_at
+    type: TEXT
+    nullable: false
+indexes:
+  - id: U1
+    name: stack_root_key_key
+    unique: true
+    columns: [root_key ASC]
+    purpose: Exactly one stack per identity, so concurrent first requests from two agents in a new repository resolve to the same stack
+    serves: [stacks.seq.resolve]
+access:
+  writers:
+    - stacks module sequences
+    - retention stack deletion removes the row
+lifecycle: Created on first resolution or explicitly; removed only by stack deletion.

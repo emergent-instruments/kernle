@@ -1,0 +1,9 @@
+ready: 1
+kind: quality
+id: agents.quality.never-break
+display_id: QC-AGENTS-NEVER-BREAK
+module: agents
+title: Kernle never breaks the agent's work
+applies_to: [agents.seq.hook, agents.rule.fail-open, agents.seq.mcp-call]
+measure: Agent actions blocked, delayed, or altered by Kernle, and handler outcomes after errors or deadline expiry
+target: Only the Kernle-home write guard and a guardrail pause block a call. Every other failure returns an empty response with a success exit; tools return a named error rather than hanging.

@@ -1,0 +1,38 @@
+ready: 1
+kind: sequence
+id: memory.seq.write
+display_id: SEQ-MEMORY-WRITE
+module: memory
+title: Write a memory
+summary: >-
+  Checks a memory's fields, sets its trust tier, passes it through the input gate, and stores it
+  with its version, provenance, and change record in one commit, or returns the existing memory
+  when the content is a repeat.
+trigger:
+  trigger_kind: call
+  text: An agent, the owner, processing, sleep, import, or transcript capture writes a memory of any kind
+operation: memory.op.episode
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: memory
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items: []
+parts:
+  - memory.seq.write.a
+  - memory.seq.write.b
+rationale: >-
+  Every kind goes through this one path so trust, the input gate, deduplication, provenance, and
+  the change ledger apply the same way to an episode as to a value. Earlier designs let each kind
+  write its own table, and the layers drifted apart.
+
+
+  The core is the daemon when it runs, because the daemon is the only writer of stack databases
+  while it runs. When it is stopped, the Python package or CLI opens the stack itself under the
+  stack's write lock, so writes never fail just because the daemon is down.

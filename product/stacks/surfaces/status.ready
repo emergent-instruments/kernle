@@ -1,0 +1,17 @@
+ready: 1
+kind: surface
+id: stacks.surface.status
+module: stacks
+name: Status screen
+surface_kind: screen
+system: sys.cli
+summary: Terminal output of the status command.
+elements:
+  - name: Daemon and provider
+    description: Whether the daemon runs, the provider, and today's tokens against the daily budget
+  - name: Stacks
+    description: Each stack's name, kind, memory counts, last activity, last sleep, pending suggestions, and sync state
+  - name: Scheduled deletions
+    description: Idle stacks and forgotten memories due for deletion, with their dates
+states:
+  - Daemon stopped, with recall limited to keyword search and the command to start it

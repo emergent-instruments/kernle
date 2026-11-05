@@ -1,0 +1,101 @@
+ready: 1
+kind: rule
+id: recall.rule.priority
+display_id: RULE-RECALL-PRIORITY
+module: recall
+title: Which memories earn a place in working memory
+summary: Boot settings and the agent's identity come first; everything else is ordered by kind, strength,
+  salience, relevance and how often it helped, and added until the budget is full.
+inputs:
+- name: candidates
+  source: Active memories in the stack
+  source_kind: stored
+- name: usage
+  source: Recall usage counts
+  source_kind: stored
+- name: relevance
+  source: The relevance rule
+  source_kind: derived
+- name: budget
+  source: The caller's budget, clamped
+  source_kind: parameter
+decision:
+  nodes:
+  - id: cand
+    node_kind: input
+    text: Active memories of the stack, excluding dormant, forgotten and superseded ones
+    refs:
+    - memory.data.memory
+  - id: excl
+    node_kind: decision
+    text: Has the memory hurt more often than it helped by the exclusion margin?
+    refs:
+    - recall.data.usage
+    - recall.const.hurt-exclusion-margin
+  - id: out
+    node_kind: outcome
+    text: Left out of automatic recall but still searchable
+  - id: first
+    node_kind: action
+    text: Reserve room for boot settings, the active self-narrative, values and foundational beliefs,
+      then the latest checkpoint
+    refs:
+    - recall.data.boot-config
+    - recall.data.checkpoint
+    - identity.data.self-narrative
+  - id: score
+    node_kind: calc
+    text: Score every other memory by kind weight, strength, salience, relevance and usage
+    refs:
+    - recall.const.type-weights
+    - recall.rule.relevance
+  - id: fill
+    node_kind: decision
+    text: Does the next memory fit the remaining budget?
+  - id: add
+    node_kind: action
+    text: Add it, shortened at a word boundary when shortening is allowed
+  - id: stop
+    node_kind: outcome
+    text: Stop and report how many memories were left out
+  edges:
+  - from: cand
+    to: excl
+  - from: excl
+    to: out
+    label: 'yes'
+  - from: excl
+    to: first
+    label: 'no'
+  - from: first
+    to: score
+  - from: score
+    to: fill
+  - from: fill
+    to: add
+    label: 'yes'
+  - from: add
+    to: fill
+  - from: fill
+    to: stop
+    label: no, or none left
+calculations:
+- name: score
+  expr: type_weight × (0.5 + 0.5 × strength) × (0.75 + 0.25 × salience) × relevance_factor ÷ (1 + max(0,
+    hurt_count − helped_count))
+- name: relevance_factor
+  expr: 1 when no context or query is given, else 0.25 + 0.75 × relevance
+- name: tokens
+  expr: characters ÷ 4, rounded up
+rules:
+- recall.rule.relevance
+constants:
+- recall.const.type-weights
+- recall.const.hurt-exclusion-margin
+- recall.const.default-token-budget
+- recall.const.min-token-budget
+- recall.const.max-token-budget
+rationale: Strength and salience are in the score so that use and emotion change what the agent carries
+  into a session; a memory of a costly mistake outranks a routine note of the same kind. Identity and
+  boot settings are reserved first because the agent's sense of itself should not depend on how busy its
+  recent work was. A context or query narrows the load without excluding the identity core.

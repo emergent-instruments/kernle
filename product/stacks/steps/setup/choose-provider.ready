@@ -1,0 +1,25 @@
+ready: 1
+kind: step
+id: stacks.setup.choose-provider
+journey: stacks.setup
+title: Choose the model provider
+step_kind: decision
+surface: stacks.surface.init
+copy:
+  title: Where may Kernle send memory excerpts?
+  body:
+  - Kernle sends short excerpts of episodes to this provider during background consolidation, and nothing
+    else. Choose None to keep everything on this machine.
+  actions:
+  - Anthropic API key
+  - OpenAI-compatible endpoint
+  - Claude Code headless
+  - Codex headless
+  - Host agent
+  - None
+rules:
+- stacks.rule.model-destination
+next:
+- to: stacks.setup.done
+  label: Confirm
+  next_kind: action

@@ -1,0 +1,20 @@
+ready: 1
+kind: operation
+id: retention.op.decay-config
+display_id: kernle.set_decay_config
+module: retention
+name: Kernle.set_decay_config(windows, dormant_below) · get_decay_config · get_forgetting_candidates · run_forgetting_cycle
+summary: >-
+  Reads or changes the idle windows and dormancy threshold, lists the memories
+  closest to fading, or runs the retention sweep at once.
+params:
+  - { name: windows, type: "dict[str, int] | None", source: Caller; days per kind, source_kind: parameter }
+  - { name: dormant_below, type: float | None, source: Caller, source_kind: parameter }
+returns: The configuration, a list of memories with strength and fade date, or the sweep's counts.
+errors:
+  - code: invalid_window
+    when: A window is not a positive number of days, or the threshold is outside 0 to 1
+sequence: retention.seq.decay-config
+owner: crates/kernle-core/src/retention/config.rs
+tags:
+  - { tag: cli, text: "kernle decay show|set|candidates|run" }

@@ -1,0 +1,17 @@
+ready: 1
+kind: operation
+id: stacks.op.resolve
+display_id: kernle.resolve_stack
+module: stacks
+name: ResolveStack
+summary: Returns the stack a request uses, or refuses a caller from another OS account; every entry point calls it first.
+params:
+  - { name: stack, source: The caller's stack argument or command-line option, source_kind: parameter, type: string }
+  - { name: cwd, source: The runtime payload or process directory, source_kind: payload, type: string }
+  - { name: runtime, source: The entry point, source_kind: derived, type: string }
+returns: The stack id and its directory
+errors:
+  - { code: not_owner, when: the caller's OS account does not own the home }
+  - { code: invalid_stack_name, when: a named stack is not a valid slug }
+sequence: stacks.seq.resolve
+owner: crates/kernle-core/src/stacks/resolve.rs::resolve

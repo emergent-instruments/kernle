@@ -1,0 +1,7 @@
+ready: 1
+kind: capability
+id: cap.capture
+name: Capture experience without upkeep
+outcome: Session activity, explicit notes, imports, and seeded documents become private, scrubbed memory sources without the agent maintaining them.
+actors: [actor.agent, actor.owner]
+owners: [capture]

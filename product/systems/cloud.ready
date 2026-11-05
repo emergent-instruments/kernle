@@ -1,0 +1,14 @@
+ready: 1
+kind: system
+id: sys.cloud
+name: Kernle cloud
+role: Stores a synced copy of the owner's stacks and serves changes to their other machines
+system_kind: external
+connections:
+  - to: sys.daemon
+    label: Push and pull over HTTPS
+    direction: both
+notes: >-
+  The service is outside this package. Kernle specifies only the client side:
+  the account, the per-stack queue, push and pull, conflicts, and deletion
+  propagation.

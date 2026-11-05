@@ -1,0 +1,19 @@
+ready: 1
+kind: step
+id: identity.reflect.decide
+journey: identity.reflect
+title: Decide what to record
+step_kind: decision
+next:
+  - to: identity.reflect.record
+    label: Record a belief, value, goal, or lesson
+    next_kind: action
+  - to: identity.reflect.narrative
+    label: Update the self-narrative
+    next_kind: action
+  - to: identity.reflect.close-epoch
+    label: Close the chapter
+    next_kind: action
+  - to: identity.reflect.done
+    label: Nothing to record
+    next_kind: action

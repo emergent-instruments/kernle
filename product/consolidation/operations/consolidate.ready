@@ -1,0 +1,26 @@
+ready: 1
+kind: operation
+id: consolidation.op.consolidate
+display_id: kernle.consolidate
+module: consolidation
+name: Kernle.consolidate(context=None) · scaffold_advanced_consolidation()
+summary: >-
+  Returns a reflection scaffold for the agent: recent episodes with their emotion labels,
+  repeated lessons, cross-domain patterns, beliefs ready to become values, and entity models
+  pointing at one generalization, each with a prompt. It records nothing; what the agent
+  concludes goes through its own memory calls or suggestions.
+params:
+  - name: context
+    type: str | None
+    source: Optional focus, such as a project or domain
+    source_kind: parameter
+returns: "Sections of patterns with their evidence and reflection prompts, plus the calls the agent may use to record conclusions"
+sequence: consolidation.seq.consolidate
+owner: crates/kernle-core/src/consolidation/scaffold.rs
+tags:
+  - tag: cli
+    text: kernle consolidate [--advanced]
+  - tag: mcp
+    text: memory_consolidate, memory_consolidate_advanced
+  - tag: python
+    text: consolidate, scaffold_advanced_consolidation, scaffold_cross_domain_patterns, scaffold_belief_to_value, scaffold_entity_model_to_belief

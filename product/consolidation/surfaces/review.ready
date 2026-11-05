@@ -1,0 +1,29 @@
+ready: 1
+kind: surface
+id: consolidation.surface.review
+module: consolidation
+name: Review
+surface_kind: screen
+system: sys.cli
+audience: The owner in an interactive terminal
+summary: One held change at a time, with why it waits and what supports it.
+elements:
+- name: Held change
+  description: >-
+    The proposed memory, its kind, stack, the hold reason in words, its trust tier, and a summary of the
+    cited evidence with dates
+  copy:
+    body:
+    - 'Held because: {reason}'
+- name: Choices
+  copy:
+    actions:
+    - Accept
+    - Edit
+    - Reject
+    - Skip
+- name: Conflict panel
+  description: The current memory beside the proposal when the memory changed after the proposal
+states:
+- Nothing left to review
+- Read-only list when not run in an interactive terminal

@@ -1,0 +1,59 @@
+ready: 1
+kind: sequence
+id: recall.seq.session-index
+display_id: SEQ-RECALL-SESSION-INDEX
+module: recall
+title: Build the session-start index
+summary: At session start, lists pointers to the memories most likely to matter and where the agent left off, within the index budget.
+trigger:
+  trigger_kind: call
+  text: A runtime's session-start hook reaches Kernle
+operation: recall.op.session-index
+participants:
+  - id: hook
+    is: [sys.cli, sys.openclaw-plugin]
+    label: Hook handler or OpenClaw plugin
+  - sys.daemon
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: hook
+      to: sys.daemon
+      text: Ask for the session index
+      inputs:
+        - { name: session_id, source: The hook payload, source_kind: payload }
+        - { name: runtime, source: The adapter, source_kind: payload }
+  - msg:
+      from: sys.daemon
+      to: db
+      text: Read active memories, usage, boot settings and the latest checkpoint
+      ops:
+        - { op: read, entity: memory.data.memory, index: I1, where: "status = active" }
+        - { op: read, entity: recall.data.boot-config }
+        - { op: read, entity: recall.data.checkpoint, index: I1, limit: "1" }
+  - msg:
+      from: sys.daemon
+      to: sys.daemon
+      text: Select and order the index lines
+      rules: [recall.rule.session-index]
+      constants: [recall.const.session-index-budget]
+  - opt:
+      when: any line was selected
+      items:
+        - msg:
+            from: sys.daemon
+            to: db
+            text: Record the listed memories for this session
+            ops:
+              - { op: insert, entity: recall.data.recall-log, set: [tier = session_index, memory_id, session_id, created_at now, expires_at] }
+  - msg:
+      from: sys.daemon
+      to: hook
+      text: Return the index as labeled notes, or nothing for an empty stack
+      reply: true
+      rules: [recall.rule.render]
+  - note:
+      over: [hook, db]
+      text: Without the daemon the hook reads the stack database read-only, builds the same index, and logs nothing

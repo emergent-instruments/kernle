@@ -1,0 +1,18 @@
+ready: 1
+kind: journey
+id: health.check
+display_id: FLOW-HEALTH-CHECK
+module: health
+actors: [actor.agent, actor.owner]
+title: Check memory health
+summary: The agent or owner reads the anxiety score and its recommended actions, runs the doctor when something looks wrong, and follows the named fix.
+trigger: The agent starts or finishes significant work, or the owner wants to know whether memory is healthy
+steps:
+  - health.check.anxiety
+  - health.check.act
+  - health.check.doctor
+  - health.check.fix
+  - health.check.healthy
+sequences:
+  - health.seq.anxiety
+  - health.seq.doctor

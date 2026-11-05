@@ -1,0 +1,8 @@
+ready: 1
+kind: term
+id: identity.term.epoch
+module: identity
+name: Epoch
+definition: A chapter of the agent's life, such as a new role, project, or owner, that frames which memories belong together.
+synonyms:
+  - chapter

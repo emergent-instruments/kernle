@@ -1,0 +1,20 @@
+ready: 1
+kind: entity
+id: recall.data.index-state
+module: recall
+entity_kind: table
+table: index_state
+name: index_state
+summary: The single row recording how far the search index has followed memory changes.
+columns:
+  - name: ledger_cursor
+    type: INTEGER
+    nullable: false
+    rule: Highest memory change id already applied to the index
+  - name: model_id
+    type: TEXT
+    nullable: true
+    rule: Embedding model the index was built with; a difference from the bound model starts a full rebuild
+  - name: rebuilt_at
+    type: TEXT
+    nullable: true

@@ -1,0 +1,142 @@
+ready: 1
+kind: sequence
+id: recall.seq.gut-check
+display_id: SEQ-RECALL-GUT-CHECK
+module: recall
+title: Gut check before a tool call
+summary: Checks a planned tool call against active guardrails and returns nothing, a warning, or a one-time
+  pause.
+trigger:
+  trigger_kind: call
+  text: A runtime's pre-tool hook reaches Kernle
+operation: recall.op.gut-check
+participants:
+- id: hook
+  is:
+  - sys.cli
+  - sys.openclaw-plugin
+  label: Hook handler or OpenClaw plugin
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+items:
+- msg:
+    from: hook
+    to: sys.daemon
+    text: Check this tool call
+    inputs:
+    - name: tool_name
+      source: The hook payload
+      source_kind: payload
+    - name: tool_input
+      source: The hook payload
+      source_kind: payload
+    - name: session_id
+      source: The hook payload
+      source_kind: payload
+- msg:
+    from: sys.daemon
+    to: db
+    text: Read active guardrails and this session's gut-check history
+    ops:
+    - op: read
+      entity: memory.data.memory
+      by:
+      - kind
+      where: kind = guardrail AND status = active
+    - op: read
+      entity: recall.data.recall-log
+      index: I1
+      by:
+      - session_id
+      where: tier IN (gut_advise, speed_bump)
+- msg:
+    from: sys.daemon
+    to: sys.daemon
+    text: Evaluate each guardrail against the call
+    rules:
+    - recall.rule.gut-check
+    - recall.rule.relevance
+- alt:
+    branches:
+    - when: a guardrail pauses the call
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Record the pause and count it as use of the guardrail
+          ops:
+          - op: insert
+            entity: recall.data.recall-log
+            set:
+            - tier = speed_bump
+            - memory_id
+            - session_id
+            - action_key
+            - created_at now
+            - expires_at
+          - op: update
+            entity: memory.data.memory
+            by:
+            - id
+            set:
+            - last_used_at now
+            - times_accessed + 1
+      - msg:
+          from: sys.daemon
+          to: hook
+          text: Pause the call with the guardrail as the reason
+          reply: true
+          results:
+          - code: speed_bump
+            copy: 'Kernle guardrail: {guardrail}. If you have accounted for this, run the same command
+              again.'
+    - when: a guardrail warns
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Record the warning and count it as use of the guardrail
+          ops:
+          - op: insert
+            entity: recall.data.recall-log
+            set:
+            - tier = gut_advise
+            - memory_id
+            - session_id
+            - action_key
+            - created_at now
+            - expires_at
+          - op: update
+            entity: memory.data.memory
+            by:
+            - id
+            set:
+            - last_used_at now
+            - times_accessed + 1
+      - msg:
+          from: sys.daemon
+          to: hook
+          text: Return the guardrails to add beside the call
+          reply: true
+          rules:
+          - recall.rule.render
+          constants:
+          - recall.const.gut-check-max-warnings
+    - when: no guardrail fires
+      items:
+      - msg:
+          from: sys.daemon
+          to: hook
+          text: Nothing
+          reply: true
+- note:
+    over:
+    - hook
+    - db
+    text: Without the daemon the hook matches guardrail triggers over the read-only database, only ever
+      warns, and logs nothing
+rationale: A guardrail exists to fire at the risky moment, so firing counts as use and keeps it alive,
+  while a guardrail whose situation never recurs fades on schedule.

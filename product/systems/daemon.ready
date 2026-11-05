@@ -1,0 +1,28 @@
+ready: 1
+kind: system
+id: sys.daemon
+name: Kernle daemon
+role: The single writer of stack databases while it runs; schedules sleep, retention, and sync, ingests transcripts, and keeps the search index and embedding model warm
+system_kind: service
+hosting: launchd user agent on macOS, systemd user service on Linux
+code: crates/kernled
+responsibilities:
+  - Serializes writes to each stack
+  - Runs scheduled sleep, retention, and sync
+  - Ingests runtime transcripts
+  - Holds the warm search index and embedding model
+connections:
+  - to: sys.home
+    label: Reads and writes stacks
+  - to: sys.model
+    label: Appraisal judging and extraction during sleep
+  - to: sys.cloud
+    label: Push and pull changes for synced stacks
+  - to: sys.claude-code
+    label: Reads session transcripts
+  - to: sys.codex
+    label: Reads session files
+units:
+  - name: scheduler
+    unit_kind: schedule
+    schedule: Debounced after activity, nightly sleep, daily retention, periodic sync

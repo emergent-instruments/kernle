@@ -1,0 +1,10 @@
+ready: 1
+kind: step
+id: retention.forget.no-terminal
+journey: retention.forget
+title: The purge is refused outside a terminal
+step_kind: error
+surface: retention.surface.purge
+copy:
+  body:
+  - Purging needs an interactive terminal so you can review what will be deleted.

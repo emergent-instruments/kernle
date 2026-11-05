@@ -1,0 +1,61 @@
+ready: 1
+kind: sequence
+id: identity.seq.drift
+display_id: SEQ-IDENTITY-DRIFT
+module: identity
+title: Detect identity drift
+summary: Compares recent memories with the agent's values and narrative and reports drift with examples.
+trigger:
+  trigger_kind: call
+  text: The agent or owner asks for drift, or the anxiety score needs identity coherence
+operation: identity.op.drift
+participants:
+  - actor.agent
+  - id: core
+    is:
+      - sys.daemon
+      - sys.python
+    label: Kernle core
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: actor.agent
+      to: core
+      text: How far have I drifted
+      inputs:
+        - name: window
+          source: Days to compare, the drift window by default
+          source_kind: parameter
+      constants:
+        - identity.const.drift-window
+  - msg:
+      from: core
+      to: db
+      text: Read recent memories and the stated identity
+      ops:
+        - op: read
+          entity: memory.data.memory
+          where: episodes, beliefs, and goals changed within the window
+        - op: read
+          entity: memory.data.memory-link
+          where: contradiction and supersession links in the window
+        - op: read
+          entity: identity.data.self-narrative
+          index: P1
+        - op: read
+          entity: recall.data.search-index
+          returns: embeddings of the memories, values, and narrative themes
+  - note:
+      over:
+        - core
+      text: Score drift and pick the most divergent memories
+      rules:
+        - identity.rule.drift
+  - msg:
+      from: core
+      to: actor.agent
+      text: Drift score, significance, and examples
+      reply: true

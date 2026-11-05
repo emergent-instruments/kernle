@@ -1,0 +1,9 @@
+ready: 1
+kind: quality
+id: agents.quality.hook-latency
+display_id: QC-AGENTS-LATENCY
+module: agents
+title: Hook latency
+applies_to: [agents.seq.hook]
+measure: Wall time of the hook command from process start to output, with the daemon running and a stack of five thousand memories
+target: At most 50 milliseconds at the 95th percentile for session start, prompt, and pre-tool events; no call exceeds the hook deadline.

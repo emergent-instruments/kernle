@@ -1,0 +1,13 @@
+ready: 1
+kind: quality
+id: consolidation.quality.no-starvation
+display_id: QC-CONSOLIDATION-COVERAGE
+module: consolidation
+title: No processing transition starves another
+applies_to:
+  - consolidation.seq.process
+  - consolidation.data.transition-mark
+measure: >-
+  For a stack with N eligible episodes and every episode transition enabled, the number of
+  episodes each transition has examined after processing converges.
+target: Every transition examines all N episodes; the same holds for both raw transitions over raw entries.

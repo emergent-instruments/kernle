@@ -1,0 +1,33 @@
+ready: 1
+kind: module
+id: recall
+name: Recall
+summary: >-
+  Brings memory back into the agent's context: the working-memory load, search,
+  cues beside prompts, gut checks before tool calls, questions about what happened
+  when, checkpoints, always-loaded boot settings, recall feedback, and the search
+  index. It runs in the daemon, with a read-only direct path in the Python package
+  and the command line when the daemon is down.
+runs_in:
+  - sys.daemon
+  - sys.python
+  - sys.cli
+owns:
+  - checkpoint (DATA-CHECKPOINT)
+  - boot settings
+  - recall log (DATA-RECALL-LOG)
+  - recall usage counts
+  - search index (DATA-SEARCH-INDEX)
+invariants:
+  - Relevance decides whether a memory appears; salience, strength and usage decide its order.
+  - Every injected memory is rendered as data with its kind, trust tier and date, never as an instruction.
+  - Appearing in a load, index or cue is not use; only an agent opening, being warned by, or reporting on a memory is.
+  - The search index never holds content of a purged memory after the purge returns.
+  - Recall never blocks or delays the agent beyond the hook deadline, except a gut-check speed bump.
+rationale: >-
+  Recall is where the stratified model pays off. Ranking by salience and strength
+  makes emotion and use change what the agent sees, which is the point of
+  appraising experience at all. Rendering memory as labeled notes keeps whatever
+  got into memory from steering the agent as an order. Counting only real use
+  keeps idle memories fading on schedule instead of refreshing themselves every
+  session.

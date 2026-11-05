@@ -1,0 +1,142 @@
+ready: 1
+kind: sequence
+id: retention.seq.purge.a
+display_id: SEQ-RETENTION-PURGE-a
+part_of: retention.seq.purge
+module: retention
+title: Purge, part one, scope and permission
+participants:
+- id: caller
+  is:
+  - actor.owner
+  - actor.agent
+  - retention.seq.sweep
+  label: Owner, agent or retention sweep
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+items:
+- msg:
+    from: caller
+    to: sys.daemon
+    text: Purge this memory
+    call: Kernle.purge(memory_type, memory_id)
+    inputs:
+    - name: requester
+      source: 'The entry point: owner terminal, agent call, or the sweep'
+      source_kind: session
+    invokes:
+    - stacks.seq.resolve
+- msg:
+    from: sys.daemon
+    to: db
+    text: Find the memory, who wrote it and whether it is protected
+    ops:
+    - op: read
+      entity: memory.data.memory
+      by:
+      - id
+    - op: read
+      entity: memory.data.memory-version
+      by:
+      - memory_id
+      note: author of each version
+- alt:
+    branches:
+    - when: there is no such memory
+      items:
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Not found
+          reply: true
+          results:
+          - code: not_found
+    - when: the sweep asks, for a memory forgotten past its recovery window
+      items:
+      - note:
+          over:
+          - sys.daemon
+          text: The scope is that memory alone; no preview
+    - when: the agent asks for a protected memory, one the owner wrote, a value, or a foundational belief
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Hold the deletion for the owner's review
+          ops:
+          - op: insert
+            entity: consolidation.data.suggestion
+            set:
+            - memory_kind
+            - proposal = delete this memory
+            - source_ids
+            - hold_reason = owner_content
+            - status = pending
+            - created_at now
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Held for the owner
+          reply: true
+          results:
+          - code: held_for_owner
+            copy: That deletion is waiting for the owner's review.
+    - when: the agent asks for any other memory
+      items:
+      - note:
+          over:
+          - sys.daemon
+          text: The scope is that memory alone; no dependent memories are added
+    - when: the owner asks without an interactive terminal
+      items:
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Refuse; a purge needs a terminal
+          reply: true
+          results:
+          - code: needs_terminal
+            copy: Purging needs an interactive terminal so you can review what will be deleted.
+    - when: the owner asks from an interactive terminal
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Build the cascade preview
+          rules:
+          - retention.rule.purge-scope
+          ops:
+          - op: read
+            entity: memory.data.memory-link
+            by:
+            - from and to memory
+            note: Predecessors, derived memories and merged memories
+          - op: read
+            entity: capture.data.raw-entry
+            note: captures cited only by this memory
+          - op: read
+            entity: capture.data.event
+            note: events cited only by this memory
+          - op: read
+            entity: consolidation.data.suggestion
+            note: suggestions citing it
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Show what will be deleted and the optional dependent memories
+          results:
+          - copy: 'Delete permanently: {memory}, {versions} versions, {captures} captures and {events}
+              events. Claude Code and Codex keep their own transcripts of those sessions.'
+      - msg:
+          from: caller
+          to: sys.daemon
+          text: Confirm with any optional memories chosen, or cancel
+          results:
+          - when: cancelled
+            copy: Nothing was deleted.
+- continue:
+    to: retention.seq.purge.b
+    text: When a scope is settled and not cancelled

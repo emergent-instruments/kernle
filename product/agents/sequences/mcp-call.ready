@@ -1,0 +1,70 @@
+ready: 1
+kind: sequence
+id: agents.seq.mcp-call
+display_id: SEQ-AGENTS-MCP
+module: agents
+title: Serve an MCP tool call
+summary: Validates a tool call, resolves the stack once per server, and runs the tool's operation, returning a clear error instead of failing silently.
+trigger:
+  trigger_kind: call
+  text: Claude Code or Codex calls a Kernle tool, or OpenClaw calls a plugin-registered tool
+operation: agents.op.mcp
+participants:
+  - id: runtime
+    label: Claude Code, Codex, or the OpenClaw plugin
+    is: [sys.claude-code, sys.codex, sys.openclaw-plugin]
+  - sys.cli
+  - sys.daemon
+  - sys.model
+items:
+  - msg:
+      from: runtime
+      to: sys.cli
+      text: Call a Kernle tool
+      owner: crates/kernle-cli/src/mcp/server.rs::call_tool
+      inputs:
+        - { name: tool name, source: The MCP request, source_kind: payload }
+        - { name: arguments, source: The MCP request, source_kind: payload }
+      constants: [agents.const.max-tool-input]
+  - alt:
+      branches:
+        - when: the tool is unknown or the arguments fail validation
+          items:
+            - msg:
+                from: sys.cli
+                to: runtime
+                text: Return the validation error naming the field
+                reply: true
+                results:
+                  - { code: invalid_arguments, when: "a type, enum, length, or size check fails" }
+        - when: the arguments are valid
+          items:
+            - msg:
+                from: sys.cli
+                to: sys.daemon
+                text: Resolve the stack from the server's working directory, once for the server's life
+                invokes: [stacks.seq.resolve]
+            - msg:
+                from: sys.cli
+                to: sys.daemon
+                text: Run the tool's operation as the agent
+                guards: [the operation is offered to agents in the tool contract]
+                results:
+                  - { code: kernle_unavailable, when: "the daemon is unreachable and the operation writes", copy: "Kernle is not running, so nothing was recorded." }
+            - opt:
+                when: the operation needs a model, no provider is bound, and the host supports sampling
+                items:
+                  - msg:
+                      from: sys.cli
+                      to: runtime
+                      text: Ask the host agent's model through MCP sampling
+                      rules: [stacks.rule.model-destination]
+            - msg: { from: sys.cli, to: runtime, text: Return the operation's result, reply: true }
+files:
+  - path: product/agents/files/mcp-tools.yaml
+    title: Tool contract
+    role: contract
+rationale: >-
+  Seeding tools take their root folder only from the owner's configuration, so
+  an agent can never point Kernle at the home folder or credentials and read
+  them into memory.

@@ -1,0 +1,23 @@
+ready: 1
+kind: rule
+id: agents.rule.write-guard
+display_id: RULE-AGENTS-WRITE-GUARD
+module: agents
+title: Agents do not write Kernle's files directly
+summary: A tool call that would write, move, or delete anything inside the Kernle home is denied with a pointer to the memory tools.
+inputs:
+  - { name: tool name, source: The pre-tool hook payload, source_kind: payload }
+  - { name: target paths, source: "File path fields, and path arguments of shell commands, resolved against the working directory and symlinks", source_kind: derived }
+when: Any target path of a write, edit, move, or delete resolves inside the Kernle home
+then: The call is denied with the reason "Kernle memory is changed through its tools. Use remember, forget, or update instead." and the file is not touched
+otherwise: The guard passes the call on
+constraints:
+  - text: The guard is a convenience against accidents and instructions injected into an agent, not a security boundary; the owner's account can always reach the files.
+  - text: Memory written by any process other than the daemon is never treated as owner-authored.
+    hard: true
+rationale: >-
+  An agent, or text injected into it, could otherwise rewrite memory directly
+  and bypass provenance, the trust gate, and review. Because shell commands can
+  reach the home in ways no parser sees, the real protection is that the
+  daemon owns the database and never grants owner trust to content it did not
+  receive from the owner's own commands.

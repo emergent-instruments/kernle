@@ -1,0 +1,137 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.process
+display_id: SEQ-CONSOLIDATION-PROCESS
+module: consolidation
+title: Run one processing transition
+summary: >-
+  Sends one batch of sources that have not been through a transition to the model, then
+  applies or suggests what comes back and marks those sources for that transition only.
+trigger:
+  trigger_kind: call
+  text: A process or exhaust call, or a sleep run, runs a transition
+operation: consolidation.op.process
+participants:
+  - id: caller
+    label: Agent, owner command, or sleep run
+  - id: core
+    is:
+      - sys.daemon
+    label: Kernle core
+    owner: crates/kernle-core/src/consolidation/process.rs::run_transition
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+  - sys.model
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Process this transition
+      invokes:
+        - stacks.seq.resolve
+      inputs:
+        - name: transition
+          source: The requested transition, or each one whose trigger is met
+          source_kind: parameter
+        - name: automatic promotion
+          source: The caller's choice; sleep always asks for it
+          source_kind: parameter
+        - name: force
+          source: Run even when the trigger is not met
+          source_kind: parameter
+      guards:
+        - A model is bound for the stack
+        - Today's allowance is not spent
+        - No other maintenance run holds the stack, unless the caller is that run
+      rules:
+        - consolidation.rule.budget
+      results:
+        - code: no_model
+          when: no model is bound
+        - code: budget_exhausted
+          when: today's allowance is spent
+        - code: run_in_progress
+          when: another run holds the stack
+  - opt:
+      when: not forced
+      items:
+        - msg:
+            from: core
+            to: db
+            text: Check the trigger from what is waiting
+            ops:
+              - op: read
+                entity: consolidation.data.transition-mark
+                by:
+                  - transition
+                returns: count and age of sources with no mark for this transition, and their total arousal
+  - msg:
+      from: core
+      to: db
+      text: Gather a batch of sources without a mark for this transition, and the existing memories to avoid duplicating
+      constants:
+        - consolidation.const.batch-size
+      ops:
+        - op: read
+          entity: capture.data.raw-entry
+          where: raw transitions; no mark for the transition
+        - op: read
+          entity: memory.data.memory
+          where: episode and belief transitions; source kind matches; no mark for the transition; active
+        - op: read
+          entity: memory.data.memory
+          where: kinds the transition produces; active
+          returns: dedup context
+  - msg:
+      from: core
+      to: sys.model
+      text: Ask what these sources should become
+      timeout: 60 seconds
+      note: A runtime-CLI provider runs with Kernle's model-session marker so the session is never captured.
+  - alt:
+      branches:
+        - when: the reply is valid
+          items:
+            - msg:
+                from: core
+                to: core
+                text: Validate, gate, and apply or suggest each result
+                invokes:
+                  - consolidation.seq.apply
+            - msg:
+                from: core
+                to: db
+                text: Mark every source in the batch for this transition only
+                ops:
+                  - op: insert
+                    entity: consolidation.data.transition-mark
+                    set:
+                      - source_id
+                      - transition
+                      - outcome promoted, suggested, or skipped
+                      - run_id
+                  - op: update
+                    entity: consolidation.data.run
+                    by:
+                      - id
+                    set:
+                      - model_tokens plus reported tokens
+        - when: error, timeout, or invalid reply
+          items:
+            - note:
+                over:
+                  - core
+                text: Write no marks, so the batch stays eligible, and report the error in the result
+  - msg:
+      from: core
+      to: caller
+      text: Result for the transition
+      reply: true
+      results:
+        - code: ok
+rationale: >-
+  Marks are per transition so the four episode transitions and the two raw transitions each see
+  every source. A batch is marked only when its results were recorded, so a failure never makes
+  sources look processed.

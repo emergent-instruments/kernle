@@ -1,0 +1,16 @@
+ready: 1
+kind: step
+id: retention.forget.forgotten
+journey: retention.forget
+title: The memory is forgotten and recoverable
+step_kind: outcome
+surface: retention.surface.forget
+copy:
+  body:
+  - Forgotten. You can recover it until {purge_date}.
+sequences:
+- retention.seq.forget
+next:
+- to: retention.forget.recover
+  label: kernle recover
+  next_kind: action

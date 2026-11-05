@@ -1,0 +1,27 @@
+ready: 1
+kind: module
+id: stacks
+name: Stacks
+summary: >-
+  Owns the Kernle home, the registry of memory stacks and how each request
+  finds its stack, owner-only access, configuration and credentials, the model
+  binding, and the daemon's lifecycle.
+runs_in: [sys.cli, sys.daemon, sys.python]
+owns:
+  - stack registry (DATA-STACK)
+  - configuration and credentials
+  - daemon lifecycle
+invariants:
+  - Every request is refused unless it comes from the OS account that owns the Kernle home.
+  - Python, the command-line tool, hooks, the MCP server, and the OpenClaw plugin choose a stack the same way.
+  - Exactly one daemon runs per Kernle home, and it is the only writer of stack databases while it runs.
+rationale: >-
+  Each stack has its own directory and database, so deleting a stack is one
+  directory removal and one project's memory is physically separate from
+  another's. The registry lives apart from the stack databases because a
+  request must find its stack before any stack database is chosen.
+
+
+  One resolver serves every entry point, because a stack chosen differently by
+  hooks and by tools splits one agent's memory in two and lets unrelated
+  projects with the same folder name share memory.

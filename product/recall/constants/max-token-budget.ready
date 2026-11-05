@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.max-token-budget
+module: recall
+name: MAX_TOKEN_BUDGET
+value: "50000"
+unit: tokens
+description: The largest budget a load accepts; larger requests are lowered to it.

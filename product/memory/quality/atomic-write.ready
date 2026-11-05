@@ -1,0 +1,16 @@
+ready: 1
+kind: quality
+id: memory.quality.atomic-write
+display_id: QC-MEMORY-ATOMIC
+module: memory
+title: Every memory change is atomic and traceable
+applies_to:
+  - memory.seq.write
+  - memory.seq.update
+  - memory.seq.revise-belief
+measure: >-
+  After a crash or error at any point in a write, update, or revision, whether the memory row,
+  its version, its links, and its change row disagree with each other.
+target: >-
+  Never. Either all four are committed or none are, and a retried call with the same operation
+  id applies once.

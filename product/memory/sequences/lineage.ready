@@ -1,0 +1,53 @@
+ready: 1
+kind: sequence
+id: memory.seq.lineage
+display_id: SEQ-MEMORY-LINEAGE
+module: memory
+title: Trace a memory's lineage
+summary: Follows provenance links from a memory to its sources, from its sources to what was derived, or lists memories with no grounding.
+trigger:
+  trigger_kind: call
+  text: An agent, the owner, or a health check traces where a memory came from
+operation: memory.op.lineage
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: memory
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Trace this memory
+      call: Kernle.trace_lineage(memory_type, memory_id) · reverse_trace(memory_type, memory_id) · get_ungrounded_memories()
+      owner: crates/kernle-core/src/memory/lineage.rs::trace
+  - msg: {from: core, to: core, text: Resolve and authorize the stack for this caller, invokes: [stacks.seq.resolve]}
+  - loop:
+      while: links remain within the depth limit
+      max: "10"
+      items:
+        - msg:
+            from: core
+            to: db
+            text: Follow one level of links
+            constants: [memory.const.lineage-max-depth]
+            ops:
+              - op: read
+                entity: memory.data.memory-link
+                index: PK
+                by: ["from the memory, for sources"]
+              - op: read
+                entity: memory.data.memory-link
+                index: I1
+                by: ["to the memory, for derived memories"]
+  - msg:
+      from: core
+      to: caller
+      text: Return the tree with relation, date, and trust tier; expired sources appear without content
+      reply: true

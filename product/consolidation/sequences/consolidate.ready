@@ -1,0 +1,61 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.consolidate
+display_id: SEQ-CONSOLIDATION-REFLECT
+module: consolidation
+title: Build a reflection scaffold
+summary: Gathers patterns from recent memory into prompts the agent can reflect on, without recording anything.
+trigger:
+  trigger_kind: call
+  text: The agent asks to consolidate
+operation: consolidation.op.consolidate
+participants:
+  - actor.agent
+  - id: core
+    is:
+      - sys.daemon
+      - sys.python
+    label: Kernle core
+    owner: crates/kernle-core/src/consolidation/scaffold.rs::build
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: actor.agent
+      to: core
+      text: Consolidate, optionally around a focus
+      invokes:
+        - stacks.seq.resolve
+  - msg:
+      from: core
+      to: db
+      text: Read recent episodes with their appraisal, active beliefs, entity models, and the current epoch
+      ops:
+        - op: read
+          entity: memory.data.memory
+          where: active; episodes since the last reflection, beliefs, entity models
+        - op: read
+          entity: appraisal.data.appraisal
+          by:
+            - episode
+        - op: read
+          entity: identity.data.epoch
+          where: current
+  - note:
+      over:
+        - core
+      text: Find repeated lessons, outcomes that look alike across domains, beliefs stable enough to become values, and entity models pointing at one generalization
+      rules:
+        - consolidation.rule.promotion-gates
+  - msg:
+      from: core
+      to: actor.agent
+      text: The reflection scaffold with evidence and prompts, and the calls that record conclusions
+      reply: true
+      note: The scaffold is rendered as notes from past sessions, not instructions.
+rationale: >-
+  The agent decides what its experience means for who it is. The scaffold surfaces patterns and
+  points at the calls that record conclusions; recording nothing itself keeps reflection from
+  becoming an unreviewed write path into identity layers.

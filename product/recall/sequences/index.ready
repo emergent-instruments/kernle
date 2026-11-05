@@ -1,0 +1,136 @@
+ready: 1
+kind: sequence
+id: recall.seq.index
+display_id: SEQ-RECALL-INDEX
+module: recall
+title: Keep the search index current
+summary: Applies every recorded memory change to the full-text and vector index in order, rebuilding when
+  the embedding model changes.
+trigger:
+  trigger_kind: event
+  text: A memory change is recorded, the daemon's index poll comes due, the daemon starts, or a purge
+    asks for an immediate update
+participants:
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+- id: model
+  is:
+  - sys.daemon
+  label: Embedding model in the daemon
+items:
+- msg:
+    from: sys.daemon
+    to: db
+    text: Read how far the index has followed memory changes
+    constants:
+    - recall.const.index-poll-seconds
+    ops:
+    - op: read
+      entity: recall.data.index-state
+- alt:
+    branches:
+    - when: there is no index yet, or the stack's embedding model differs from the one the index was built
+        with
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Rebuild the index from every active, dormant and forgotten memory
+          ops:
+          - op: delete
+            entity: recall.data.search-index
+          - op: read
+            entity: memory.data.memory
+            where: status IN (active, dormant, forgotten)
+          - op: insert
+            entity: recall.data.search-index
+            set:
+            - memory_id
+            - version
+            - kind
+            - model_id
+            - vector
+          - op: update
+            entity: recall.data.index-state
+            set:
+            - ledger_cursor = latest change id
+            - model_id
+            - rebuilt_at now
+    - when: the index is current up to its cursor
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Read memory changes after the cursor
+          ops:
+          - op: read
+            entity: memory.data.memory-change
+            by:
+            - id greater than ledger_cursor
+            order: id ASC
+      - loop:
+          while: changes remain
+          items:
+          - alt:
+              branches:
+              - when: the memory was purged or superseded
+                items:
+                - msg:
+                    from: sys.daemon
+                    to: db
+                    text: Remove its full-text row and vector
+                    ops:
+                    - op: delete
+                      entity: recall.data.search-index
+                      by:
+                      - memory_id
+              - when: the memory was added or its content changed
+                items:
+                - msg:
+                    from: sys.daemon
+                    to: db
+                    text: Update its full-text row from the current content
+                    ops:
+                    - op: upsert
+                      entity: recall.data.search-index
+                      by:
+                      - memory_id
+                      set:
+                      - version
+                      - kind
+                - opt:
+                    when: the stack has an embedding model
+                    items:
+                    - msg:
+                        from: sys.daemon
+                        to: model
+                        text: Embed the memory's content
+                    - msg:
+                        from: sys.daemon
+                        to: db
+                        text: Store the vector with the model that made it
+                        ops:
+                        - op: update
+                          entity: recall.data.search-index
+                          by:
+                          - memory_id
+                          set:
+                          - vector
+                          - model_id
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Advance the cursor to the last change applied
+          ops:
+          - op: update
+            entity: recall.data.index-state
+            set:
+            - ledger_cursor
+rationale: The index follows the change ledger instead of being called by every writer, so no write path
+  can forget to update it. Purges run this sequence before they return, because the index holds memory
+  text and must not keep deleted content after the caller is told it is gone. Brute-force similarity over
+  one stack's vectors is fast enough for a personal store and keeps results deterministic. A missing model
+  means word search only, never a stand-in vector that would mix incompatible results.

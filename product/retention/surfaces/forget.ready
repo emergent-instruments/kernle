@@ -1,0 +1,8 @@
+ready: 1
+kind: surface
+id: retention.surface.forget
+module: retention
+name: kernle forget and kernle recover
+surface_kind: screen
+system: sys.cli
+summary: Terminal output for forgetting a memory and recovering it.

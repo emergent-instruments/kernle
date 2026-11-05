@@ -1,0 +1,14 @@
+ready: 1
+kind: step
+id: stacks.setup.keyword-only
+journey: stacks.setup
+title: Search falls back to keywords
+step_kind: error
+surface: stacks.surface.init
+presentation: inline
+copy:
+  body:
+  - The embedding model could not be verified. Search uses keywords only until you run kernle init again.
+next:
+- to: stacks.setup.choose-provider
+  next_kind: auto

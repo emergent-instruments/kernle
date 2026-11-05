@@ -1,0 +1,13 @@
+ready: 1
+kind: system
+id: sys.openclaw-plugin
+name: Kernle OpenClaw plugin
+role: Maps OpenClaw hooks to Kernle requests, forwards completed turns, and registers the Kernle tools
+system_kind: app
+within: sys.openclaw
+code: integrations/openclaw
+connections:
+  - to: sys.daemon
+    label: Requests over the local socket
+  - to: sys.cli
+    label: Runs the command-line tool when the daemon is unreachable

@@ -1,0 +1,11 @@
+ready: 1
+kind: entity_group
+id: sync.data
+display_id: DATA-SYNC
+module: sync
+title: Sync data
+entities: [sync.data.sync-queue, sync.data.sync-conflict, sync.data.sync-state]
+rationale: >-
+  The queue follows the memory change ledger instead of being written by every
+  writer, so no write path can forget to sync. Holding no content in the queue
+  means deletion never has to chase copies of a memory through sync tables.

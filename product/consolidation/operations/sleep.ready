@@ -1,0 +1,26 @@
+ready: 1
+kind: operation
+id: consolidation.op.sleep
+display_id: kernle.sleep
+module: consolidation
+name: Kernle.sleep(wait=True)
+summary: >-
+  Starts a sleep run on the stack now instead of waiting for the schedule, and streams its
+  progress and summary. When a run is already in progress it waits for that run and returns
+  its summary.
+params:
+  - name: wait
+    type: bool
+    source: Wait for the run to finish and return its summary
+    source_kind: parameter
+returns: "The run summary: episodes appraised, judged, replayed, reinforced; memories added, updated, revised; changes held and quarantined; tokens spent; budget note"
+errors:
+  - code: daemon_unavailable
+    when: the daemon is not running; the CLI says how to start it
+sequence: consolidation.seq.schedule
+owner: crates/kernle-core/src/consolidation/schedule.rs::request
+tags:
+  - tag: cli
+    text: kernle sleep
+  - tag: cli
+    text: kernle log

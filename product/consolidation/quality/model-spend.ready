@@ -1,0 +1,14 @@
+ready: 1
+kind: quality
+id: consolidation.quality.model-spend
+display_id: QC-CONSOLIDATION-SPEND
+module: consolidation
+title: Bounded model spend
+applies_to:
+  - consolidation.seq.sleep
+  - consolidation.seq.process
+  - consolidation.rule.budget
+measure: Provider-reported tokens spent by consolidation across all stacks per local calendar day.
+target: >-
+  Never more than the daily budget plus one in-flight request. When the budget is reached,
+  judging and extraction stop until the next day and status says so.

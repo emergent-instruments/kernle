@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.search-default-limit
+module: recall
+name: SEARCH_DEFAULT_LIMIT
+value: "10"
+unit: results
+description: How many results a search returns when the caller names no limit.

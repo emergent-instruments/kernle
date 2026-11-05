@@ -1,0 +1,36 @@
+ready: 1
+kind: sequence
+id: agents.seq.remove
+display_id: SEQ-AGENTS-REMOVE
+module: agents
+title: Disconnect a runtime
+summary: Removes only Kernle's entries from a runtime's configuration; memory stays until the owner deletes it.
+trigger:
+  trigger_kind: user
+  text: The owner runs setup with the remove option
+operation: agents.op.setup
+participants:
+  - actor.owner
+  - sys.cli
+  - id: config
+    label: The runtime's configuration files
+items:
+  - msg:
+      from: actor.owner
+      to: sys.cli
+      text: Disconnect a runtime
+      owner: crates/kernle-cli/src/commands/setup.rs::remove
+  - msg:
+      from: sys.cli
+      to: config
+      text: Back up the file, remove Kernle's entries, and write it atomically
+      rules: [agents.rule.settings-merge]
+      ops:
+        - { op: write, path: "the runtime's configuration file" }
+      results:
+        - { code: config_unreadable, when: the file does not parse, copy: "Kernle could not read {file}: {error}. Nothing was changed." }
+  - msg:
+      from: sys.cli
+      to: actor.owner
+      text: Show what was removed and that memory is kept
+      reply: true

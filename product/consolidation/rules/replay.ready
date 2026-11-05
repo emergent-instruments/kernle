@@ -1,0 +1,84 @@
+ready: 1
+kind: rule
+id: consolidation.rule.replay
+display_id: RULE-CONSOLIDATION-REPLAY
+module: consolidation
+title: Which episodes a sleep run replays
+summary: >-
+  Explicit requests to remember replay first, then episodes in order of salience times need, up to the
+  per-run cap; routine episodes only reinforce.
+owner: crates/kernle-core/src/consolidation/replay.rs::select
+inputs:
+- name: pending episode
+  source: Salience, label, and embedding of each pending episode
+  source_kind: stored
+- name: explicit request
+  source: Whether the episode holds an explicit request to remember
+  source_kind: stored
+- name: recent episodes
+  source: The stack's episodes from the last 30 days
+  source_kind: stored
+constants:
+- consolidation.const.replay-cap
+- consolidation.const.replay-min-salience
+- consolidation.const.reinforce-similarity
+calculations:
+- name: need
+  expr: >-
+    0.5 + 0.5 × min(1, related sessions in 30 days ÷ 5), where a related session has an episode with cosine
+    at least 0.6 to this one
+- name: priority
+  expr: salience × need
+decision:
+  nodes:
+  - id: in
+    node_kind: input
+    text: One pending episode
+  - id: explicit
+    node_kind: decision
+    text: Does it hold an explicit request to remember?
+  - id: routine
+    node_kind: decision
+    text: Is it labeled boredom, or below the replay salience?
+  - id: rank
+    node_kind: calc
+    text: Rank by salience times need
+  - id: cap
+    node_kind: decision
+    text: Within the per-run cap?
+  - id: replay
+    node_kind: outcome
+    text: Replay for extraction
+  - id: reinforce
+    node_kind: outcome
+    text: Reinforce the closest existing memory if it is close enough, otherwise skip
+  - id: wait
+    node_kind: outcome
+    text: Stay pending for the next run
+  edges:
+  - from: in
+    to: explicit
+  - from: explicit
+    to: cap
+    label: Yes, ranked first
+  - from: explicit
+    to: routine
+    label: 'No'
+  - from: routine
+    to: reinforce
+    label: 'Yes'
+  - from: routine
+    to: rank
+    label: 'No'
+  - from: rank
+    to: cap
+  - from: cap
+    to: replay
+    label: 'Yes'
+  - from: cap
+    to: wait
+    label: 'No'
+rationale: >-
+  Priority multiplies salience by need, as in prioritized replay: an experience is worth consolidating
+  when it mattered and when similar situations keep coming up. Explicit requests always replay because
+  skipping a request that scored low would break trust in remembering.

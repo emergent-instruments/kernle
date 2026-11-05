@@ -1,0 +1,90 @@
+ready: 1
+kind: sequence
+id: stacks.seq.daemon-start
+display_id: SEQ-STACKS-DAEMON
+module: stacks
+title: Start the daemon and catch up
+summary: Takes the home's single-daemon lock, opens every stack, catches up missed work, and then serves
+  requests.
+trigger:
+  trigger_kind: event
+  text: The service manager starts the daemon at login or boot, after init, or when the owner starts it
+operation: stacks.op.daemon
+participants:
+- id: services
+  label: OS service manager
+- sys.daemon
+- sys.home
+items:
+- msg:
+    from: services
+    to: sys.daemon
+    text: Start
+    owner: crates/kernled/src/main.rs::run
+- msg:
+    from: sys.daemon
+    to: sys.home
+    text: Take the home's exclusive daemon lock
+    ops:
+    - op: lock
+      path: ~/.kernle/run/kernled.lock
+      mode: exclusive
+- alt:
+    branches:
+    - when: another daemon holds the lock
+      items:
+      - msg:
+          from: sys.daemon
+          to: services
+          text: Exit and leave the running daemon in charge
+          reply: true
+    - when: the lock is acquired
+      items:
+      - msg:
+          from: sys.daemon
+          to: sys.home
+          text: Open the registry and each stack database at this binary's schema
+          ops:
+          - op: read
+            entity: stacks.data.stack
+            by:
+            - every row
+      - opt:
+          when: a stack database cannot be opened, or is newer than this binary
+          items:
+          - note:
+              over:
+              - sys.daemon
+              text: Mark that stack unavailable for this run, leave its files untouched, and show it in
+                status
+      - msg:
+          from: sys.daemon
+          to: sys.daemon
+          text: Ingest transcript records added since each source's cursor
+          invokes:
+          - capture.seq.ingest
+      - msg:
+          from: sys.daemon
+          to: sys.daemon
+          text: Bring each stack's search index up to date
+          invokes:
+          - recall.seq.index
+      - msg:
+          from: sys.daemon
+          to: sys.daemon
+          text: Start the scheduler, which runs any retention or sleep that was missed
+          invokes:
+          - consolidation.seq.schedule
+      - msg:
+          from: sys.daemon
+          to: sys.home
+          text: Listen on the owner-only socket
+          constants:
+          - stacks.const.file-modes
+          ops:
+          - op: write
+            path: ~/.kernle/run/kernled.sock
+rationale: One daemon per home, enforced with a file lock, because two daemons would be two writers to
+  every stack database. Catch-up at start lets a stopped daemon delay memory without losing it, since
+  the runtimes keep their transcripts. A stack that cannot be upgraded stays untouched and visible, because
+  repairing it automatically could destroy memory.

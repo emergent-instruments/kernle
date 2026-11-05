@@ -1,0 +1,7 @@
+ready: 1
+kind: actor
+id: actor.owner
+name: Owner
+side: user
+description: The person who installs Kernle, runs agents on their machines, and owns every memory those agents keep.
+goal: Have their agents remember what matters, while keeping full control over what is kept, seen, sent anywhere, and deleted.

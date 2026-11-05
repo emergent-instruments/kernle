@@ -1,0 +1,67 @@
+ready: 1
+kind: entity
+id: trust.data.trust-assessment
+display_id: DATA-TRUST-ASSESSMENT
+module: trust
+entity_kind: table
+table: trust_assessment
+name: trust_assessment
+summary: The agent's current trust in one entity, with the evidence behind it.
+columns:
+  - name: id
+    type: TEXT
+    keys:
+      - PK
+  - name: entity
+    type: TEXT
+    nullable: false
+    rule: The entity's name as memories refer to it (a person, an agent, a tool, a website, a repository)
+    indexes:
+      - U1·1
+  - name: dimensions
+    type: TEXT
+    nullable: false
+    rule: JSON map from a domain (general, or a named domain such as coding) to a trust score from 0 to 1
+  - name: authority
+    type: TEXT
+    nullable: true
+    rule: JSON list of domains where the entity's word counts as expertise
+  - name: evidence_ids
+    type: TEXT
+    nullable: false
+    rule: JSON list of the episodes the assessment rests on
+  - name: source
+    type: TEXT
+    nullable: false
+    values:
+      - seed
+      - direct
+      - computed
+      - appraisal
+    rule: Where the latest change came from; appraisal means a distrust label lowered it during sleep
+  - name: updated_at
+    type: TEXT
+    nullable: false
+    rule: ISO-8601 UTC of the last evidence change; decay counts from here
+  - name: created_at
+    type: TEXT
+    nullable: false
+indexes:
+  - id: U1
+    name: trust_assessment_entity_key
+    unique: true
+    columns:
+      - entity ASC
+    purpose: One assessment per entity in a stack
+    serves:
+      - trust.seq.assess
+relationships:
+  - to: memory.data.memory
+    link: logical
+    from_card: 0..many
+    to_card: 0..many
+    label: evidence_ids name the episodes that justify the assessment
+    reason: Purging an episode removes its id from every assessment that cites it
+access:
+  writers:
+    - trust.seq.assess

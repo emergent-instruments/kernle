@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: capture.const.max-event-chars
+module: capture
+name: MAX_EVENT_CHARS
+value: "8000"
+unit: characters
+description: The most text one transcript event keeps; longer text keeps its first and last halves with an elision mark.

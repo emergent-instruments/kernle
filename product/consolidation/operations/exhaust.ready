@@ -1,0 +1,36 @@
+ready: 1
+kind: operation
+id: consolidation.op.exhaust
+display_id: kernle.exhaust
+module: consolidation
+name: Kernle.exhaust(max_cycles=20, auto_promote=True, dry_run=False)
+summary: >-
+  Runs processing in cycles until nothing more promotes, from light transitions to identity
+  ones, within the daily model budget. A checkpoint of the stack is taken before the first
+  cycle so the owner can restore it.
+params:
+  - name: max_cycles
+    type: int
+    source: The most cycles to run
+    source_kind: parameter
+  - name: auto_promote
+    type: bool
+    source: Apply results directly where the gates allow
+    source_kind: parameter
+  - name: dry_run
+    type: bool
+    source: Report which transitions would run without calling the model
+    source_kind: parameter
+returns: "Cycles completed, promotions, suggestions, whether it converged and why it stopped, and the snapshot path"
+errors:
+  - code: no_model
+    when: no model is bound for the stack
+  - code: budget_exhausted
+    when: today's model budget runs out before convergence; the result reports progress so far
+sequence: consolidation.seq.exhaust
+owner: crates/kernle-core/src/consolidation/exhaust.rs::run
+tags:
+  - tag: cli
+    text: kernle process exhaust [--max-cycles] [--no-auto-promote] [--dry-run]
+  - tag: mcp
+    text: memory_process_exhaust

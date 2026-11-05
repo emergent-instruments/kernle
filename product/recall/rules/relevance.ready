@@ -1,0 +1,81 @@
+ready: 1
+kind: rule
+id: recall.rule.relevance
+display_id: RULE-RECALL-RELEVANCE
+module: recall
+title: How relevant a memory is to a query
+summary: Relevance is the better of word overlap and meaning similarity, and a memory below the caller's
+  minimum is never returned.
+inputs:
+- name: query text
+  source: The prompt, tool call, search query or load context
+  source_kind: parameter
+- name: indexed memory
+  source: The search index
+  source_kind: stored
+- name: embedding model available
+  source: The stack's model binding
+  source_kind: config
+decision:
+  nodes:
+  - id: in
+    node_kind: input
+    text: Query text and one candidate memory
+    refs:
+    - recall.data.search-index
+  - id: lex
+    node_kind: calc
+    text: Word overlap is the share of the query's meaningful words found in the memory
+  - id: model
+    node_kind: decision
+    text: Does the stack have an embedding model and the memory a current vector?
+  - id: both
+    node_kind: calc
+    text: Relevance is the larger of word overlap and meaning similarity
+  - id: lexonly
+    node_kind: calc
+    text: Relevance is word overlap
+  - id: gate
+    node_kind: decision
+    text: Is relevance at least the caller's minimum?
+  - id: keep
+    node_kind: outcome
+    text: The memory goes on to ranking with its relevance
+  - id: drop
+    node_kind: outcome
+    text: The memory is not returned
+  edges:
+  - from: in
+    to: lex
+  - from: lex
+    to: model
+  - from: model
+    to: both
+    label: 'yes'
+  - from: model
+    to: lexonly
+    label: 'no'
+  - from: both
+    to: gate
+  - from: lexonly
+    to: gate
+  - from: gate
+    to: keep
+    label: 'yes'
+  - from: gate
+    to: drop
+    label: 'no'
+calculations:
+- name: lexical
+  expr: matched non-stopword query terms / non-stopword query terms
+- name: semantic
+  expr: cosine(query vector, memory vector)
+- name: relevance
+  expr: max(lexical, semantic) when a current vector exists, else lexical
+constants:
+- recall.const.cue-min-relevance
+- recall.const.search-min-relevance
+- recall.const.gut-check-similarity
+rationale: 'Both measures are absolute, so one minimum means the same thing for every query. Relevance
+  gates before anything else ranks: an intense but unrelated memory in context is noise, however salient
+  it is.'

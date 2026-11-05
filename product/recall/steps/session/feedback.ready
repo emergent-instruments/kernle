@@ -1,0 +1,12 @@
+ready: 1
+kind: step
+id: recall.session.feedback
+journey: recall.session
+title: The agent says whether a memory helped
+step_kind: action
+does:
+  - Marks a recalled memory as helped, wrong or outdated
+sequences: [recall.seq.feedback]
+next:
+  - to: recall.session.checkpoint
+    next_kind: action

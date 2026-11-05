@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: capture.remember.owner-command
+journey: capture.remember
+title: The owner runs a capture or import command
+step_kind: action
+surface: capture.surface.cli
+does:
+  - Runs kernle raw, episode, or note with text, or kernle import with a file, or kernle migrate for an earlier release
+sequences: [capture.seq.raw, memory.seq.write, capture.seq.import, capture.seq.legacy-import]
+next:
+  - to: capture.remember.owner-result
+    next_kind: result

@@ -1,0 +1,36 @@
+ready: 1
+kind: operation
+id: memory.op.update
+display_id: kernle.update
+module: memory
+name: Kernle.update_episode(id, …) · update_goal(id, …) · update_belief(id, …)
+summary: Changes fields of an existing memory as a new version, or holds the change when the memory is protected or owner-written.
+params:
+  - name: id
+    type: string
+    source: The memory to change
+    source_kind: parameter
+  - name: fields
+    type: object
+    source: The kind's fields to change, such as a goal's status or an episode's lessons
+    source_kind: parameter
+  - name: expected_version
+    type: integer
+    source: The version the caller read; omitted means the current version
+    source_kind: parameter
+returns: The memory's new version, or the id of a held suggestion.
+errors:
+  - code: not_found
+    when: no live memory has this id in the caller's stack
+  - code: invalid_input
+    when: a field is not one of the kind's fields or is out of range
+  - code: conflict
+    when: the memory changed since the expected version
+  - code: kernle_unavailable
+    when: Kernle is not initialized, or the stack cannot be opened
+auth: The caller's account owns the Kernle home
+sequence: memory.seq.update
+owner: crates/kernle-core/src/memory/update.rs::update_memory
+tags:
+  - {tag: cli, text: "kernle episode update, kernle goal update, kernle belief update"}
+  - {tag: mcp, text: "memory_episode_update, memory_goal_update, memory_belief_update"}

@@ -1,0 +1,11 @@
+ready: 1
+kind: step
+id: agents.connect.not-found
+journey: agents.connect
+title: Runtime not found
+step_kind: error
+surface: agents.surface.setup
+copy:
+  body: ["Kernle could not find {runtime} on this machine. Nothing was installed."]
+next:
+  - { to: $return, next_kind: auto }

@@ -1,0 +1,13 @@
+ready: 1
+kind: entity_group
+id: identity.data
+module: identity
+title: Identity data
+summary: Self-narratives, epochs, and period summaries.
+entities:
+  - identity.data.self-narrative
+  - identity.data.epoch
+  - identity.data.summary
+rationale: >-
+  Earlier narratives are kept, inactive, so the agent can see how its account of itself
+  changed; the partial unique index keeps exactly one current narrative of each type.

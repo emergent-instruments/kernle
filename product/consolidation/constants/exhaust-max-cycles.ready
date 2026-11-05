@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.exhaust-max-cycles
+module: consolidation
+name: EXHAUST_MAX_CYCLES
+value: "20"
+unit: cycles
+source: config.toml#process.exhaust_max_cycles
+description: The most processing cycles one exhaust call runs.

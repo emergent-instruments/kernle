@@ -1,0 +1,64 @@
+ready: 1
+kind: sequence
+id: sync.seq.sync.a
+display_id: SEQ-SYNC-a
+module: sync
+title: Push local changes
+summary: Turns new ledger entries into queue rows and sends them in batches, clearing each only when the cloud confirms it.
+part_of: sync.seq.sync
+participants:
+  - sys.daemon
+  - sys.cloud
+  - sys.home
+items:
+  - msg:
+      from: sys.daemon
+      to: sys.home
+      text: Check the stack is linked and read the cloud key
+      owner: crates/kernle-core/src/sync/push.rs::push
+      guards: [the stack is linked to the owner's cloud account]
+      ops:
+        - { op: read, entity: stacks.data.stack, by: [stack_id], returns: whether sync is enabled }
+      results:
+        - { code: not_linked, when: the stack is not linked, copy: "This stack is not synced. Run kernle sync enable to link it." }
+  - msg:
+      from: sys.daemon
+      to: sys.home
+      text: Queue every memory change recorded since the last push
+      ops:
+        - { op: read, entity: memory.data.memory-change, where: id after the stored ledger cursor }
+        - { op: upsert, entity: sync.data.sync-queue, index: P1, conflict: a later change replaces the pending one, set: [change_id, memory_id, change, state pending, queued_at now] }
+        - { op: update, entity: sync.data.sync-state, set: [ledger_cursor] }
+  - loop:
+      while: pending changes remain and fewer than the retry limit have failed
+      items:
+        - msg:
+            from: sys.daemon
+            to: sys.cloud
+            text: Send a batch of changes with each memory's current content
+            constants: [sync.const.push-batch]
+            ops:
+              - { op: read, entity: memory.data.memory, by: [memory_id], note: content read at push time; purged memories go as deletions }
+            http: { method: POST, path: /sync/push }
+            idempotency: Each change carries its ledger id, so a resent batch is applied once
+        - alt:
+            branches:
+              - when: the cloud confirms the batch
+                items:
+                  - note:
+                      over: [sys.home]
+                      text: Clear the confirmed changes
+                      ops:
+                        - { op: delete, entity: sync.data.sync-queue, by: [change_id] }
+                        - { op: update, entity: sync.data.sync-state, set: [last_push_at now] }
+              - when: the request fails
+                items:
+                  - note:
+                      over: [sys.home]
+                      text: Keep the changes pending with the error, and mark a change dead after the retry limit so status shows it
+                      ops:
+                        - { op: update, entity: sync.data.sync-queue, by: [change_id], set: [attempts + 1, last_error, state dead at the retry limit] }
+                      tags:
+                        - { tag: constant, text: SYNC_RETRY_MAX }
+  - continue:
+      to: sync.seq.sync.b

@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: health.const.uncertain-below
+module: health
+name: UNCERTAIN_BELOW
+value: "0.5"
+unit: confidence
+description: Memories whose confidence after decay is below this count as uncertain.

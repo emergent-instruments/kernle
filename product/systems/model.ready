@@ -1,0 +1,14 @@
+ready: 1
+kind: system
+id: sys.model
+name: Model provider
+role: Answers Kernle's appraisal, extraction, and emotion requests with the model the owner chose
+system_kind: external
+notes: >-
+  One of: the Anthropic API, an OpenAI-compatible endpoint (including local
+  Ollama or LM Studio), a runtime command-line tool in headless mode, or the
+  host agent through MCP sampling. It receives only the excerpts a request
+  needs.
+secrets:
+  - ANTHROPIC_API_KEY
+  - OPENAI_API_KEY

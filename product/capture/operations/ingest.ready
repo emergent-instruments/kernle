@@ -1,0 +1,19 @@
+ready: 1
+kind: operation
+id: capture.op.ingest
+display_id: kernle.ingest
+module: capture
+name: Ingest a session record
+summary: Reads new records from one runtime session file or forwarded turn into events, and closes finished episodes.
+params:
+  - name: source
+    type: string
+    source: A transcript path from a hook, a session file the daemon found, or a forwarded OpenClaw turn
+    source_kind: payload
+returns: Counts of events stored, records dropped, parse errors, and episodes closed.
+errors:
+  - code: parse_errors
+    when: some records could not be read; they are skipped and counted, and the rest are stored
+auth: Daemon only; requested by hooks, catch-up at daemon start, the Codex watcher, and history import
+sequence: capture.seq.ingest
+owner: crates/kernle-core/src/capture/ingest.rs::ingest_source

@@ -1,0 +1,15 @@
+ready: 1
+kind: entity_group
+id: capture.data
+module: capture
+title: Capture data
+summary: Raw captures, transcript events, and the cursors that make ingestion idempotent.
+entities:
+  - capture.data.raw-entry
+  - capture.data.event
+  - capture.data.ingest-cursor
+rationale: >-
+  Events and their cursor commit together so hooks, catch-up, and history import can all trigger
+  the same file and each record still becomes exactly one event. Raw captures and events both
+  carry their own expiry, fixed when they are stored, so later processing never extends how long
+  raw content is kept.

@@ -1,0 +1,52 @@
+ready: 1
+kind: operation
+id: consolidation.op.suggestions
+display_id: kernle.suggestions
+module: consolidation
+name: Kernle.get_suggestions(status, memory_type, limit, min_confidence) · accept_suggestion(id, modifications) · reject_suggestion(id, reason) · dismiss_suggestion(id, reason) · extract_suggestions()
+summary: >-
+  Lists held changes with why each waits and what supports it, and resolves them. Accepting
+  applies the change in one transaction; accepting with modifications records the modified
+  text; rejecting and dismissing never apply it. Quarantined changes and changes to owner
+  content are accepted only by the owner in an interactive terminal.
+params:
+  - name: suggestion_id
+    type: str
+    source: The suggestion to resolve
+    source_kind: parameter
+  - name: status
+    type: str | None
+    source: Filter by status, pending by default
+    source_kind: parameter
+  - name: memory_type
+    type: str | None
+    source: Filter by memory kind
+    source_kind: parameter
+  - name: modifications
+    type: dict | None
+    source: Replacement fields for the proposal when accepting
+    source_kind: parameter
+  - name: reason
+    type: str | None
+    source: Why the suggestion is rejected or dismissed
+    source_kind: parameter
+returns: "Suggestions with kind, proposal, hold reason, evidence summary, and age; for accept, the memory id it became"
+errors:
+  - code: not_found
+    when: the suggestion does not exist or is not pending
+  - code: owner_only
+    when: an agent tries to accept a quarantined change or a change to owner content
+    copy: This change needs the owner. Run kernle review in a terminal.
+  - code: target_changed
+    when: the target memory changed after the proposal; the current memory is returned beside it
+sequence: consolidation.seq.review
+owner: crates/kernle-core/src/consolidation/review.rs
+tags:
+  - tag: cli
+    text: kernle review
+  - tag: cli
+    text: kernle suggestions list|show|accept|reject|dismiss|extract
+  - tag: mcp
+    text: suggestion_list, suggestion_accept, suggestion_dismiss, suggestion_extract
+  - tag: python
+    text: get_suggestions, get_suggestion, accept_suggestion, promote_suggestion, reject_suggestion, dismiss_suggestion, extract_suggestions, extract_suggestions_from_unprocessed, expire_suggestions

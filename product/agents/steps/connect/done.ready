@@ -1,0 +1,11 @@
+ready: 1
+kind: step
+id: agents.connect.done
+journey: agents.connect
+title: Connected
+step_kind: outcome
+surface: agents.surface.setup
+copy:
+  body: ["Connected {runtime}. Backup saved to {backup}. Restart {runtime} to load Kernle."]
+next:
+  - { to: recall.session, label: Start a session, next_kind: action }

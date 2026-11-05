@@ -1,0 +1,15 @@
+ready: 1
+kind: step
+id: agents.connect.provider
+journey: agents.connect
+title: Allow this runtime's episodes to reach the provider
+step_kind: decision
+surface: agents.surface.setup
+copy:
+  title: "Send {runtime} episodes to {provider}?"
+  body: ["Your model provider is not the provider {runtime} already uses. If you decline, this runtime's sessions stay on this machine and still form memories from explicit writes."]
+  actions: [Allow, Decline]
+rules: [stacks.rule.model-destination]
+next:
+  - { to: agents.connect.import, label: Allow, next_kind: action }
+  - { to: agents.connect.import, label: Decline, next_kind: action }

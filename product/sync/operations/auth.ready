@@ -1,0 +1,19 @@
+ready: 1
+kind: operation
+id: sync.op.auth
+display_id: kernle.auth
+module: sync
+name: kernle auth register | login | logout | keys · kernle sync enable | disable
+summary: Manages the owner's cloud account and which stacks are synced; the cloud key never leaves the keychain.
+params:
+  - { name: action, source: The subcommand, source_kind: parameter, type: string }
+  - { name: email, source: The owner's input, source_kind: surface, type: string }
+  - { name: backend, source: The configured cloud address, source_kind: config, type: string }
+returns: The signed-in account, masked keys, or the linked state of a stack
+errors:
+  - { code: insecure_endpoint, copy: "Kernle only talks to the cloud over HTTPS." }
+  - { code: auth_failed, copy: "Sign-in failed ({status})." }
+sequence: sync.seq.auth
+owner: crates/kernle-cli/src/commands/auth.rs::run
+tags:
+  - { tag: cli, text: "kernle auth" }

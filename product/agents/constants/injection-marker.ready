@@ -1,0 +1,7 @@
+ready: 1
+kind: constant
+id: agents.const.injection-marker
+module: agents
+name: KERNLE_INJECTION_MARKER
+value: "⟦kernle⟧"
+description: Prefix of every block Kernle injects into agent context, so capture can recognize and drop Kernle's own words.

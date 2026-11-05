@@ -1,0 +1,122 @@
+ready: 1
+kind: rule
+id: retention.rule.strength
+display_id: RULE-RETENTION-STRENGTH
+module: retention
+title: How strong a memory is
+summary: A memory's strength falls with the time since it was last used, more slowly for salient memories,
+  and decides whether it is active, dormant or forgotten.
+inputs:
+- name: memory
+  source: The memory record
+  source_kind: stored
+- name: now
+  source: The sweep's clock
+  source_kind: derived
+- name: decay settings
+  source: The stack's decay configuration
+  source_kind: config
+decision:
+  nodes:
+  - id: in
+    node_kind: input
+    text: One memory at sweep time
+    refs:
+    - memory.data.memory
+  - id: keep
+    node_kind: decision
+    text: Is it protected, a value, a foundational belief, or tied to the active self-narrative?
+  - id: full
+    node_kind: outcome
+    text: Strength stays at full; status unchanged
+  - id: sup
+    node_kind: decision
+    text: Is it superseded?
+  - id: supout
+    node_kind: outcome
+    text: Unchanged; superseded memories are kept for history until their source is purged
+  - id: calc
+    node_kind: calc
+    text: Strength is one minus idle days over the kind's window stretched by salience
+    refs:
+    - retention.const.idle-windows
+  - id: zero
+    node_kind: decision
+    text: Has strength reached zero?
+  - id: forgot
+    node_kind: outcome
+    text: Forgotten, recoverable until the recovery window ends
+    refs:
+    - retention.const.forget-recovery-days
+  - id: dorm
+    node_kind: decision
+    text: Is strength below the dormancy threshold?
+    refs:
+    - retention.const.dormant-below
+  - id: dormant
+    node_kind: outcome
+    text: Dormant, when currently active
+  - id: active
+    node_kind: outcome
+    text: Active, when currently dormant because it was used again
+  edges:
+  - from: in
+    to: keep
+  - from: keep
+    to: full
+    label: 'yes'
+  - from: keep
+    to: sup
+    label: 'no'
+  - from: sup
+    to: supout
+    label: 'yes'
+  - from: sup
+    to: calc
+    label: 'no'
+  - from: calc
+    to: zero
+  - from: zero
+    to: forgot
+    label: 'yes'
+  - from: zero
+    to: dorm
+    label: 'no'
+  - from: dorm
+    to: dormant
+    label: 'yes'
+  - from: dorm
+    to: active
+    label: 'no'
+calculations:
+- name: idle_days
+  expr: (now − last_used_at) in days, where last_used_at starts at created_at
+- name: window
+  expr: idle window for the kind × (1 + salience)
+- name: strength
+  expr: clamp(1 − idle_days ÷ window, 0, 1)
+sets:
+- name: use
+  members:
+  - the agent opens a memory by id or from a search result
+  - helped feedback
+  - a gut check fires on a guardrail
+  - sleep reinforces the memory
+  - an explicit update or revision
+  - recovery from forgotten
+- name: not use
+  members:
+  - inclusion in a load, the session index or a cue
+  - appearing in search results
+  - an owner browsing from the command line
+constants:
+- retention.const.idle-windows
+- retention.const.dormant-below
+- retention.const.forget-recovery-days
+rationale: Idle time counts from the last use, not from creation, so a memory that keeps helping lives
+  indefinitely and one that never helps fades even if it was once important. Salience stretches the window
+  because an intense experience earns a longer memory, which is how appraisal shapes forgetting. Inclusion
+  is not use, otherwise every loaded memory would refresh itself each session and never fade. The identity
+  core does not fade, because the agent's values and sense of itself should change by revision, not by
+  neglect. Strength is computed from stored times, so a read never changes it and sync never sees it as
+  an edit.

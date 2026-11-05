@@ -1,0 +1,18 @@
+ready: 1
+kind: entity
+id: recall.data.boot-config
+module: recall
+entity_kind: table
+table: boot_config
+name: boot_config
+summary: One always-loaded setting the agent keeps for itself, such as its preferred name or working hours.
+columns:
+  - name: key
+    type: TEXT
+    keys: [PK]
+  - name: value
+    type: TEXT
+    nullable: false
+  - name: updated_at
+    type: TEXT
+    nullable: false

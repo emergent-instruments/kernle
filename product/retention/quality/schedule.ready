@@ -1,0 +1,10 @@
+ready: 1
+kind: quality
+id: retention.quality.schedule
+display_id: QC-RETENTION-SCHEDULE
+module: retention
+title: Retention happens on schedule
+applies_to:
+  - retention.seq.sweep
+measure: Delay between a record becoming due for a status change or deletion and that change
+target: At most one day while the daemon runs; at the next daemon start otherwise, because a missed sweep runs at start

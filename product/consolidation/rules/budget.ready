@@ -1,0 +1,36 @@
+ready: 1
+kind: rule
+id: consolidation.rule.budget
+display_id: RULE-CONSOLIDATION-BUDGET
+module: consolidation
+title: How much model time a run may spend
+summary: >-
+  Each run gets what is left of today's budget across all stacks; judging may use only a share of it,
+  and when it runs out the remaining work waits for tomorrow.
+owner: crates/kernle-core/src/consolidation/budget.rs::allowance
+inputs:
+- name: tokens spent today
+  source: Model tokens recorded on every run started today in every stack
+  source_kind: stored
+- name: model provider
+  source: The stack's bound model provider
+  source_kind: config
+constants:
+- consolidation.const.daily-token-budget
+- consolidation.const.judge-share
+calculations:
+- name: allowance
+  expr: >-
+    daily budget − tokens spent today by runs started today, local calendar day; zero when the provider
+    is none
+- name: judge allowance
+  expr: judge share × allowance
+when: The allowance reaches zero during a run
+then: >-
+  Judging and extraction stop, the run is marked budget exhausted, unprocessed episodes keep their place,
+  and explicit requests to remember still become memories without the model
+otherwise: The run continues and charges each request's reported tokens to the allowance
+rationale: >-
+  The owner pays for the model, so spend is bounded per day rather than per run: one busy stack cannot
+  be fixed by lowering a per-run cap, and a day's budget is what the owner reasons about. Pausing instead
+  of degrading keeps priorities intact for the next day.

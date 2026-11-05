@@ -1,0 +1,178 @@
+ready: 1
+kind: entity
+id: memory.data.memory
+display_id: DATA-MEMORY
+module: memory
+entity_kind: table
+table: memory
+name: memory
+summary: One memory of one kind in one stack.
+columns:
+  - name: id
+    type: TEXT
+    keys: [PK]
+    rule: Sortable unique id assigned at write and kept forever, including through sync and legacy import
+  - name: kind
+    type: TEXT
+    nullable: false
+    values: [episode, note, belief, value, goal, drive, relationship, playbook, entity_model, guardrail]
+    indexes: ["I1·1", "U1·1"]
+  - name: content
+    type: TEXT
+    nullable: false
+    rule: The canonical text of the memory used for search and display, at most the content limit
+    constants: [memory.const.max-content-chars]
+  - name: payload
+    type: TEXT
+    nullable: false
+    rule: JSON fields that differ by kind, validated against the memory kinds contract
+  - name: status
+    type: TEXT
+    nullable: false
+    default: active
+    values: [active, dormant, superseded, forgotten]
+    indexes: ["I1·2", "I2·where"]
+  - name: trust_tier
+    type: TEXT
+    nullable: false
+    values: [principal, first_party, agent_inferred, third_party]
+    rule: Set at write by the source trust tier rule and shown with every recall
+  - name: source_type
+    type: TEXT
+    nullable: false
+    values: [direct_experience, inference, external, consolidation, processing, seed, observation, imported]
+  - name: source_entity
+    type: TEXT
+    nullable: true
+    rule: The person, agent, or source the content came from, when known
+  - name: confidence
+    type: REAL
+    nullable: false
+    check: confidence BETWEEN 0 AND 1
+  - name: salience
+    type: REAL
+    nullable: false
+    default: "0.5"
+    rule: Mirrored from the episode's appraisal, or from the strongest cited episode for derived memories
+  - name: valence
+    type: REAL
+    nullable: false
+    default: "0"
+  - name: arousal
+    type: REAL
+    nullable: false
+    default: "0"
+  - name: label
+    type: TEXT
+    nullable: true
+    rule: The functional emotion label of the episode, or of the strongest cited episode
+  - name: strength
+    type: REAL
+    nullable: false
+    default: "1"
+    indexes: ["I1·3"]
+  - name: is_protected
+    type: INTEGER
+    nullable: false
+    default: "0"
+    rule: Set by the owner or the agent through protect; protected memories never decay and are never changed automatically
+  - name: foundational
+    type: INTEGER
+    nullable: false
+    default: "0"
+    rule: Marks a belief or value as part of the agent's identity layer
+  - name: author
+    type: TEXT
+    nullable: false
+    values: [agent, owner, processing, sleep, sync, import]
+    rule: Who wrote the current version; owner-authored memories are never changed automatically
+  - name: times_accessed
+    type: INTEGER
+    nullable: false
+    default: "0"
+  - name: last_used_at
+    type: TEXT
+    nullable: false
+    rule: Starts at created_at; idle time for decay counts from here
+    indexes: ["I2·1"]
+  - name: context
+    type: TEXT
+    nullable: true
+  - name: context_tags
+    type: TEXT
+    nullable: true
+    rule: JSON list of tags that scope where the memory applies
+  - name: epoch_id
+    type: TEXT
+    nullable: true
+    keys: [FK]
+    fk:
+      entity: identity.data.epoch
+      column: id
+      on_delete: SET NULL
+  - name: current_version
+    type: INTEGER
+    nullable: false
+    rule: Expected by every update so a change never applies to stale content
+  - name: content_hash
+    type: TEXT
+    nullable: false
+    rule: Hash of the normalized content and the kind's identity fields
+    indexes: ["U1·2"]
+  - name: created_at
+    type: TEXT
+    nullable: false
+  - name: updated_at
+    type: TEXT
+    nullable: false
+    rule: Changes only when content or payload changes; reads, access counts, and decay never touch it
+  - name: forgotten_at
+    type: TEXT
+    nullable: true
+    rule: Set when the memory is forgotten; starts the recovery window
+indexes:
+  - id: I1
+    name: memory_kind_status_strength_idx
+    columns: [kind ASC, status ASC, strength DESC]
+    purpose: Selects candidates of each kind for load and the session index
+  - id: I2
+    name: memory_last_used_idx
+    columns: [last_used_at ASC]
+    where: status IN ('active', 'dormant')
+    purpose: Finds memories whose idle time crosses a decay threshold
+  - id: U1
+    name: memory_kind_content_key
+    unique: true
+    columns: [kind ASC, content_hash ASC]
+    where: status <> 'forgotten'
+    purpose: One live memory per kind and content, so a repeated write returns the existing memory
+    serves: [memory.seq.write]
+access:
+  writers:
+    - memory writes every column except those listed below
+    - appraisal writes salience, valence, arousal, and label
+    - retention writes strength, status for dormancy and forgetting, and forgotten_at, and deletes rows on purge
+    - recall writes times_accessed and last_used_at
+    - memory also writes last_used_at on reinforcement and update
+relationships:
+  - to: identity.data.epoch
+    on: [{from: epoch_id, to: id}]
+    from_card: 0..many
+    to_card: 0..1
+    link: fk
+    label: belongs to the epoch it was formed in
+  - to: memory.data.memory-version
+    from_card: "1"
+    to_card: 1..many
+    link: logical
+    label: has a version for every content change
+  - to: memory.data.memory-link
+    from_card: "1"
+    to_card: 0..many
+    link: logical
+    label: links to what it came from
+lifecycle: Active until it fades to dormant, is superseded, or is forgotten; forgotten memories are purged after the recovery window.
+files:
+  - path: product/memory/files/memory-kinds.ts
+    title: Fields for each memory kind
+    role: contract

@@ -1,0 +1,60 @@
+ready: 1
+kind: operation
+id: memory.op.goal
+display_id: kernle.goal
+module: memory
+name: Kernle.goal(title, description, goal_type, priority, …)
+summary: Records something the agent is working toward.
+params:
+  - name: title
+    type: string
+    source: The goal
+    source_kind: parameter
+  - name: description
+    type: string
+    source: More detail
+    source_kind: parameter
+  - name: goal_type
+    type: string
+    source: task, aspiration, commitment, or exploration; defaults to task
+    source_kind: parameter
+  - name: priority
+    type: string
+    source: low, medium, high, or urgent; defaults to medium
+    source_kind: parameter
+  - name: derived_from
+    type: list of kind:id references
+    source: Captures or memories the caller says this came from
+    source_kind: parameter
+  - name: context
+    type: string
+    source: Where the memory applies, as the caller describes it
+    source_kind: parameter
+  - name: context_tags
+    type: list of strings
+    source: Tags that scope where the memory applies
+    source_kind: parameter
+  - name: source
+    type: string
+    source: The person, agent, or source the content came from
+    source_kind: parameter
+  - name: source_type
+    type: string
+    source: How the memory was acquired; defaults to direct experience
+    source_kind: parameter
+returns: >-
+  The memory id. When the same content already exists for the kind, the existing id. When the
+  input gate holds the write, the id of the suggestion that waits for review, marked as held.
+errors:
+  - code: invalid_input
+    when: a required field is missing or a value is out of range for the kind
+  - code: too_long
+    when: the content is longer than the content limit
+  - code: kernle_unavailable
+    when: Kernle is not initialized for this account, or the stack cannot be opened
+auth: The caller's account owns the Kernle home
+sequence: memory.seq.write
+owner: crates/kernle-core/src/memory/write.rs::write_memory
+tags:
+  - {tag: cli, text: kernle goal}
+  - {tag: mcp, text: memory_goal}

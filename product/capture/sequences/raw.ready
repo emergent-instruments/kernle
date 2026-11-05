@@ -1,0 +1,67 @@
+ready: 1
+kind: sequence
+id: capture.seq.raw
+display_id: SEQ-CAPTURE-RAW
+module: capture
+title: Capture raw text
+summary: Scrubs and stores a raw capture with its trust tier, or skips text that auto-capture finds insignificant, then asks for consolidation.
+trigger:
+  trigger_kind: call
+  text: An agent, the owner, or a hook captures raw text
+operation: capture.op.raw
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: capture
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Capture this text
+      call: Kernle.raw(blob, source, tags) · auto_capture(text, context)
+      owner: crates/kernle-core/src/capture/raw.rs::capture_raw
+      inputs:
+        - {name: blob, source: The text to capture, source_kind: parameter}
+        - {name: origin, source: "Agent call, owner command, or hook", source_kind: session}
+      constants: [capture.const.max-raw-chars]
+      guards: [The text is not empty, The text is within the raw capture limit]
+      results:
+        - {code: too_long, when: the text is over the limit}
+        - {code: invalid_input, when: the text is empty}
+  - msg: {from: core, to: core, text: Resolve and authorize the stack for this caller, invokes: [stacks.seq.resolve]}
+  - opt:
+      when: the call is auto-capture
+      items:
+        - alt:
+            branches:
+              - when: the text names no decision, failure, correction, lesson, surprise, or commitment
+                items:
+                  - msg: {from: core, to: caller, text: Skip the text and say why, reply: true, results: [{code: skipped}]}
+              - when: the text is significant
+                items:
+                  - note: {over: [core], text: The capture continues as an ordinary raw capture}
+  - msg: {from: core, to: core, text: Remove secrets from the text, rules: [capture.rule.scrub]}
+  - msg: {from: core, to: core, text: Set the trust tier from who is capturing, rules: [trust.rule.source-tier]}
+  - msg:
+      from: core
+      to: db
+      text: Store the capture and its search entry
+      constants: [capture.const.raw-retention-days]
+      ops:
+        - op: insert
+          entity: capture.data.raw-entry
+          index: U1
+          conflict: on the same content, keep the existing capture
+          set: [id, content, source, source_ref, session_id, trust_tier, tags, content_hash, captured_at = now, expires_at = now + raw retention]
+        - op: insert
+          entity: capture.data.raw-entry
+          index: F1
+  - msg: {from: core, to: core, text: Ask for consolidation when enough has accumulated, invokes: [consolidation.seq.schedule]}
+  - msg: {from: core, to: caller, text: Return the capture id, reply: true, results: [{code: captured}]}

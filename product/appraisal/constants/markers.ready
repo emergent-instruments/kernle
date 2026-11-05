@@ -1,0 +1,17 @@
+ready: 1
+kind: constant
+id: appraisal.const.markers
+module: appraisal
+name: APPRAISAL_MARKERS
+source: config.toml#appraisal.markers
+description: Case-insensitive phrases appraisal looks for; each list is matched only where the rules say.
+table:
+  columns: [List, Phrases, Matched where]
+  rows:
+    - [frustration, "\"!!!\", a message mostly in capitals, the profanity list", the start or whole of a feedback message]
+    - [correction, "\"no,\", \"that's wrong\", \"not what i\", \"i told you\", \"why did you\", \"undo that\", \"revert that\"", the start of a feedback message]
+    - [praise, "\"perfect\", \"great\", \"exactly\", \"thanks, that works\", \"nice work\", \"looks good\"", the start of a feedback message]
+    - [directive, "\"always\", \"never\", \"from now on\", \"remember\", \"in the future\"", a feedback message only; never makes a task message into feedback]
+    - [self correction, "\"actually,\", \"i was wrong\", \"my mistake\", \"that didn't work\", \"let me try a different\"", the agent's messages]
+    - [surprise, "\"unexpected\", \"turned out\", \"surprisingly\", \"did not expect\"", an explicit episode's outcome or the agent's messages]
+    - [environment error, "timeout, connection reset or refused, rate limit, 429, 502, 503, DNS, no space left on device", error tool results]

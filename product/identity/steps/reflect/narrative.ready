@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: identity.reflect.narrative
+journey: identity.reflect
+title: Save a new self-narrative
+step_kind: action
+does:
+  - Saves the narrative, which becomes the active one of its type
+sequences:
+  - identity.seq.narrative
+next:
+  - to: identity.reflect.decide
+    next_kind: result

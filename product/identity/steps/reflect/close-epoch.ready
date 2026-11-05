@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: identity.reflect.close-epoch
+journey: identity.reflect
+title: Close the epoch
+step_kind: action
+does:
+  - Closes the current epoch with a summary, and may open the next one
+sequences:
+  - identity.seq.epoch
+next:
+  - to: identity.reflect.done
+    next_kind: result

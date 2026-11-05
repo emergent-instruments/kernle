@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: agents.const.hook-deadline
+module: agents
+name: HOOK_DEADLINE_MS
+value: "500"
+unit: milliseconds
+source: "~/.kernle/config.toml#agents.hook_deadline_ms"
+description: The longest a hook handler runs before it returns an empty response.

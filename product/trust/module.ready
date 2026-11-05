@@ -1,0 +1,29 @@
+ready: 1
+kind: module
+id: trust
+name: Trust
+summary: >-
+  Decides how much each source of memory is trusted: the trust tier of every capture and
+  derived memory, the input gate that holds behavior-changing memories with weak support, and
+  the agent's trust assessments of other entities. Runs in the Kernle core inside the daemon
+  and the Python package.
+runs_in:
+  - sys.daemon
+  - sys.python
+owns:
+  - Source trust tiers (RULE-TRUST-TIER)
+  - The input gate (RULE-TRUST-GATE)
+  - Entity trust assessments (DATA-TRUST-ASSESSMENT)
+invariants:
+  - A derived memory is never trusted more than the weakest source it depends on.
+  - A behavior-changing memory supported only by outside content never applies without review.
+  - Owner-authored and protected memories never change automatically.
+rationale: >-
+  Persistent prompt injection works by getting an agent to remember an instruction it read
+  somewhere. One module decides trust so every write path (explicit calls, transcript capture,
+  processing, sleep, imports, sync) applies the same tiers and the same gate, instead of each
+  path inventing its own notion of "safe".
+
+
+  Entity trust lives here too because the appraisal label "distrust" and the gate both need to
+  know which sources have misled the agent before.

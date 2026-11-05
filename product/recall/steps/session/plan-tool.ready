@@ -1,0 +1,18 @@
+ready: 1
+kind: step
+id: recall.session.plan-tool
+journey: recall.session
+title: The agent plans a tool call
+step_kind: decision
+sequences: [recall.seq.gut-check]
+rules: [recall.rule.gut-check]
+next:
+  - to: recall.session.warned
+    when: a guardrail warns
+    next_kind: result
+  - to: recall.session.paused
+    when: a guardrail pauses this action for the first time this session
+    next_kind: result
+  - to: recall.session.search
+    when: no guardrail fires
+    next_kind: result

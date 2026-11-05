@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: identity.const.drift-window
+module: identity
+name: DRIFT_WINDOW_DAYS
+value: "30"
+unit: days
+description: The default stretch of recent memory compared against the agent's values and narrative.

@@ -1,0 +1,27 @@
+ready: 1
+kind: step
+id: health.check.anxiety
+journey: health.check
+title: The anxiety score and level appear
+step_kind: screen
+surface: health.surface.anxiety
+copy:
+  body:
+  - Anxiety {score} ({level}). {actions}
+sees:
+- Each measurable dimension with its score
+sequences:
+- health.seq.anxiety
+rules:
+- health.rule.anxiety
+next:
+- to: health.check.act
+  when: an action is recommended
+  next_kind: result
+- to: health.check.doctor
+  label: kernle doctor
+  when: the owner wants to check integrity
+  next_kind: action
+- to: health.check.healthy
+  when: no action is recommended
+  next_kind: result

@@ -1,0 +1,10 @@
+ready: 1
+kind: step
+id: stacks.status.view
+journey: stacks.status
+title: Read status
+step_kind: screen
+surface: stacks.surface.status
+sequences: [stacks.seq.status]
+next:
+  - { to: consolidation.review, label: Review suggestions, when: suggestions are pending, next_kind: action }

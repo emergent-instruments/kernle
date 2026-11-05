@@ -1,0 +1,130 @@
+ready: 1
+kind: sequence
+id: health.seq.metamemory
+display_id: SEQ-HEALTH-METAMEMORY
+module: health
+title: Report what the agent can be sure of
+summary: Answers one metamemory question from stored confidence, decay and appraisal, using the bound
+  model for contradictions when one is available.
+trigger:
+  trigger_kind: call
+  text: The agent or owner asks a metamemory question
+operation: health.op.metamemory
+participants:
+- id: caller
+  is:
+  - actor.agent
+  - actor.owner
+  label: Agent or owner
+- id: api
+  is:
+  - sys.python
+  - sys.cli
+  label: Kernle Python package or command line
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+- sys.model
+items:
+- msg:
+    from: caller
+    to: api
+    text: Ask a metamemory question
+    call: Kernle.get_memory_confidence(memory_type, memory_id)
+    invokes:
+    - stacks.seq.resolve
+- alt:
+    branches:
+    - when: asking for one memory's confidence
+      items:
+      - msg:
+          from: api
+          to: db
+          text: Read its confidence, last verification and use, and the confidence of its sources
+          ops:
+          - op: read
+            entity: memory.data.memory
+            by:
+            - id
+          - op: read
+            entity: memory.data.memory-link
+            by:
+            - from memory
+            where: relation IN (derived_from, evidence)
+          note: Confidence after decay is the stored confidence lowered by the time since it was last
+            verified or used, and never above the weakest required source
+    - when: asking for uncertain memories
+      items:
+      - msg:
+          from: api
+          to: db
+          text: Read active memories whose confidence after decay is below the threshold
+          constants:
+          - health.const.uncertain-below
+          ops:
+          - op: read
+            entity: memory.data.memory
+            where: status = active
+    - when: asking for gaps around a topic
+      items:
+      - msg:
+          from: api
+          to: api
+          text: Search the topic and judge how well memory covers it
+          invokes:
+          - recall.op.search
+          note: Few or low-confidence results, or only third-party sources, mark a gap
+    - when: asking for competence boundaries or learning opportunities
+      items:
+      - msg:
+          from: api
+          to: db
+          text: Group episodes by context and compare success rates, effort and corrections
+          ops:
+          - op: read
+            entity: memory.data.memory
+            where: kind = episode
+          - op: read
+            entity: appraisal.data.appraisal
+            by:
+            - memory_id
+    - when: asking for contradictions
+      items:
+      - msg:
+          from: api
+          to: db
+          text: Find pairs of active beliefs close in meaning
+          ops:
+          - op: read
+            entity: recall.data.search-index
+            where: kind = belief
+      - alt:
+          branches:
+          - when: an inference model is bound
+            items:
+            - msg:
+                from: api
+                to: sys.model
+                text: Judge whether each pair contradicts
+          - when: no model is bound
+            items:
+            - note:
+                over:
+                - api
+                text: Pairs whose statements differ by a negation or opposite wording are reported as
+                  possible contradictions
+    - when: changing a memory's confidence or source
+      items:
+      - msg:
+          from: api
+          to: api
+          text: Hand the change to the memory module
+          call: Kernle.set_memory_source(memory_type, memory_id, source_type, source_entity)
+          invokes:
+          - memory.op.update
+- msg:
+    from: api
+    to: caller
+    text: Return the report with each memory's kind, confidence, trust tier and date
+    reply: true

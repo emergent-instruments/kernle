@@ -1,0 +1,26 @@
+ready: 1
+kind: operation
+id: retention.op.forget
+display_id: kernle.forget
+module: retention
+name: Kernle.forget(memory_type, memory_id, reason)
+summary: >-
+  Moves one memory out of working memory, cues and search, recoverable until
+  its recovery window ends; nothing is deleted until then. Protected memories
+  are refused.
+params:
+  - { name: memory_type, type: str, source: Caller, source_kind: parameter }
+  - { name: memory_id, type: str, source: Caller, source_kind: parameter }
+  - { name: reason, type: str | None, source: Caller, source_kind: parameter }
+returns: Forgotten with the date it will be purged, or not found.
+errors:
+  - code: not_found
+    when: No such memory in the caller's stack
+  - code: protected
+    when: The memory is protected
+    copy: That memory is protected. Remove its protection first.
+sequence: retention.seq.forget
+owner: crates/kernle-core/src/retention/forget.rs::forget
+tags:
+  - { tag: cli, text: "kernle forget" }
+  - { tag: mcp, text: memory_forget }

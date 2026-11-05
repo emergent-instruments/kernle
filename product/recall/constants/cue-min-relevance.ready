@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.cue-min-relevance
+module: recall
+name: CUE_MIN_RELEVANCE
+value: "0.35"
+unit: score
+description: How relevant a memory must be to a prompt before it is cued.

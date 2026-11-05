@@ -1,0 +1,28 @@
+ready: 1
+kind: rule
+id: capture.rule.scrub
+display_id: RULE-CAPTURE-SCRUB
+module: capture
+title: Secrets are removed before anything is stored
+summary: Every capture, event, import, and seed is scrubbed of credentials and long secret-like strings before it reaches the database.
+when: Text matches any secret class in the table
+then: The match is replaced with a redaction mark naming its class, and the rest of the text is kept
+otherwise: The text is stored as given
+table:
+  columns: [Class, Matches]
+  rows:
+    - [private key, PEM private key blocks]
+    - [cloud access key, "AWS access key ids and secret keys, GCP service account private keys"]
+    - [vendor token, "GitHub, Anthropic, OpenAI, Slack, Stripe, and Kernle token formats"]
+    - [web token, three base64url segments starting with eyJ]
+    - [auth header, Authorization and Proxy-Authorization header values]
+    - [credential assignment, "assignments whose name contains KEY, SECRET, TOKEN, PASSWORD, PASSWD, or CREDENTIAL"]
+    - [URL credentials, user and password inside a URL]
+    - [high entropy, base64 or hex runs of 32 or more characters with high entropy]
+constraints:
+  - text: Binary and image content is dropped and replaced by a placeholder
+    hard: true
+rationale: >-
+  A secret that reaches the database also reaches memories, model requests during sleep, exports,
+  and the cloud. Scrubbing at the single point of entry is the only place it can be stopped for all
+  of them.

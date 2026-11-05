@@ -1,0 +1,104 @@
+ready: 1
+kind: rule
+id: recall.rule.gut-check
+display_id: RULE-RECALL-GUT-CHECK
+module: recall
+title: When a guardrail pauses or warns before a tool call
+summary: A matching guardrail pauses the first attempt of a risky action once per session, and otherwise
+  warns once per session.
+inputs:
+- name: tool call
+  source: The runtime's pre-tool hook
+  source_kind: payload
+- name: guardrails
+  source: Active guardrail memories
+  source_kind: stored
+- name: session history
+  source: The recall log for this session
+  source_kind: stored
+- name: daemon answering
+  source: The hook handler's connection
+  source_kind: derived
+decision:
+  nodes:
+  - id: in
+    node_kind: input
+    text: One active guardrail and one planned tool call
+    refs:
+    - memory.data.memory
+    - recall.data.recall-log
+  - id: trig
+    node_kind: decision
+    text: Does the guardrail list any triggers?
+  - id: match
+    node_kind: decision
+    text: Does every listed trigger match the tool name, the command text or a path in the call?
+  - id: similar
+    node_kind: decision
+    text: Is the call close enough in meaning to the guardrail?
+    refs:
+    - recall.const.gut-check-similarity
+  - id: bump
+    node_kind: decision
+    text: Is the guardrail intense enough, does it have triggers, is the daemon answering, and has this
+      action not been paused this session?
+    refs:
+    - recall.const.speed-bump-arousal
+  - id: advised
+    node_kind: decision
+    text: Has this guardrail already warned in this session?
+  - id: speed
+    node_kind: outcome
+    text: Pause this attempt with the guardrail as the reason; the identical retry goes through
+  - id: advise
+    node_kind: outcome
+    text: Show the guardrail beside the call, which proceeds
+  - id: none
+    node_kind: outcome
+    text: Nothing
+  edges:
+  - from: in
+    to: trig
+  - from: trig
+    to: match
+    label: 'yes'
+  - from: trig
+    to: similar
+    label: 'no'
+  - from: match
+    to: bump
+    label: 'yes'
+  - from: match
+    to: none
+    label: 'no'
+  - from: similar
+    to: advised
+    label: 'yes'
+  - from: similar
+    to: none
+    label: 'no'
+  - from: bump
+    to: speed
+    label: 'yes'
+  - from: bump
+    to: advised
+    label: 'no'
+  - from: advised
+    to: none
+    label: 'yes'
+  - from: advised
+    to: advise
+    label: 'no'
+constants:
+- recall.const.gut-check-max-warnings
+- recall.const.speed-bump-arousal
+- recall.const.gut-check-similarity
+default: Nothing
+precedence:
+- When several guardrails match, at most the maximum number of warnings are kept, most intense first,
+  and one pause among them decides the response.
+rationale: 'A pause stops the action once and lets the identical retry through, like a gut feeling: it
+  forces a second look at the moment of risk without turning one bad memory into a lost capability. Only
+  guardrails with explicit triggers can pause, because similarity alone misfires. Without the daemon there
+  is no session history, so a pause could repeat forever; the direct path only warns. Warning once per
+  session keeps the agent from learning to ignore the warning.'

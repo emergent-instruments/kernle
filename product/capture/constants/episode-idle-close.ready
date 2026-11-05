@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: capture.const.episode-idle-close
+module: capture
+name: EPISODE_IDLE_CLOSE_MINUTES
+value: "60"
+unit: minutes
+description: How long a session goes without new records before its last open episode closes.
