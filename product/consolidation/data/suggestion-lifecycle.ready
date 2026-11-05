@@ -1,0 +1,57 @@
+ready: 1
+kind: state_machine
+id: consolidation.state.suggestion
+module: consolidation
+title: Suggestion lifecycle
+entity: consolidation.data.suggestion
+field: status
+states:
+  - name: pending
+    description: Waiting for the agent or owner
+    initial: true
+  - name: promoted
+    description: Accepted as proposed
+    terminal: true
+  - name: modified
+    description: Accepted with changes
+    terminal: true
+  - name: rejected
+    description: Refused; never applied
+    terminal: true
+  - name: dismissed
+    description: Set aside as not worth recording; never applied
+    terminal: true
+  - name: expired
+    description: Waited past the expiry window; never applied
+    terminal: true
+transitions:
+  - from: "[*]"
+    to: pending
+    trigger: A gate holds a proposed change
+    via:
+      - consolidation.seq.hold
+  - from: pending
+    to: promoted
+    trigger: The agent or owner accepts it
+    via:
+      - consolidation.seq.review
+  - from: pending
+    to: modified
+    trigger: The agent or owner accepts it with changes
+    via:
+      - consolidation.seq.review
+  - from: pending
+    to: rejected
+    trigger: The agent or owner rejects it
+    via:
+      - consolidation.seq.review
+  - from: pending
+    to: dismissed
+    trigger: The agent or owner dismisses it
+    via:
+      - consolidation.seq.review
+  - from: pending
+    to: expired
+    trigger: The expiry window passes
+    via:
+      - consolidation.seq.expire

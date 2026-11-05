@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: consolidation.review.conflict
+journey: consolidation.review
+title: The memory changed since the proposal
+step_kind: error
+surface: consolidation.surface.review
+sees:
+  - The current memory beside the proposal
+next:
+  - to: consolidation.review.decide
+    label: Decide again
+    next_kind: action

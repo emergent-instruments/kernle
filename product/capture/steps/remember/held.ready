@@ -1,0 +1,17 @@
+ready: 1
+kind: step
+id: capture.remember.held
+journey: capture.remember
+title: The agent sees it waits for review
+step_kind: outcome
+surface: capture.surface.tool-result
+copy:
+  body:
+    - "Held for review: {reason}. It becomes memory if it is accepted."
+sees:
+  - Why it is held, such as resting only on outside content or changing something the owner wrote
+next:
+  - to: consolidation.review
+    label: Review
+    next_kind: auto
+    channel: async

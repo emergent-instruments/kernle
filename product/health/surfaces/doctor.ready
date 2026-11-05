@@ -1,0 +1,8 @@
+ready: 1
+kind: surface
+id: health.surface.doctor
+module: health
+name: kernle doctor
+surface_kind: screen
+system: sys.cli
+summary: One line per check with passed, warning or failed, and the command that fixes each problem.

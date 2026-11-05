@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.reinforce-similarity
+module: consolidation
+name: REINFORCE_SIMILARITY
+value: "0.85"
+unit: cosine
+source: config.toml#sleep.reinforce_similarity
+description: How close a routine episode must be to an existing memory to reinforce it.

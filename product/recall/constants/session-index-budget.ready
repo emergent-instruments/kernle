@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.session-index-budget
+module: recall
+name: SESSION_INDEX_BUDGET
+value: "1500"
+unit: tokens
+description: The most context the session-start index adds.

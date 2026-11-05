@@ -1,0 +1,37 @@
+ready: 1
+kind: entity
+id: capture.data.ingest-cursor
+module: capture
+entity_kind: table
+table: ingest_cursor
+name: ingest_cursor
+summary: How far one session record has been read.
+columns:
+  - name: source_key
+    type: TEXT
+    keys: [PK]
+    rule: The runtime plus the absolute record path, or the OpenClaw session id
+  - name: byte_offset
+    type: INTEGER
+    nullable: false
+    rule: Just after the last complete record stored
+  - name: next_pos
+    type: INTEGER
+    nullable: false
+  - name: file_dev
+    type: INTEGER
+    nullable: true
+  - name: file_ino
+    type: INTEGER
+    nullable: true
+    rule: A different device or inode, or a file shorter than the offset, restarts reading at the beginning
+  - name: updated_at
+    type: TEXT
+    nullable: false
+relationships:
+  - to: capture.data.event
+    on: [{from: source_key, to: source_key}]
+    from_card: "1"
+    to_card: 0..many
+    link: logical
+    label: tracks the events read from the same source

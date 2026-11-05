@@ -1,0 +1,78 @@
+ready: 1
+kind: entity
+id: identity.data.summary
+display_id: DATA-SUMMARY
+module: identity
+entity_kind: table
+table: period_summary
+name: period_summary
+summary: The agent's own summary of one period of its life.
+columns:
+  - name: id
+    type: TEXT
+    keys:
+      - PK
+  - name: scope
+    type: TEXT
+    nullable: false
+    values:
+      - month
+      - quarter
+      - year
+      - decade
+      - epoch
+    indexes:
+      - I1·1
+  - name: period_start
+    type: TEXT
+    nullable: false
+    indexes:
+      - I1·2
+  - name: period_end
+    type: TEXT
+    nullable: false
+  - name: content
+    type: TEXT
+    nullable: false
+  - name: key_themes
+    type: TEXT
+    nullable: false
+    rule: JSON list
+  - name: epoch_id
+    type: TEXT
+    nullable: true
+    keys:
+      - FK
+    fk:
+      entity: identity.data.epoch
+      column: id
+  - name: supersedes
+    type: TEXT
+    nullable: false
+    rule: JSON list of summaries this one replaces; superseded summaries are not loaded
+  - name: is_protected
+    type: INTEGER
+    nullable: false
+    default: "0"
+    rule: Protected summaries never decay
+  - name: created_at
+    type: TEXT
+    nullable: false
+indexes:
+  - id: I1
+    name: period_summary_scope_idx
+    columns:
+      - scope ASC
+      - period_start DESC
+    purpose: Lists summaries of one scope newest first for load and reflection
+    serves:
+      - identity.seq.summary
+relationships:
+  - to: identity.data.epoch
+    on:
+      - from: epoch_id
+        to: id
+    from_card: 0..many
+    to_card: 0..1
+    link: fk
+    label: The epoch an epoch summary describes

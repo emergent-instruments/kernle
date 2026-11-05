@@ -1,0 +1,36 @@
+ready: 1
+kind: rule
+id: identity.rule.drift
+display_id: RULE-IDENTITY-DRIFT
+module: identity
+title: How far recent behavior has moved from stated identity
+summary: >-
+  Compares what the agent recently did and concluded with its values and self-narrative, and reports drift
+  with the memories that show it.
+owner: crates/kernle-core/src/identity/drift.rs::detect
+inputs:
+- name: recent memories
+  source: Episodes, beliefs, and goal changes from the drift window
+  source_kind: stored
+- name: stated identity
+  source: Active values and the active self-narrative
+  source_kind: stored
+constants:
+- identity.const.drift-window
+- identity.const.drift-alert
+calculations:
+- name: alignment of a recent memory
+  expr: >-
+    max cosine between the memory and any value or narrative theme; contradicting links count as zero
+    alignment
+- name: drift
+  expr: >-
+    1 − salience-weighted mean alignment of recent memories, plus 0.1 for each value whose supporting
+    beliefs were superseded in the window, capped at 1
+when: Drift is at or above the alert score
+then: The report marks drift as significant and lists the most divergent memories as examples
+otherwise: The report shows the drift score with examples, marked as within normal change
+default: No drift (0) when the window holds no memories
+rationale: >-
+  Drift is reported, never corrected automatically. Growth looks like drift from the outside, and only
+  the agent or owner can tell a change of character from a lapse.

@@ -1,0 +1,45 @@
+ready: 1
+kind: operation
+id: consolidation.op.process
+display_id: kernle.process
+module: consolidation
+name: Kernle.process(transition=None, force=False, auto_promote=False, batch_size=None)
+summary: >-
+  Runs one processing session for one transition, or for every transition whose trigger is met,
+  promoting sources up the hierarchy with the bound model. Without automatic promotion every
+  result is a suggestion; with it, results apply unless a promotion gate or the trust gate holds
+  them. A session never processes a source twice for the same transition.
+params:
+  - name: transition
+    type: str | None
+    source: One of the processing transitions, or none for all whose trigger is met
+    source_kind: parameter
+  - name: force
+    type: bool
+    source: Run even when the trigger is not met
+    source_kind: parameter
+  - name: auto_promote
+    type: bool
+    source: Apply results directly where the gates allow, instead of creating suggestions
+    source_kind: parameter
+  - name: batch_size
+    type: int | None
+    source: Sources per session, overriding the configured batch size
+    source_kind: parameter
+returns: "One result per transition run: sources read, memories created, suggestions created, sources skipped, held counts by reason, tokens spent, and any error"
+errors:
+  - code: no_model
+    when: no model is bound for the stack
+  - code: unknown_transition
+    when: the transition name is not one of the processing transitions
+  - code: budget_exhausted
+    when: today's model budget is spent
+  - code: run_in_progress
+    when: another maintenance run holds the stack; the result says when it finished
+sequence: consolidation.seq.process
+owner: crates/kernle-core/src/consolidation/process.rs::process
+tags:
+  - tag: cli
+    text: kernle process run [--transition] [--force] [--auto-promote] [--batch-size]
+  - tag: mcp
+    text: memory_process

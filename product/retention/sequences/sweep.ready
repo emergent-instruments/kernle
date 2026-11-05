@@ -1,0 +1,148 @@
+ready: 1
+kind: sequence
+id: retention.seq.sweep
+display_id: SEQ-RETENTION-SWEEP
+module: retention
+title: Daily retention sweep
+summary: Once a day for every stack, expires old captures and events, updates every memory's strength
+  and status, and purges forgotten memories past their recovery window.
+trigger:
+  trigger_kind: schedule
+  text: Daily at the retention time for every stack, and at daemon start when the last sweep is more than
+    a day old
+operation: retention.op.sweep
+participants:
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+items:
+- msg:
+    from: sys.daemon
+    to: db
+    text: Start a retention run for the stack
+    constants:
+    - retention.const.retention-time
+    ops:
+    - op: insert
+      entity: consolidation.data.run
+      set:
+      - kind = retention
+      - trigger
+      - state = running
+      - started_at now
+- msg:
+    from: sys.daemon
+    to: db
+    text: Delete expired transcript events and raw captures every processing step has handled
+    constants:
+    - retention.const.event-retention-days
+    - retention.const.raw-retention-days
+    ops:
+    - op: delete
+      entity: capture.data.event
+      where: expires_at at or before now, and not cited by a live memory
+    - op: delete
+      entity: capture.data.raw-entry
+      where: older than the raw window, marked by every processing transition, and not cited by a live
+        memory
+- msg:
+    from: sys.daemon
+    to: db
+    text: Read every memory that can fade
+    ops:
+    - op: read
+      entity: memory.data.memory
+      index: I2
+      where: status IN (active, dormant, forgotten)
+- loop:
+    while: memories remain
+    items:
+    - msg:
+        from: sys.daemon
+        to: sys.daemon
+        text: Compute strength and the status it implies
+        rules:
+        - retention.rule.strength
+    - alt:
+        branches:
+        - when: the status changes
+          items:
+          - msg:
+              from: sys.daemon
+              to: db
+              text: Store the strength and status and record the change
+              ops:
+              - op: update
+                entity: memory.data.memory
+                by:
+                - id
+                set:
+                - strength
+                - status
+                - forgotten_at now when forgotten
+              - op: append
+                entity: memory.data.memory-change
+                set:
+                - memory_id
+                - change for the new status
+                - actor = retention
+                - run_id
+                - reason
+        - when: only the strength changes
+          items:
+          - msg:
+              from: sys.daemon
+              to: db
+              text: Store the strength
+              ops:
+              - op: update
+                entity: memory.data.memory
+                by:
+                - id
+                set:
+                - strength
+              note: Strength is local and never queued for sync
+        - when: the memory was forgotten longer ago than the recovery window
+          items:
+          - msg:
+              from: sys.daemon
+              to: sys.daemon
+              text: Purge it
+              invokes:
+              - retention.seq.purge
+              constants:
+              - retention.const.forget-recovery-days
+- msg:
+    from: sys.daemon
+    to: db
+    text: Delete expired recall log rows
+    ops:
+    - op: delete
+      entity: recall.data.recall-log
+      index: I3
+      where: expires_at at or before now
+- msg:
+    from: sys.daemon
+    to: sys.daemon
+    text: Bring the search index up to date
+    invokes:
+    - recall.seq.index
+- msg:
+    from: sys.daemon
+    to: db
+    text: Finish the run with its counts
+    ops:
+    - op: update
+      entity: consolidation.data.run
+      by:
+      - id
+      set:
+      - state = completed or failed
+      - finished_at
+      - counters
+      - error
+rationale: The sweep runs for every stack, used or not, because forgetting must happen on schedule whether
+  or not anyone opens the stack. Strength is stored only to make ranking cheap; it is recomputed from
+  stored times every sweep, so it can never drift or grow without use.

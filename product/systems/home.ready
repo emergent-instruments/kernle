@@ -1,0 +1,17 @@
+ready: 1
+kind: system
+id: sys.home
+name: Kernle home
+role: Holds every Kernle file for one OS account, with one directory and database per stack
+system_kind: storage
+hosting: The owner's disk, under the home directory
+code: ~/.kernle
+responsibilities:
+  - The stack registry, configuration, daemon socket, and downloaded model
+  - One database and export folder per stack
+secrets:
+  - KERNLE_CREDENTIALS_FALLBACK
+notes: >-
+  Layout: `registry.db`, `config.toml`, `run/kernled.sock`, `models/`,
+  `stacks/<stack_id>/kernle.db`, and `stacks/<stack_id>/export/`. The
+  credentials fallback file exists only on Linux hosts without a keychain.

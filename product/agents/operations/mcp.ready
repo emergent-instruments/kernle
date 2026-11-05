@@ -1,0 +1,21 @@
+ready: 1
+kind: operation
+id: agents.op.mcp
+display_id: kernle.mcp
+module: agents
+name: kernle mcp
+summary: Serves the Kernle tools over standard input and output for one session and one stack.
+params:
+  - { name: stack, source: The optional stack option, source_kind: parameter, type: string }
+returns: MCP tool results as listed in the tool contract
+errors:
+  - { code: kernle_unavailable, when: "Kernle is not initialized, or a write cannot reach the daemon", copy: "Kernle is not running, so nothing was recorded." }
+  - { code: invalid_arguments, when: a tool's arguments fail validation }
+sequence: agents.seq.mcp-call
+owner: crates/kernle-cli/src/mcp/server.rs::serve
+files:
+  - path: product/agents/files/mcp-tools.yaml
+    title: Tool contract
+    role: contract
+tags:
+  - { tag: cli, text: "kernle mcp" }

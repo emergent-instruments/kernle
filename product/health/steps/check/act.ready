@@ -1,0 +1,10 @@
+ready: 1
+kind: step
+id: health.check.act
+journey: health.check
+title: The agent or owner runs a recommended action
+step_kind: action
+does:
+  - Saves a checkpoint, reviews suggestions, reflects and saves a self-narrative, verifies uncertain beliefs, or closes the epoch
+next:
+  - { to: health.check.anxiety, label: Check again, next_kind: action }

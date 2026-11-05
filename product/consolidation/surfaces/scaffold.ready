@@ -1,0 +1,16 @@
+ready: 1
+kind: surface
+id: consolidation.surface.scaffold
+module: consolidation
+name: Reflection scaffold
+surface_kind: section
+system: sys.python
+audience: The agent, in its context or as a tool result
+summary: Patterns from recent memory with their evidence, each with a reflection prompt, rendered as notes rather than instructions.
+elements:
+  - name: Patterns
+    description: Repeated lessons, cross-domain outcomes, beliefs ready to become values, and entity models pointing at one generalization
+  - name: Ways to record a conclusion
+    description: The memory calls, narrative save, and epoch close the agent may use
+states:
+  - Nothing to reflect on yet

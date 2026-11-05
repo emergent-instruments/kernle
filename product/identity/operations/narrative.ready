@@ -1,0 +1,44 @@
+ready: 1
+kind: operation
+id: identity.op.narrative
+display_id: kernle.narrative
+module: identity
+name: Kernle.narrative_save(content, narrative_type, key_themes, unresolved_tensions, epoch_id) · narrative_get_active(narrative_type) · narrative_list(narrative_type, active_only)
+summary: >-
+  Saves a new self-narrative as the active one of its type, keeping the previous one inactive,
+  and reads narratives. Saving is a deliberate identity change by the agent or owner.
+params:
+  - name: content
+    type: str
+    source: The agent's account of itself
+    source_kind: parameter
+  - name: narrative_type
+    type: str
+    source: identity, developmental, or aspirational
+    source_kind: parameter
+  - name: key_themes
+    type: list[str] | None
+    source: Themes the narrative names
+    source_kind: parameter
+  - name: unresolved_tensions
+    type: list[str] | None
+    source: Tensions the agent has not resolved
+    source_kind: parameter
+  - name: epoch_id
+    type: str | None
+    source: The epoch it belongs to, the current one by default
+    source_kind: parameter
+returns: "The new narrative id for save; the active narrative, or a list, for reads"
+errors:
+  - code: empty_content
+    when: the narrative text is empty or over the length limit
+  - code: owner_only
+    when: the agent tries to replace a narrative the owner wrote
+    copy: The owner wrote this narrative. Propose a change with a suggestion instead.
+  - code: unknown_type
+    when: the narrative type is not identity, developmental, or aspirational
+sequence: identity.seq.narrative
+owner: crates/kernle-core/src/identity/narrative.rs
+tags:
+  - tag: cli
+    text: kernle narrative save|show|list

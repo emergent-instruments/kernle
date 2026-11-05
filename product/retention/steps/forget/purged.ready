@@ -1,0 +1,10 @@
+ready: 1
+kind: step
+id: retention.forget.purged
+journey: retention.forget
+title: The memory is deleted for good
+step_kind: outcome
+surface: retention.surface.purge
+copy:
+  body:
+  - Deleted {memories} memories, {versions} versions, {captures} captures and {events} events.

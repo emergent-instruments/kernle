@@ -1,0 +1,11 @@
+ready: 1
+kind: step
+id: retention.forget.choose
+journey: retention.forget
+title: The owner forgets or purges a memory
+step_kind: decision
+next:
+  - { to: retention.forget.forgotten, label: kernle forget, when: the memory exists and is not protected, next_kind: action }
+  - { to: retention.forget.pick, label: kernle purge, when: the command runs in an interactive terminal, next_kind: action }
+  - { to: retention.forget.no-terminal, when: purge runs without an interactive terminal, next_kind: result }
+  - { to: retention.forget.not-found, when: nothing matches, next_kind: result }

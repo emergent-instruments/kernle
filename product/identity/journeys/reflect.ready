@@ -1,0 +1,26 @@
+ready: 1
+kind: journey
+id: identity.reflect
+display_id: FLOW-IDENTITY-REFLECT
+module: identity
+actors:
+  - actor.agent
+title: Reflect on experience and update identity
+summary: The agent asks for a reflection scaffold, decides what its experience means, and records only the conclusions it chooses.
+trigger: The agent ends a chapter of work, or chooses to reflect
+steps:
+  - identity.reflect.ask
+  - identity.reflect.read
+  - identity.reflect.decide
+  - identity.reflect.record
+  - identity.reflect.narrative
+  - identity.reflect.close-epoch
+  - identity.reflect.done
+sequences:
+  - consolidation.seq.consolidate
+  - identity.seq.narrative
+  - identity.seq.epoch
+related:
+  - to: consolidation.review
+    label: Proposed identity changes from sleep wait in review
+    relation: shares

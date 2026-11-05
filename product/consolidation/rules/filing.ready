@@ -1,0 +1,66 @@
+ready: 1
+kind: rule
+id: consolidation.rule.filing
+display_id: RULE-CONSOLIDATION-FILING
+module: consolidation
+title: What a replayed episode may become
+summary: >-
+  The episode's emotion label decides which kinds of memory the model may propose from it; anything outside
+  that route is refused at validation.
+owner: crates/kernle-core/src/consolidation/filing.rs::route
+inputs:
+- name: label
+  source: The episode's appraisal label
+  source_kind: stored
+- name: explicit request
+  source: Whether the episode holds an explicit request to remember, and the kind it asked for
+  source_kind: stored
+table:
+  columns:
+  - Label
+  - May become
+  - Changes allowed
+  rows:
+  - - Explicit request to remember
+    - The kind the request named, else a note or a belief of type fact
+    - Add, or update a matching memory
+  - - Alarm
+    - Guardrail that says what to check before which tools, commands, or paths
+    - Add, or update a matching guardrail
+  - - Correction
+    - >-
+      Belief of type preference (the person's way of working), or a guardrail when the correction concerns
+      a risky action
+    - Add, update, or supersede
+  - - Frustration
+    - Belief of type learned with the pitfall, the fix, and why, and a lesson on the episode
+    - Add, update, or merge
+  - - Relief
+    - Playbook when a repeatable multi-step procedure succeeded, else a belief of type strategy
+    - Add, or update and record a successful use
+  - - Surprise
+    - Revision of the belief the episode contradicted, or a new belief of type fact
+    - Supersede or revise
+  - - Approval
+    - No new memory
+    - Reinforce the belief or playbook that was followed
+  - - Curiosity
+    - Goal of type exploration for the open question
+    - Add, or update the matching goal
+  - - Distrust
+    - Lower trust in the misleading source
+    - Trust assessment change only
+  - - Boredom
+    - No new memory
+    - Reinforce a close existing memory, or nothing
+constraints:
+- text: Any route may also complete a goal that the episode resolved.
+- text: >-
+    Values and self-narratives are never filed from one episode; they come only from the belief-to-value
+    transition or reflection.
+  hard: true
+default: Refuse the proposal as outside its route
+rationale: |-
+  The same experience filed as a generic note would not change behavior at the moment it matters. A near-disaster becomes a pre-action guardrail, a correction becomes how the person likes things done, and a hard-won success becomes a procedure.
+
+  Approval and boredom reinforce instead of creating, because praise and routine success confirm what is already known; a new memory for them would dilute the important ones.

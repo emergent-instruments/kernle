@@ -1,0 +1,77 @@
+ready: 1
+kind: sequence
+id: recall.seq.boot
+display_id: SEQ-RECALL-BOOT
+module: recall
+title: Keep boot settings
+summary: Sets, reads, lists or removes the settings that are always loaded first.
+trigger:
+  trigger_kind: call
+  text: The agent or owner changes or reads boot settings
+operation: recall.op.boot
+participants:
+- id: caller
+  is:
+  - actor.agent
+  - actor.owner
+  label: Agent or owner
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+items:
+- alt:
+    branches:
+    - when: setting a value
+      items:
+      - msg:
+          from: caller
+          to: sys.daemon
+          text: Set a boot setting
+          call: Kernle.boot_set(key, value)
+      - alt:
+          branches:
+          - when: the settings would exceed a quarter of the default load budget
+            items:
+            - msg:
+                from: sys.daemon
+                to: caller
+                text: Refuse the setting
+                reply: true
+                results:
+                - code: too_many_settings
+          - when: the settings fit
+            items:
+            - msg:
+                from: sys.daemon
+                to: db
+                text: Store the setting
+                ops:
+                - op: upsert
+                  entity: recall.data.boot-config
+                  by:
+                  - key
+                  set:
+                  - value
+                  - updated_at now
+    - when: reading or listing
+      items:
+      - msg:
+          from: caller
+          to: db
+          text: Read the settings
+          call: Kernle.boot_get(key)
+          ops:
+          - op: read
+            entity: recall.data.boot-config
+    - when: removing one or all
+      items:
+      - msg:
+          from: caller
+          to: sys.daemon
+          text: Remove settings
+          call: Kernle.boot_delete(key)
+          ops:
+          - op: delete
+            entity: recall.data.boot-config

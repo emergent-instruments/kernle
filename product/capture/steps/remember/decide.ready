@@ -1,0 +1,16 @@
+ready: 1
+kind: step
+id: capture.remember.decide
+journey: capture.remember
+title: Decide what to keep
+step_kind: decision
+does:
+  - The agent notices a decision, lesson, or correction worth keeping, or the person asks it to remember something
+  - The owner decides to note something or to bring memories in from a file
+next:
+  - to: capture.remember.agent-call
+    label: The agent keeps it
+    next_kind: action
+  - to: capture.remember.owner-command
+    label: The owner keeps or imports it
+    next_kind: action

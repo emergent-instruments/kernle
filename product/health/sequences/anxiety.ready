@@ -1,0 +1,56 @@
+ready: 1
+kind: sequence
+id: health.seq.anxiety
+display_id: SEQ-HEALTH-ANXIETY
+module: health
+title: Measure anxiety
+summary: Reads what each anxiety dimension needs, scores the measurable ones, and returns the score with the actions that lower it.
+trigger:
+  trigger_kind: call
+  text: The agent, the owner, a status request or a hook asks for anxiety
+operation: health.op.anxiety
+participants:
+  - id: caller
+    is: [actor.agent, actor.owner, stacks.op.status]
+    label: Agent, owner or status request
+  - id: api
+    is: [sys.python, sys.cli]
+    label: Kernle Python package, command line or tool server
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: api
+      text: Ask how anxious the memory is
+      call: Kernle.anxiety(context_tokens, context_limit, detailed)
+      inputs:
+        - { name: context_tokens, source: The caller or hook, source_kind: parameter }
+        - { name: context_limit, source: The caller or hook, source_kind: parameter }
+  - msg:
+      from: api
+      to: db
+      text: Read the latest checkpoint, waiting reviews, uncertain memories and the current epoch
+      ops:
+        - { op: read, entity: recall.data.checkpoint, index: I1, limit: "1" }
+        - { op: read, entity: consolidation.data.suggestion, where: "status = pending" }
+        - { op: read, entity: memory.data.memory, where: "status = active", note: confidence after decay }
+        - { op: read, entity: identity.data.epoch, where: current epoch }
+  - msg:
+      from: api
+      to: api
+      text: Get the identity's confidence
+      invokes: [identity.op.synthesize]
+  - msg:
+      from: api
+      to: api
+      text: Score the measurable dimensions and choose the recommended actions
+      rules: [health.rule.anxiety]
+  - msg:
+      from: api
+      to: caller
+      text: Return the score, level, dimensions and actions
+      reply: true
+      results:
+        - copy: "Anxiety {score} ({level}). {actions}"

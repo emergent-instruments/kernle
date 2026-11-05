@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: capture.const.raw-retention-days
+module: capture
+name: RAW_RETENTION_DAYS
+value: "30"
+unit: days
+source: config.toml#retention.raw_retention_days
+description: How long a raw capture is kept after it is captured.

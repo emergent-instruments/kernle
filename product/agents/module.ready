@@ -1,0 +1,27 @@
+ready: 1
+kind: module
+id: agents
+name: Agents
+summary: >-
+  Connects agent runtimes to Kernle: answers Claude Code and OpenClaw hooks
+  within their deadline, serves the MCP tools to Claude Code and Codex, runs
+  the OpenClaw plugin, and installs or removes each runtime's adapter without
+  disturbing the owner's own configuration.
+runs_in: [sys.cli, sys.claude-plugin, sys.openclaw-plugin]
+owns:
+  - hook handling
+  - the MCP tool contract
+  - adapter setup and removal
+invariants:
+  - A hook never blocks, delays past its deadline, or alters an agent action, except the Kernle-home write guard and a guardrail pause.
+  - Installing or removing an adapter never loses a setting or hook the owner wrote.
+  - Every tool and hook resolves its stack the same way the Python package does.
+rationale: >-
+  Adapters are thin: they translate a runtime's events and tool calls into the
+  owning modules' operations, so capture, recall, and memory behave the same
+  whichever runtime the agent uses.
+
+
+  Hooks run a native command and hand all work to the daemon over its socket,
+  because a hook runs inside the agent's turn and a memory system that stalls
+  or breaks the agent's own work costs more than the memory is worth.

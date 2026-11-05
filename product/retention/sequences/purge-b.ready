@@ -1,0 +1,116 @@
+ready: 1
+kind: sequence
+id: retention.seq.purge.b
+display_id: SEQ-RETENTION-PURGE-b
+part_of: retention.seq.purge
+module: retention
+title: Purge, part two, deletion
+participants:
+- id: caller
+  is:
+  - actor.owner
+  - actor.agent
+  - retention.seq.sweep
+  label: Owner, agent or retention sweep
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+- id: files
+  is:
+  - sys.home
+  label: Stack export files
+items:
+- transaction:
+    label: One transaction per stack database
+    items:
+    - msg:
+        from: sys.daemon
+        to: db
+        text: Delete the memories in scope and everything holding their content
+        rules:
+        - retention.rule.purge-scope
+        ops:
+        - op: delete
+          entity: memory.data.memory-version
+          by:
+          - memory_id
+        - op: delete
+          entity: memory.data.memory-link
+          by:
+          - from or to memory
+        - op: delete
+          entity: appraisal.data.appraisal
+          by:
+          - memory_id
+        - op: delete
+          entity: recall.data.usage
+          by:
+          - memory_id
+        - op: delete
+          entity: recall.data.recall-log
+          index: I2
+          by:
+          - memory_id
+        - op: delete
+          entity: consolidation.data.suggestion
+          note: citing or promoted into the memory
+        - op: delete
+          entity: capture.data.raw-entry
+          note: cited only by the purged memories
+        - op: delete
+          entity: capture.data.event
+          note: cited only by the purged memories
+        - op: delete
+          entity: memory.data.memory
+          by:
+          - id
+    - msg:
+        from: sys.daemon
+        to: db
+        text: Record the purge without its content and queue the cloud deletion
+        ops:
+        - op: append
+          entity: memory.data.memory-change
+          set:
+          - memory_id
+          - change = purged
+          - actor
+          - reason
+          note: no name or content
+        - op: update
+          entity: sync.data.sync-queue
+          by:
+          - memory_id
+          set:
+          - payload = null
+          note: pending changes lose their content
+        - op: enqueue
+          entity: sync.data.sync-queue
+          set:
+          - memory_id
+          - change = purged
+          - state = pending
+- msg:
+    from: sys.daemon
+    to: sys.daemon
+    text: Remove the purged memories from the search index before returning
+    invokes:
+    - recall.seq.index
+- msg:
+    from: sys.daemon
+    to: files
+    text: Rewrite export files without the purged memories
+- msg:
+    from: sys.daemon
+    to: db
+    text: Clear deleted text from free pages, the full-text index and the write-ahead log
+    call: PRAGMA secure_delete; INSERT INTO memory_fts(memory_fts) VALUES('optimize'); PRAGMA wal_checkpoint(TRUNCATE)
+- msg:
+    from: sys.daemon
+    to: caller
+    text: Report what was removed
+    reply: true
+    results:
+    - copy: Deleted {memories} memories, {versions} versions, {captures} captures and {events} events.

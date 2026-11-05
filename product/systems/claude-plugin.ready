@@ -1,0 +1,11 @@
+ready: 1
+kind: system
+id: sys.claude-plugin
+name: Kernle Claude Code plugin
+role: Declares Kernle's hooks and registers the Kernle MCP server inside Claude Code
+system_kind: app
+within: sys.claude-code
+code: integrations/claude-code
+connections:
+  - to: sys.cli
+    label: Runs the hook command for each event

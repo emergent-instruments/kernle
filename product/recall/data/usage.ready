@@ -1,0 +1,46 @@
+ready: 1
+kind: entity
+id: recall.data.usage
+module: recall
+entity_kind: table
+table: memory_usage
+name: memory_usage
+summary: How often one memory has helped or hurt the agent when it was recalled.
+columns:
+  - name: memory_id
+    type: TEXT
+    keys: [PK, FK]
+    fk:
+      entity: memory.data.memory
+      column: id
+      on_delete: CASCADE
+  - name: recalled_count
+    type: INTEGER
+    nullable: false
+    default: "0"
+    rule: Times the memory was injected or returned by a search
+  - name: helped_count
+    type: INTEGER
+    nullable: false
+    default: "0"
+  - name: hurt_count
+    type: INTEGER
+    nullable: false
+    default: "0"
+    rule: Hurt verdicts plus wrong or outdated feedback
+  - name: last_feedback_at
+    type: TEXT
+    nullable: true
+relationships:
+  - to: memory.data.memory
+    on:
+      - from: memory_id
+        to: id
+    from_card: "0..1"
+    to_card: "1"
+    link: fk
+    on_delete: CASCADE
+    label: usage of one memory
+access:
+  writers:
+    - recall

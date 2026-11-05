@@ -1,0 +1,23 @@
+ready: 1
+kind: system
+id: sys.cli
+name: Kernle command-line tool
+role: Runs owner commands, answers runtime hooks within their deadline, and serves the MCP tools over standard input and output
+system_kind: app
+code: crates/kernle-cli
+responsibilities:
+  - Owner commands for setup, review, recall, forgetting, and sync
+  - Short-lived hook handler for Claude Code
+  - Stateless MCP tool server for Claude Code and Codex
+connections:
+  - to: sys.daemon
+    label: Requests over the local socket
+  - to: sys.home
+    label: Read-only fallback when the daemon is down
+units:
+  - name: kernle hook
+    unit_kind: function
+    notes: Started by the runtime for each hook event and exits within the hook deadline.
+  - name: kernle mcp
+    unit_kind: service
+    notes: Started by the runtime for the length of a session.

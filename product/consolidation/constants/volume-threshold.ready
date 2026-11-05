@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.volume-threshold
+module: consolidation
+name: VOLUME_THRESHOLD
+value: "500"
+unit: unappraised events or raw entries
+source: config.toml#sleep.volume_threshold
+description: Pending experience that starts a run at once instead of waiting for quiet.

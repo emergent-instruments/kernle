@@ -1,0 +1,34 @@
+ready: 1
+kind: operation
+id: capture.op.seed
+display_id: kernle.seed
+module: capture
+name: Kernle.seed_repo(path) · seed_docs(path, extensions) · seed_status()
+summary: Captures a repository's structure or a folder of documents as raw captures, only from inside the configured seed root.
+params:
+  - name: path
+    type: string
+    source: A folder inside the seed root
+    source_kind: parameter
+  - name: extensions
+    type: list of strings
+    source: File types to read, limited to the allowed seed types
+    source_kind: parameter
+  - name: seed_root
+    type: string
+    source: The configured seed root; never taken from the call
+    source_kind: config
+returns: Counts of files read, captures stored, files skipped and why; seed_status returns past seeding by folder.
+errors:
+  - code: no_seed_root
+    when: no seed root is configured
+  - code: outside_root
+    when: the path, after following links, is outside the seed root or inside the Kernle home
+  - code: kernle_unavailable
+    when: Kernle is not initialized for this account, or the stack cannot be opened
+auth: The caller's account owns the Kernle home
+sequence: capture.seq.seed
+owner: crates/kernle-core/src/capture/seed.rs::seed
+tags:
+  - {tag: cli, text: "kernle seed repo, kernle seed docs, kernle seed status"}
+  - {tag: mcp, text: "memory_seed_repo, memory_seed_docs, memory_seed_status"}

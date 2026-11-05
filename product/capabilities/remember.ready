@@ -1,0 +1,7 @@
+ready: 1
+kind: capability
+id: cap.remember
+name: Keep a stratified memory
+outcome: The agent records episodes, notes, beliefs, values, goals, drives, relationships, playbooks, and guardrails, each traceable to its sources.
+actors: [actor.agent, actor.owner]
+owners: [memory, trust]

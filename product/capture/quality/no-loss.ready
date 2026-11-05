@@ -1,0 +1,12 @@
+ready: 1
+kind: quality
+id: capture.quality.no-loss
+display_id: QC-CAPTURE-NO-LOSS
+module: capture
+title: Complete session records are never lost
+applies_to:
+  - capture.seq.ingest
+measure: Complete records in a connected runtime's session files that never become events while the runtime still keeps them.
+target: >-
+  None. Every complete record becomes exactly one event within one catch-up after the daemon
+  runs, whatever hooks were missed or ingestion errors happened earlier.

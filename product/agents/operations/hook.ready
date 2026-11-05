@@ -1,0 +1,19 @@
+ready: 1
+kind: operation
+id: agents.op.hook
+display_id: kernle.hook
+module: agents
+name: kernle hook <event>
+summary: Handles one runtime hook event within the deadline; always exits successfully and never blocks except a write guard or guardrail pause.
+params:
+  - { name: event, source: The command argument set by the plugin, source_kind: parameter, type: string }
+  - { name: payload, source: The hook's standard input, source_kind: payload, type: json }
+returns: The runtime's hook response, such as added context or a deny decision with its reason, or an empty response
+sequence: agents.seq.hook
+owner: crates/kernle-cli/src/hook.rs::handle
+files:
+  - path: product/agents/files/runtime-events.yaml
+    title: Runtime event mapping
+    role: contract
+tags:
+  - { tag: cli, text: "kernle hook" }

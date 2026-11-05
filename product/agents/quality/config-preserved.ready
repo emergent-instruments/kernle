@@ -1,0 +1,9 @@
+ready: 1
+kind: quality
+id: agents.quality.config-preserved
+display_id: QC-AGENTS-CONFIG
+module: agents
+title: Runtime configuration is never lost
+applies_to: [agents.seq.setup, agents.seq.remove, agents.rule.settings-merge]
+measure: Owner-written entries present before setup and after setup, and after setup followed by removal
+target: Every owner-written entry survives setup and removal unchanged, and a backup exists for every change.

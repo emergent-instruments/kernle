@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.replay-cap
+module: consolidation
+name: REPLAY_CAP_PER_RUN
+value: "20"
+unit: episodes
+source: config.toml#sleep.replay_cap
+description: The most episodes one run replays for extraction.

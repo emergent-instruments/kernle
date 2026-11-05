@@ -1,0 +1,33 @@
+ready: 1
+kind: rule
+id: agents.rule.native-capture
+display_id: RULE-AGENTS-NATIVE-CAPTURE
+module: agents
+title: Capturing a runtime's native memory writes
+summary: Writes to a runtime's own memory files pass through untouched unless the owner turns on capture for that project.
+inputs:
+  - { name: capture setting, source: The project's native memory capture setting, source_kind: config }
+  - { name: target path, source: The pre-tool hook payload, source_kind: payload }
+  - { name: project root, source: The repository's top-level folder, source_kind: derived }
+decision:
+  nodes:
+    - { id: in, node_kind: input, text: A write or edit tool call }
+    - { id: on, node_kind: decision, text: "Is native memory capture on for this project?" }
+    - { id: path, node_kind: decision, text: "Is the target the project's own memory file or memory folder at the project root?" }
+    - { id: pass, node_kind: outcome, text: Let the write through unchanged }
+    - { id: copy, node_kind: action, text: "Save the written text as a raw capture from native memory, then let the write through" }
+  edges:
+    - { from: in, to: on }
+    - { from: on, to: pass, label: "No" }
+    - { from: on, to: path, label: "Yes" }
+    - { from: path, to: copy, label: "Yes" }
+    - { from: path, to: pass, label: "No" }
+default: Let the write through unchanged
+constraints:
+  - text: Paths match only when anchored to the project root, so source folders that happen to be named memory are never involved.
+    hard: true
+  - text: Native memory files are never blocked; they belong to the runtime's own memory.
+    hard: true
+rationale: >-
+  Rewriting or blocking a runtime's native memory would make the two memories
+  fight, so capture is a copy, never a block, and only where the owner asked.

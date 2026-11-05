@@ -1,0 +1,68 @@
+ready: 1
+kind: sequence
+id: retention.seq.decay-config
+display_id: SEQ-RETENTION-DECAY-CONFIG
+module: retention
+title: Read or change how memory fades
+summary: Shows or changes the idle windows and dormancy threshold, lists memories closest to fading, or runs the sweep now.
+trigger:
+  trigger_kind: call
+  text: The agent or owner reads or changes the decay configuration
+operation: retention.op.decay-config
+participants:
+  - id: caller
+    is: [actor.agent, actor.owner]
+    label: Agent or owner
+  - sys.daemon
+  - id: config
+    is: [sys.home]
+    label: Configuration file
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - alt:
+      branches:
+        - when: changing the configuration
+          items:
+            - msg:
+                from: caller
+                to: sys.daemon
+                text: Change the windows or the threshold
+                call: Kernle.set_decay_config(windows, dormant_below)
+            - alt:
+                branches:
+                  - when: a window is not a positive number of days or the threshold is outside 0 to 1
+                    items:
+                      - msg:
+                          from: sys.daemon
+                          to: caller
+                          text: Refuse the change
+                          reply: true
+                          results:
+                            - { code: invalid_window }
+                  - when: the values are valid
+                    items:
+                      - msg:
+                          from: sys.daemon
+                          to: config
+                          text: Store the stack's decay settings
+                          constants: [retention.const.idle-windows, retention.const.dormant-below]
+        - when: listing memories closest to fading
+          items:
+            - msg:
+                from: caller
+                to: db
+                text: Read the weakest active and dormant memories with their fade dates
+                call: Kernle.get_forgetting_candidates(limit)
+                rules: [retention.rule.strength]
+                ops:
+                  - { op: read, entity: memory.data.memory, index: I2, where: "status IN (active, dormant) and not protected" }
+        - when: running the sweep now
+          items:
+            - msg:
+                from: caller
+                to: sys.daemon
+                text: Run the retention sweep for this stack
+                call: Kernle.run_forgetting_cycle()
+                invokes: [retention.seq.sweep]

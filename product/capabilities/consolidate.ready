@@ -1,0 +1,7 @@
+ready: 1
+kind: capability
+id: cap.consolidate
+name: Consolidate while idle
+outcome: Experience becomes beliefs, guardrails, playbooks, goals, and identity in the background, with every change recorded and identity changes held for review.
+actors: [actor.agent, actor.owner]
+owners: [consolidation, identity]

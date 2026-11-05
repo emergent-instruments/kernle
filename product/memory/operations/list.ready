@@ -1,0 +1,39 @@
+ready: 1
+kind: operation
+id: memory.op.list
+display_id: kernle.list
+module: memory
+name: Kernle.load_values() · load_beliefs() · load_goals() · get_*(id) · …
+summary: Lists memories of one kind with filters, or returns one memory by id with its history.
+params:
+  - name: kind
+    type: string
+    source: The memory kind
+    source_kind: parameter
+  - name: id
+    type: string
+    source: One memory to return
+    source_kind: parameter
+  - name: filters
+    type: object
+    source: Status, goal status, belief type, tags, minimum confidence, and include dormant
+    source_kind: parameter
+  - name: limit
+    type: integer
+    source: The most memories to return
+    source_kind: parameter
+returns: >-
+  Memories of the kind, ordered by strength and then recency, each with its trust tier and
+  appraisal; or one memory with its versions and, for relationships, its interaction history.
+errors:
+  - code: not_found
+    when: no memory has this id in the caller's stack
+  - code: kernle_unavailable
+    when: Kernle is not initialized, or the stack cannot be opened
+auth: The caller's account owns the Kernle home
+sequence: memory.seq.list
+owner: crates/kernle-core/src/memory/list.rs::list_memories
+tags:
+  - {tag: cli, text: "kernle belief list, kernle goal list, kernle drive list, kernle playbook list, kernle show"}
+  - {tag: mcp, text: "memory_belief_list, memory_value_list, memory_goal_list, memory_drive_list"}
+  - {tag: python, text: "load_values, load_beliefs, load_goals, load_drives, load_relationships, load_playbooks, load_lessons, load_recent_work, load_recent_notes, get_belief_history, get_relationship_history"}

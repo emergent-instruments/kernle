@@ -1,0 +1,40 @@
+ready: 1
+kind: sequence
+id: capture.seq.raw-search
+display_id: SEQ-CAPTURE-RAW-SEARCH
+module: capture
+title: List or search raw captures
+summary: Returns recent or matching raw captures with the memories that came from them.
+trigger:
+  trigger_kind: call
+  text: An agent or the owner lists, opens, or searches raw captures
+operation: capture.op.raw-search
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: capture
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Find raw captures
+      call: Kernle.search_raw(query, limit) · list_raw(unprocessed, limit) · get_raw(id)
+      owner: crates/kernle-core/src/capture/raw.rs::search_raw
+  - msg: {from: core, to: core, text: Resolve and authorize the stack for this caller, invokes: [stacks.seq.resolve]}
+  - msg:
+      from: core
+      to: db
+      text: Read the captures and what was made from them
+      ops:
+        - {op: read, entity: capture.data.raw-entry, index: F1, note: for a search}
+        - {op: read, entity: capture.data.raw-entry, index: I1, note: for a list}
+        - {op: read, entity: memory.data.memory-link, index: I1, by: [links to each capture]}
+        - {op: read, entity: consolidation.data.transition-mark, by: [each capture], note: an unprocessed capture has no mark for any transition}
+  - msg: {from: core, to: caller, text: Return the captures, reply: true}

@@ -1,0 +1,14 @@
+ready: 1
+kind: step
+id: agents.connect.import
+journey: agents.connect
+title: Offer to import recent history
+step_kind: decision
+surface: agents.surface.setup
+copy:
+  title: "Import the last 30 days of {runtime} sessions?"
+  actions: [Import, Skip]
+sequences: [capture.seq.import]
+next:
+  - { to: agents.connect.done, label: Import, next_kind: action }
+  - { to: agents.connect.done, label: Skip, next_kind: action }

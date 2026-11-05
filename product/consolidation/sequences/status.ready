@@ -1,0 +1,53 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.status
+display_id: SEQ-CONSOLIDATION-STATUS
+module: consolidation
+title: Report processing status and the log
+summary: Shows what waits for each transition, recent runs with what they changed, held suggestions, and today's spend.
+trigger:
+  trigger_kind: call
+  text: The agent or owner asks for processing status or the log
+operation: consolidation.op.process-status
+participants:
+  - id: caller
+    label: Agent or owner command
+  - id: core
+    is:
+      - sys.daemon
+    label: Kernle core
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Processing status, or the log of recent runs
+  - msg:
+      from: core
+      to: db
+      text: Read waiting sources, recent runs, the changes they made, and held suggestions
+      ops:
+        - op: read
+          entity: consolidation.data.transition-mark
+          by:
+            - transition
+        - op: read
+          entity: consolidation.data.run
+          index: I1
+          order: newest first
+        - op: read
+          entity: memory.data.memory-change
+          by:
+            - run_id
+          returns: added, updated, revised, reinforced, and forgotten counts with reasons
+        - op: read
+          entity: consolidation.data.suggestion
+          index: P1
+  - msg:
+      from: core
+      to: caller
+      text: The report; deleted memories appear without their content
+      reply: true

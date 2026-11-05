@@ -1,0 +1,164 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.schedule
+display_id: SEQ-CONSOLIDATION-SCHEDULE
+module: consolidation
+title: Schedule maintenance runs
+summary: >-
+  Decides when each stack's sleep, retention, and sync runs start, admits one run per stack at a time,
+  and catches up on runs missed while the daemon was stopped.
+trigger:
+  trigger_kind: event
+  text: >-
+    Activity is ingested, pending experience passes the volume threshold, the nightly time arrives, the
+    daemon starts, or someone asks for a run
+operation: consolidation.op.sleep
+participants:
+- id: trig
+  label: Trigger (ingestion, clock, daemon start, or a sleep request)
+- id: sched
+  is:
+  - sys.daemon
+  label: Scheduler
+  owner: crates/kernled/src/scheduler.rs
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+items:
+- opt:
+    when: the daemon has just started
+    items:
+    - msg:
+        from: sched
+        to: db
+        text: Mark runs left running as abandoned
+        ops:
+        - op: update
+          entity: consolidation.data.run
+          index: P1
+          where: state = 'running'
+          set:
+          - state abandoned
+          - finished_at now
+    - note:
+        over:
+        - sched
+        text: >-
+          Request a retention run for every stack whose last one started more than a day ago, and a sleep
+          run for stacks with pending work
+- msg:
+    from: trig
+    to: sched
+    text: Request maintenance for a stack
+    inputs:
+    - name: trigger
+      source: Activity, volume, nightly, manual, or catch-up
+      source_kind: payload
+    constants:
+    - consolidation.const.sleep-debounce
+    - consolidation.const.sleep-time
+    - consolidation.const.volume-threshold
+- alt:
+    branches:
+    - when: activity
+      items:
+      - note:
+          over:
+          - sched
+          text: >-
+            Set the stack's sleep due time to the debounce after now; each new activity pushes it later
+    - when: volume, manual, or catch-up
+      items:
+      - note:
+          over:
+          - sched
+          text: Make the sleep run due now
+    - when: nightly
+      items:
+      - msg:
+          from: sched
+          to: db
+          text: Check for pending experience
+          ops:
+          - op: read
+            entity: appraisal.data.appraisal
+            returns: any episode waiting for appraisal or replay
+          - op: read
+            entity: capture.data.raw-entry
+            returns: any raw entry without a mark for a raw transition
+      - note:
+          over:
+          - sched
+          text: Make the sleep run due now only when work is pending, so idle stacks cost nothing
+- loop:
+    while: a stack's due time has passed
+    items:
+    - alt:
+        branches:
+        - when: the stack's run guard is held
+          items:
+          - note:
+              over:
+              - sched
+              text: Keep the due time so a follow-up run starts after the current one
+        - when: the guard is free
+          items:
+          - msg:
+              from: sched
+              to: db
+              text: Start the run
+              ops:
+              - op: insert
+                entity: consolidation.data.run
+                index: P1
+                set:
+                - kind
+                - trigger
+                - state running
+                - started_at now
+          - alt:
+              branches:
+              - when: another run is still marked running
+                items:
+                - note:
+                    over:
+                    - sched
+                    text: Retry at the next tick
+              - when: started
+                items:
+                - msg:
+                    from: sched
+                    to: sched
+                    text: Run the maintenance
+                    invokes:
+                    - consolidation.seq.sleep
+                    - retention.seq.sweep
+                    - sync.seq.sync
+                - msg:
+                    from: sched
+                    to: db
+                    text: Finish the run
+                    ops:
+                    - op: update
+                      entity: consolidation.data.run
+                      by:
+                      - id
+                      set:
+                      - state completed or failed
+                      - finished_at now
+                      - counters
+                      - model_tokens
+                      - error
+                - opt:
+                    when: the run was requested by a sleep call that waits
+                    items:
+                    - msg:
+                        from: sched
+                        to: trig
+                        text: Stream the run summary
+                        reply: true
+rationale: |-
+  Activity is debounced because sleeping after every turn spends the budget on half-finished work, and episodes cannot close until the session moves on. Retention runs daily for every stack, used or not, because deletion must happen on schedule.
+
+  One run per stack is enforced by the daemon's in-process guard, backed by the partial unique index; one daemon per home makes a persisted lease unnecessary.

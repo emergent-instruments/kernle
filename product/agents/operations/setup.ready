@@ -1,0 +1,19 @@
+ready: 1
+kind: operation
+id: agents.op.setup
+display_id: kernle.setup
+module: agents
+name: kernle setup claude-code | codex | openclaw [--remove]
+summary: Installs or removes a runtime's Kernle adapter without losing any of the owner's own configuration.
+params:
+  - { name: runtime, source: The command argument, source_kind: parameter, type: string }
+  - { name: scope, source: The scope option, source_kind: parameter, type: string }
+  - { name: remove, source: The remove option, source_kind: parameter, type: boolean }
+returns: What was installed or removed and where the backup is
+errors:
+  - { code: runtime_not_found, copy: "Kernle could not find {runtime} on this machine. Nothing was installed." }
+  - { code: config_unreadable, copy: "Kernle could not read {file}: {error}. Fix the file and run setup again. Nothing was changed." }
+sequence: agents.seq.setup
+owner: crates/kernle-cli/src/commands/setup.rs
+tags:
+  - { tag: cli, text: "kernle setup" }

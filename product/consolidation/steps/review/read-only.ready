@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: consolidation.review.read-only
+journey: consolidation.review
+title: Review outside a terminal is read-only
+step_kind: error
+surface: consolidation.surface.review
+copy:
+  body:
+  - Held changes are listed read-only. Decisions need an interactive terminal.
+next:
+- to: $return
+  next_kind: auto

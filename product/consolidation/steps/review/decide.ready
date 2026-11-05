@@ -1,0 +1,29 @@
+ready: 1
+kind: step
+id: consolidation.review.decide
+journey: consolidation.review
+title: Decide the change
+step_kind: decision
+surface: consolidation.surface.review
+does:
+  - Accepts, edits, rejects, or skips the change
+sequences:
+  - consolidation.seq.review
+next:
+  - to: consolidation.review.list
+    label: Accept
+    when: the memory has not changed since the proposal
+    next_kind: action
+  - to: consolidation.review.conflict
+    label: Accept
+    when: the memory changed since the proposal
+    next_kind: action
+  - to: consolidation.review.edit
+    label: Edit
+    next_kind: action
+  - to: consolidation.review.list
+    label: Reject
+    next_kind: action
+  - to: consolidation.review.list
+    label: Skip
+    next_kind: action

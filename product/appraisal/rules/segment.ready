@@ -1,0 +1,45 @@
+ready: 1
+kind: rule
+id: appraisal.rule.segment
+display_id: RULE-APPRAISAL-SEGMENT
+module: appraisal
+title: Where one episode ends and the next begins
+summary: >-
+  A message from the person starts a new episode unless it is feedback on the agent's last turn;
+  an episode closes when the next task starts, the session ends, or the session goes idle.
+inputs:
+  - name: events
+    source: "A session's events not yet in an episode, in order"
+    source_kind: stored
+constants:
+  - appraisal.const.markers
+  - capture.const.episode-idle-close
+decision:
+  nodes:
+    - {id: in, node_kind: input, text: The next message from the person}
+    - {id: reply, node_kind: decision, text: Does it answer a question the agent's last message asked?}
+    - {id: open, node_kind: decision, text: "Does it open with a correction, frustration, or praise phrase?"}
+    - {id: short, node_kind: decision, text: Is it short and does it refer back to the agent's last turn without asking for anything new?}
+    - {id: fb, node_kind: outcome, text: Feedback that stays in the current episode}
+    - {id: task, node_kind: outcome, text: A new task that closes the current episode and starts the next}
+  edges:
+    - {from: in, to: reply}
+    - {from: reply, to: fb, label: "Yes"}
+    - {from: reply, to: open, label: "No"}
+    - {from: open, to: fb, label: "Yes"}
+    - {from: open, to: short, label: "No"}
+    - {from: short, to: fb, label: "Yes"}
+    - {from: short, to: task, label: "No"}
+constraints:
+  - text: Interrupts stay in the current episode
+    hard: true
+  - text: A directive phrase alone never makes a message feedback, because new requests often contain words such as always, never, or remember
+    hard: true
+  - text: The last open episode closes at a session end event or after the idle close time with no new records
+    hard: true
+default: A new task
+rationale: >-
+  The person's reaction to a piece of work usually arrives in their next message, so feedback
+  belongs to the episode it reacts to and an episode stays open until the session moves on.
+  Markers are anchored to the start of a message because ordinary requests are full of words like
+  don't and always that would otherwise merge new tasks into old episodes.

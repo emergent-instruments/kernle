@@ -1,0 +1,34 @@
+ready: 1
+kind: module
+id: consolidation
+name: Consolidation
+summary: >-
+  Turns experience into higher layers of memory: scheduled sleep runs that appraise, replay,
+  and extract; the processing transitions from raw captures up to values; the suggestion
+  queue and its review; the reflection scaffold for the agent; and the daily model budget.
+  Runs in the daemon's scheduler, with review and manual runs through the CLI, MCP tools, and
+  the Python package.
+runs_in:
+  - sys.daemon
+  - sys.cli
+  - sys.python
+owns:
+  - Suggestions and their review (DATA-SUGGESTION)
+  - Per-transition processing marks (DATA-TRANSITION-MARK)
+  - Maintenance runs and the daily model budget (DATA-RUN)
+  - Filing, replay, and promotion rules
+invariants:
+  - At most one maintenance run per stack at a time.
+  - Every processing transition sees every eligible source exactly once.
+  - Identity layers from processing or sleep always wait for review.
+  - Daily model spend never exceeds the budget by more than one request.
+rationale: >-
+  The working agent should spend no effort on memory upkeep, so consolidation runs on its own
+  schedule while the agent is idle. Explicit processing calls stay for agents and owners who
+  want to drive it, and both paths share one set of transitions, rules, and marks so they never
+  disagree about what has been processed.
+
+
+  Emotion files memory here: the appraisal label of each replayed episode decides which kind
+  of memory it may become, so a near-disaster becomes a guardrail and a correction becomes a
+  preference rather than a generic note.

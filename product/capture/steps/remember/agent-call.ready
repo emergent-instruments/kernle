@@ -1,0 +1,20 @@
+ready: 1
+kind: step
+id: capture.remember.agent-call
+journey: capture.remember
+title: The agent calls a memory tool
+step_kind: action
+surface: capture.surface.tool-result
+does:
+  - Calls raw for a quick note, or episode, note, belief, goal, or guardrail for something structured
+sequences: [capture.seq.raw, memory.seq.write]
+next:
+  - to: capture.remember.agent-result
+    when: the memory is stored or repeats one already kept
+    next_kind: result
+  - to: capture.remember.held
+    when: the input gate holds it for review
+    next_kind: result
+  - to: capture.remember.unavailable
+    when: Kernle is not running or not set up
+    next_kind: result

@@ -1,0 +1,14 @@
+ready: 1
+kind: constant
+id: capture.const.seed-limits
+module: capture
+name: SEED_LIMITS
+description: What repository and document seeding reads and skips.
+table:
+  columns: [Setting, Value]
+  rows:
+    - [seed root, "config.toml capture.seed_root only; never a call parameter"]
+    - [extensions, "md, txt, rst, py, rs, ts, js, go, java, toml, yaml, json"]
+    - [largest file, "200 KB"]
+    - [most files per call, "500"]
+    - [always skipped, "hidden files and folders, the Kernle home, .env files, key and credential files, binaries, and anything a scrub pattern marks as a secret file"]

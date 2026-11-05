@@ -1,0 +1,94 @@
+ready: 1
+kind: entity
+id: consolidation.data.run
+display_id: DATA-RUN
+module: consolidation
+entity_kind: table
+table: maintenance_run
+name: maintenance_run
+summary: One maintenance run on a stack, with what it spent and what it changed.
+columns:
+  - name: id
+    type: TEXT
+    keys:
+      - PK
+  - name: kind
+    type: TEXT
+    nullable: false
+    values:
+      - sleep
+      - process
+      - exhaust
+      - retention
+      - sync
+  - name: trigger
+    type: TEXT
+    nullable: false
+    values:
+      - activity
+      - volume
+      - nightly
+      - manual
+      - catch_up
+      - call
+  - name: state
+    type: TEXT
+    nullable: false
+    values:
+      - running
+      - completed
+      - failed
+      - abandoned
+    indexes:
+      - P1·where
+  - name: started_at
+    type: TEXT
+    nullable: false
+    indexes:
+      - I1·1
+    rule: Local calendar day of this time selects the runs counted against the daily budget
+  - name: finished_at
+    type: TEXT
+    nullable: true
+  - name: model_tokens
+    type: INTEGER
+    nullable: false
+    default: "0"
+    rule: Provider-reported input plus output tokens spent by this run
+  - name: budget_exhausted
+    type: INTEGER
+    nullable: false
+    default: "0"
+  - name: counters
+    type: TEXT
+    nullable: false
+    rule: JSON counts of episodes appraised, judged, replayed, reinforced, and changes applied, held, quarantined, and refused
+  - name: error
+    type: TEXT
+    nullable: true
+indexes:
+  - id: P1
+    name: maintenance_run_one_running_idx
+    unique: true
+    definition: UNIQUE ((1)) WHERE state = 'running'
+    where: state = 'running'
+    purpose: At most one running maintenance run per stack database
+    serves:
+      - consolidation.seq.schedule
+  - id: I1
+    name: maintenance_run_started_idx
+    columns:
+      - started_at ASC
+    purpose: Sums today's model tokens and lists recent runs for the log
+    serves:
+      - consolidation.seq.sleep.a
+      - consolidation.seq.status
+coordination:
+  - id: one-run
+    coordination_kind: admit
+    scope: one stack
+    owner: consolidation.seq.schedule
+    protects: Two runs never appraise, promote, or sweep the same stack at once
+    text: >-
+      The daemon's in-process guard admits one run per stack; the partial unique index catches
+      any second writer. Runs left running when the daemon stops are marked abandoned at start.

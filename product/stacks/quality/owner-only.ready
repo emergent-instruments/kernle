@@ -1,0 +1,9 @@
+ready: 1
+kind: quality
+id: stacks.quality.owner-only
+display_id: QC-STACKS-OWNER
+module: stacks
+title: Only the owner's account reaches Kernle data
+applies_to: [stacks.seq.resolve, stacks.seq.init, stacks.rule.credential-store]
+measure: File and folder modes under the home, and requests from socket peers of another account
+target: Folders are 0700 and files and the socket 0600 from creation; every request from another account is refused with nothing disclosed.

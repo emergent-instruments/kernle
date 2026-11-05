@@ -1,0 +1,15 @@
+ready: 1
+kind: system
+id: sys.python
+name: Kernle Python package
+role: Gives agents and scripts the Kernle calls inside their own process, backed by the Rust engine
+system_kind: app
+code: python/kernle
+responsibilities:
+  - Exposes the Kernle class and its memory calls
+  - Talks to the daemon over its socket when it runs, and opens the stack directly otherwise
+connections:
+  - to: sys.daemon
+    label: Requests over the local socket
+  - to: sys.home
+    label: Direct reads and writes when the daemon is not running

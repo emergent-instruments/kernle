@@ -1,0 +1,7 @@
+ready: 1
+kind: capability
+id: cap.setup
+name: Set up memory and connect agents
+outcome: The owner installs Kernle, connects each agent runtime, chooses where memory content may go, and sees what is connected.
+actors: [actor.owner]
+owners: [stacks, agents]

@@ -1,0 +1,77 @@
+ready: 1
+kind: sequence
+id: sync.seq.auth
+display_id: SEQ-SYNC-AUTH
+module: sync
+title: Manage the cloud account and linked stacks
+summary: Registers, signs in, signs out, manages keys, and links or unlinks stacks, storing the cloud key only in the keychain.
+trigger:
+  trigger_kind: user
+  text: The owner runs an auth command
+operation: sync.op.auth
+participants:
+  - actor.owner
+  - sys.cli
+  - sys.cloud
+  - id: keychain
+    label: OS keychain
+items:
+  - msg:
+      from: actor.owner
+      to: sys.cli
+      text: Register, sign in, sign out, or manage keys
+      owner: crates/kernle-cli/src/commands/auth.rs::run
+      guards: ["the cloud address uses HTTPS, or is this machine itself"]
+      results:
+        - { code: insecure_endpoint, copy: "Kernle only talks to the cloud over HTTPS." }
+  - alt:
+      branches:
+        - when: registering or signing in
+          items:
+            - msg:
+                from: sys.cli
+                to: sys.cloud
+                text: Send the email and password or a one-time code
+                http: { method: POST, path: /auth/login }
+            - alt:
+                branches:
+                  - when: the cloud accepts
+                    items:
+                      - msg:
+                          from: sys.cli
+                          to: keychain
+                          text: Store the cloud key
+                          rules: [stacks.rule.credential-store]
+                      - msg: { from: sys.cli, to: actor.owner, text: Show the signed-in account, reply: true }
+                  - when: the cloud refuses or answers unexpectedly
+                    items:
+                      - msg:
+                          from: sys.cli
+                          to: actor.owner
+                          text: Show the status code and reason without echoing the response body
+                          reply: true
+                          results:
+                            - { code: auth_failed, copy: "Sign-in failed ({status})." }
+        - when: signing out
+          items:
+            - msg:
+                from: sys.cli
+                to: keychain
+                text: Remove the cloud key; stacks stay linked but stop syncing until sign-in
+        - when: linking or unlinking a stack
+          items:
+            - msg:
+                from: sys.cli
+                to: sys.cloud
+                text: Create or find the stack's cloud copy, or stop syncing it
+                http: { method: POST, path: /sync/stacks }
+                ops:
+                  - { op: update, entity: stacks.data.stack, by: [stack_id], set: [sync_enabled] }
+                  - { op: upsert, entity: sync.data.sync-state, set: [cloud_stack_id, ledger_cursor from the start of the stack's ledger when first linked] }
+        - when: managing keys
+          items:
+            - msg:
+                from: sys.cli
+                to: sys.cloud
+                text: List, create, or revoke keys, showing keys only masked
+                http: { method: POST, path: /auth/keys }

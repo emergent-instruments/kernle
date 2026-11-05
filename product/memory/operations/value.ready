@@ -1,0 +1,64 @@
+ready: 1
+kind: operation
+id: memory.op.value
+display_id: kernle.value
+module: memory
+name: Kernle.value(name, statement, priority, …)
+summary: Records a value the agent holds; values are identity memories that never decay.
+params:
+  - name: name
+    type: string
+    source: A short name for the value
+    source_kind: parameter
+  - name: statement
+    type: string
+    source: What the value means
+    source_kind: parameter
+  - name: priority
+    type: integer
+    source: From 0 to 100; defaults to 50
+    source_kind: parameter
+  - name: type
+    type: string
+    source: core_value, principle, or commitment; defaults to core_value
+    source_kind: parameter
+  - name: foundational
+    type: boolean
+    source: Marks the value as foundational
+    source_kind: parameter
+  - name: derived_from
+    type: list of kind:id references
+    source: Captures or memories the caller says this came from
+    source_kind: parameter
+  - name: context
+    type: string
+    source: Where the memory applies, as the caller describes it
+    source_kind: parameter
+  - name: context_tags
+    type: list of strings
+    source: Tags that scope where the memory applies
+    source_kind: parameter
+  - name: source
+    type: string
+    source: The person, agent, or source the content came from
+    source_kind: parameter
+  - name: source_type
+    type: string
+    source: How the memory was acquired; defaults to direct experience
+    source_kind: parameter
+returns: >-
+  The memory id. When the same content already exists for the kind, the existing id. When the
+  input gate holds the write, the id of the suggestion that waits for review, marked as held.
+errors:
+  - code: invalid_input
+    when: a required field is missing or a value is out of range for the kind
+  - code: too_long
+    when: the content is longer than the content limit
+  - code: kernle_unavailable
+    when: Kernle is not initialized for this account, or the stack cannot be opened
+auth: The caller's account owns the Kernle home
+sequence: memory.seq.write
+owner: crates/kernle-core/src/memory/write.rs::write_memory
+tags:
+  - {tag: cli, text: kernle value}
+  - {tag: mcp, text: memory_value}

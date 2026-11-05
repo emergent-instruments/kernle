@@ -1,0 +1,58 @@
+ready: 1
+kind: sequence
+id: appraisal.seq.appraise
+display_id: SEQ-APPRAISAL-APPRAISE
+module: appraisal
+title: Appraise an episode
+summary: Computes an episode's signals and label from its events or fields, keeps explicit values, and mirrors the result onto the memory.
+trigger:
+  trigger_kind: call
+  text: An episode is written or its outcome changes
+operation: appraisal.op.appraise
+participants:
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: appraisal
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: core
+      to: db
+      text: Load the episode, its evidence events, and any existing appraisal
+      owner: crates/kernle-core/src/appraisal/appraise.rs::appraise
+      ops:
+        - {op: read, entity: memory.data.memory, index: PK}
+        - {op: read, entity: memory.data.memory-link, index: PK, by: [evidence links to events]}
+        - {op: read, entity: capture.data.event, index: I1}
+        - {op: read, entity: appraisal.data.appraisal, index: PK}
+  - msg:
+      from: core
+      to: core
+      text: Find the nearest active memories and recent similar episodes
+      invokes: [recall.op.search]
+      note: Embedding similarity when the embedding model is available, word overlap otherwise
+  - msg: {from: core, to: core, text: Compute the signals and combine them, rules: [appraisal.rule.signals]}
+  - msg: {from: core, to: core, text: Name the episode's functional emotion, rules: [appraisal.rule.label]}
+  - transaction:
+      label: Store the appraisal and mirror it onto the memory
+      items:
+        - msg:
+            from: core
+            to: db
+            text: Save the appraisal, keeping explicit values the caller gave
+            ops:
+              - op: upsert
+                entity: appraisal.data.appraisal
+                index: PK
+                set: [every signal, arousal, valence, salience, label, method heuristic or explicit, appraised_at = now]
+              - op: update
+                entity: memory.data.memory
+                index: PK
+                set: [salience, valence, arousal, label]
+  - break:
+      when: the database write fails
+      items:
+        - note: {over: [core, db], text: The episode keeps its default neutral values and is appraised again at the next sleep}

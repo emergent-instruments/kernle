@@ -1,0 +1,19 @@
+ready: 1
+kind: quality
+id: retention.quality.deletion
+display_id: QC-RETENTION-DELETION
+module: retention
+title: Deletion leaves nothing in Kernle's files
+applies_to:
+  - retention.seq.purge
+  - retention.seq.stack-delete
+  - retention.rule.purge-scope
+measure: >-
+  Presence of a purged memory's text, or a deleted capture's or event's content,
+  in any file under the Kernle home after the deleting call returns, and
+  whether a cloud deletion is queued for synced content
+target: >-
+  None present. Databases use secure delete, the full-text index is optimized,
+  the write-ahead log is truncated and files are removed; a deletion change is
+  queued for every purged memory that was ever synced. Filesystem recovery of
+  removed blocks and the runtimes' own transcripts are outside Kernle's files.

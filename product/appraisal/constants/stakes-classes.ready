@@ -1,0 +1,15 @@
+ready: 1
+kind: constant
+id: appraisal.const.stakes-classes
+module: appraisal
+name: STAKES_CLASSES
+source: config.toml#appraisal.stakes_classes
+description: How much is at stake in a tool call or an episode; the highest matching score wins.
+table:
+  columns: [Score, Matches]
+  rows:
+    - ["0.9", "destructive commands: recursive delete, force push, hard reset, clean, dropping or truncating tables, deleting cluster resources, destroying infrastructure"]
+    - ["0.8", "deploy, release, publish, and database migration commands, and tools that send messages, email, or posts"]
+    - ["0.7", "writes to secrets, environment, CI workflow, infrastructure, or production configuration paths"]
+    - ["0.3", any other write, edit, or command]
+    - ["0", read-only tools]

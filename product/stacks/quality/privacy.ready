@@ -1,0 +1,9 @@
+ready: 1
+kind: quality
+id: stacks.quality.privacy
+display_id: QC-STACKS-PRIVACY
+module: stacks
+title: Memory content leaves the machine only where the owner chose
+applies_to: [stacks.rule.model-destination, sync.seq.sync]
+measure: Network destinations contacted by any Kernle process and the content sent to each
+target: Memory content goes only to the chosen model provider and, for synced stacks, the owner's cloud account. The embedding model download carries no owner data. Nothing else is contacted.

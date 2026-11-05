@@ -1,0 +1,14 @@
+ready: 1
+kind: step
+id: agents.connect.remove
+journey: agents.connect
+title: Disconnect the runtime
+step_kind: action
+surface: agents.surface.setup
+does:
+  - Runs setup with the remove option
+copy:
+  body: ["Removed Kernle from {runtime}. Your memory is kept; use kernle stack delete to remove it."]
+sequences: [agents.seq.remove]
+next:
+  - { to: $return, next_kind: result }

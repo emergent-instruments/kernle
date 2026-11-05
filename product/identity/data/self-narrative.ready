@@ -1,0 +1,95 @@
+ready: 1
+kind: entity
+id: identity.data.self-narrative
+display_id: DATA-SELF-NARRATIVE
+module: identity
+entity_kind: table
+table: self_narrative
+name: self_narrative
+summary: The agent's account of itself of one type, at one point in its life.
+columns:
+  - name: id
+    type: TEXT
+    keys:
+      - PK
+  - name: narrative_type
+    type: TEXT
+    nullable: false
+    values:
+      - identity
+      - developmental
+      - aspirational
+    indexes:
+      - P1·1
+  - name: content
+    type: TEXT
+    nullable: false
+  - name: key_themes
+    type: TEXT
+    nullable: false
+    rule: JSON list
+  - name: unresolved_tensions
+    type: TEXT
+    nullable: false
+    rule: JSON list of tensions the agent has noticed and not resolved
+  - name: author
+    type: TEXT
+    nullable: false
+    values:
+      - agent
+      - owner
+    rule: Owner-authored narratives change only through the owner
+  - name: trust_tier
+    type: TEXT
+    nullable: false
+  - name: is_active
+    type: INTEGER
+    nullable: false
+    indexes:
+      - P1·where
+  - name: supersedes
+    type: TEXT
+    nullable: true
+    keys:
+      - FK
+    fk:
+      entity: identity.data.self-narrative
+      column: id
+  - name: epoch_id
+    type: TEXT
+    nullable: true
+    keys:
+      - FK
+    fk:
+      entity: identity.data.epoch
+      column: id
+  - name: created_at
+    type: TEXT
+    nullable: false
+indexes:
+  - id: P1
+    name: self_narrative_one_active_idx
+    unique: true
+    columns:
+      - narrative_type ASC
+    where: is_active = 1
+    purpose: At most one active narrative of each type
+    serves:
+      - identity.seq.narrative
+relationships:
+  - to: identity.data.self-narrative
+    on:
+      - from: supersedes
+        to: id
+    from_card: 0..1
+    to_card: 0..1
+    link: fk
+    label: The narrative this one replaced
+  - to: identity.data.epoch
+    on:
+      - from: epoch_id
+        to: id
+    from_card: 0..many
+    to_card: 0..1
+    link: fk
+    label: The epoch the narrative was written in

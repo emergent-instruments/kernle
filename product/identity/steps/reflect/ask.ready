@@ -1,0 +1,14 @@
+ready: 1
+kind: step
+id: identity.reflect.ask
+journey: identity.reflect
+title: Ask for a reflection
+step_kind: action
+does:
+  - Calls consolidate, optionally with a focus, or asks for the epoch-closing reflection
+sequences:
+  - consolidation.seq.consolidate
+  - identity.seq.epoch
+next:
+  - to: identity.reflect.read
+    next_kind: result

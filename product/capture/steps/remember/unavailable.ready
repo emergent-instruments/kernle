@@ -1,0 +1,12 @@
+ready: 1
+kind: step
+id: capture.remember.unavailable
+journey: capture.remember
+title: Kernle is unavailable
+step_kind: error
+surface: capture.surface.tool-result
+copy:
+  body:
+    - Kernle is not initialized or its stack cannot be opened; nothing was recorded.
+does:
+  - The agent tells the person it could not save the memory

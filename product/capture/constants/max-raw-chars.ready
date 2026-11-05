@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: capture.const.max-raw-chars
+module: capture
+name: MAX_RAW_CHARS
+value: "100000"
+unit: characters
+description: The longest single raw capture; longer text is refused rather than cut.

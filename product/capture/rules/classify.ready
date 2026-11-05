@@ -1,0 +1,66 @@
+ready: 1
+kind: rule
+id: capture.rule.classify
+display_id: RULE-CAPTURE-CLASSIFY
+module: capture
+title: What a session record becomes
+summary: Each record in a runtime session becomes an event of one kind with an actor and a trust tier, or is dropped.
+decision:
+  nodes:
+    - {id: in, node_kind: input, text: "One parsed record; for Claude Code the role and content blocks are read from inside its message"}
+    - {id: own, node_kind: decision, text: "Did Kernle produce it (marked injected context, a Kernle hook attachment, a Kernle tool call or result, or a session Kernle ran for its own model work)?", refs: [capture.const.injection-marker]}
+    - {id: book, node_kind: decision, text: Is it runtime bookkeeping such as file snapshots or progress ticks?}
+    - {id: user, node_kind: decision, text: "Is it text the person typed, not a tool result or system text?"}
+    - {id: intr, node_kind: decision, text: Is it the person interrupting?}
+    - {id: asst, node_kind: decision, text: Is it the agent's visible text?}
+    - {id: think, node_kind: decision, text: Is it the agent's private reasoning?}
+    - {id: call, node_kind: decision, text: Is it a tool call?}
+    - {id: res, node_kind: decision, text: Is it a tool result?}
+    - {id: write, node_kind: decision, text: Did the tool write a file the agent asked it to write?}
+    - {id: cmp, node_kind: decision, text: Is it a compaction summary?}
+    - {id: ses, node_kind: decision, text: Is it session start or end information?}
+    - {id: drop, node_kind: outcome, text: Dropped and not stored}
+    - {id: e_user, node_kind: outcome, text: A person's message from the principal}
+    - {id: e_int, node_kind: outcome, text: An interrupt from the principal}
+    - {id: e_ast, node_kind: outcome, text: "An agent message, agent-inferred"}
+    - {id: e_call, node_kind: outcome, text: "A tool call, first-party"}
+    - {id: e_status, node_kind: outcome, text: "A tool status, first-party: success or error, exit code, duration, test counts when readable"}
+    - {id: e_out1, node_kind: outcome, text: "Tool output confirming the agent's own write, first-party"}
+    - {id: e_out3, node_kind: outcome, text: "Tool output, third-party: file reads, shell output, web pages, and results from other tools"}
+    - {id: e_cmp, node_kind: outcome, text: "A compaction summary, agent-inferred"}
+    - {id: e_ses, node_kind: outcome, text: "A session start or end, first-party"}
+    - {id: unk, node_kind: outcome, text: Dropped and counted as a parse error}
+  edges:
+    - {from: in, to: own}
+    - {from: own, to: drop, label: "Yes"}
+    - {from: own, to: book, label: "No"}
+    - {from: book, to: drop, label: "Yes"}
+    - {from: book, to: user, label: "No"}
+    - {from: user, to: e_user, label: "Yes"}
+    - {from: user, to: intr, label: "No"}
+    - {from: intr, to: e_int, label: "Yes"}
+    - {from: intr, to: asst, label: "No"}
+    - {from: asst, to: e_ast, label: "Yes"}
+    - {from: asst, to: think, label: "No"}
+    - {from: think, to: drop, label: "Yes"}
+    - {from: think, to: call, label: "No"}
+    - {from: call, to: e_call, label: "Yes"}
+    - {from: call, to: res, label: "No"}
+    - {from: res, to: e_status, label: "Yes, first of two events"}
+    - {from: res, to: write, label: "Yes, second of two events"}
+    - {from: write, to: e_out1, label: "Yes"}
+    - {from: write, to: e_out3, label: "No"}
+    - {from: res, to: cmp, label: "No"}
+    - {from: cmp, to: e_cmp, label: "Yes"}
+    - {from: cmp, to: ses, label: "No"}
+    - {from: ses, to: e_ses, label: "Yes"}
+    - {from: ses, to: unk, label: "No"}
+rules:
+  - trust.rule.source-tier
+rationale: >-
+  A tool result becomes two events because whether a command succeeded is something the agent
+  observed, while what a file or page printed may have been written by anyone. Lessons grounded in
+  success or failure can then apply on their own, while claims that rest only on outside text are
+  held. Kernle's own output is dropped first so a recalled memory is never captured as new
+  experience and strengthened in a loop. Private reasoning is dropped because it is often redacted
+  and storing it adds exposure without helping appraisal.

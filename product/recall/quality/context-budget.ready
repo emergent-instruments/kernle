@@ -1,0 +1,16 @@
+ready: 1
+kind: quality
+id: recall.quality.context-budget
+display_id: QC-RECALL-BUDGET
+module: recall
+title: Context Kernle adds
+applies_to:
+  - recall.seq.session-index
+  - recall.seq.cue
+  - recall.seq.gut-check
+  - recall.seq.load
+measure: Tokens Kernle adds to the agent's context per session, per prompt and per tool call
+target: >-
+  Session index within its budget, cues within their budget per prompt, at most
+  the maximum number of guardrails per tool call, a load within the caller's
+  budget, and nothing at all when nothing qualifies

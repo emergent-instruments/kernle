@@ -1,0 +1,29 @@
+ready: 1
+kind: step
+id: consolidation.review.list
+journey: consolidation.review
+title: See the next held change
+step_kind: screen
+surface: consolidation.surface.review
+copy:
+  body:
+  - 'Held because: {reason}'
+  actions:
+  - Accept
+  - Edit
+  - Reject
+  - Skip
+sees:
+- The proposed memory with its kind, trust tier, and dated evidence
+sequences:
+- consolidation.seq.review
+next:
+- to: consolidation.review.decide
+  when: run in an interactive terminal and a change is pending
+  next_kind: auto
+- to: consolidation.review.read-only
+  when: not run in an interactive terminal
+  next_kind: auto
+- to: consolidation.review.done
+  when: nothing is pending
+  next_kind: auto

@@ -1,0 +1,6 @@
+ready: 1
+kind: term
+id: identity.term.identity-layer
+module: identity
+name: Identity layer
+definition: Memory that describes who the agent is rather than what happened, its values, foundational beliefs, and self-narratives.

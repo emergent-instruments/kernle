@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.replay-min-salience
+module: consolidation
+name: REPLAY_MIN_SALIENCE
+value: "0.35"
+unit: salience
+source: config.toml#sleep.replay_min_salience
+description: Below this an episode only reinforces existing memories.

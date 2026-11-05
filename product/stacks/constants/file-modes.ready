@@ -1,0 +1,12 @@
+ready: 1
+kind: constant
+id: stacks.const.file-modes
+module: stacks
+name: HOME_FILE_MODES
+table:
+  columns: [What, Mode]
+  rows:
+    - [Directories, "0700"]
+    - [Files, "0600"]
+    - [Daemon socket, "0600"]
+description: Permissions every Kernle directory and file is created with, never tightened afterwards.

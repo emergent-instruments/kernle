@@ -1,0 +1,8 @@
+ready: 1
+kind: surface
+id: health.surface.anxiety
+module: health
+name: kernle anxiety
+surface_kind: screen
+system: sys.cli
+summary: The anxiety score, its level, the dimensions and the recommended actions, in the terminal or as a tool result.

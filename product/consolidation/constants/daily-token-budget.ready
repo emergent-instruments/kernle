@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.daily-token-budget
+module: consolidation
+name: DAILY_MODEL_TOKEN_BUDGET
+value: "1000000"
+unit: tokens
+source: config.toml#sleep.daily_token_budget
+description: The most model tokens consolidation spends across all stacks in one local calendar day.

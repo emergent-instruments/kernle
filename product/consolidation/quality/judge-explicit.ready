@@ -1,0 +1,11 @@
+ready: 1
+kind: quality
+id: consolidation.quality.remember-honored
+display_id: QC-CONSOLIDATION-REMEMBER
+module: consolidation
+title: Explicit requests to remember are honored
+applies_to:
+  - consolidation.rule.replay
+  - consolidation.seq.sleep
+measure: Explicit requests to remember that have produced neither a memory nor a held suggestion after the next sleep run.
+target: None, including when the model budget is spent or no model is configured.

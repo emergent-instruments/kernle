@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.checkpoint-keep
+module: recall
+name: CHECKPOINT_KEEP
+value: "10"
+unit: checkpoints
+description: How many checkpoints a stack keeps.

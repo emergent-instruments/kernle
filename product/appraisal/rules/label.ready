@@ -1,0 +1,59 @@
+ready: 1
+kind: rule
+id: appraisal.rule.label
+display_id: RULE-APPRAISAL-LABEL
+module: appraisal
+title: The functional emotion of an episode
+summary: Names the appraisal pattern with one label, first match wins; consolidation files the episode by this label.
+inputs:
+  - name: appraisal
+    source: "The episode's appraisal values, and the judge's misleading sources when it was judged"
+    source_kind: derived
+constants:
+  - appraisal.const.thresholds
+decision:
+  nodes:
+    - {id: in, node_kind: input, text: The episode's appraisal}
+    - {id: d1, node_kind: decision, text: "Did the judge name a misleading source, and is every named event third-party?"}
+    - {id: d2, node_kind: decision, text: Are the stakes at or above the alarm minimum and the valence at or below −0.3?}
+    - {id: d3, node_kind: decision, text: "Is the social signal at or below −0.5, or is there a directive?"}
+    - {id: d4, node_kind: decision, text: "Is the valence at or below −0.3, attributed to the agent, and either recurring or effortful?"}
+    - {id: d5, node_kind: decision, text: Is the valence at or above 0.3 with effort at or above 0.6?}
+    - {id: d6, node_kind: decision, text: Is the surprise at or above the surprise minimum?}
+    - {id: d7, node_kind: decision, text: Is the social signal at or above 0.5?}
+    - {id: d8, node_kind: decision, text: Is there an open loop?}
+    - {id: l1, node_kind: outcome, text: distrust}
+    - {id: l2, node_kind: outcome, text: alarm}
+    - {id: l3, node_kind: outcome, text: correction}
+    - {id: l4, node_kind: outcome, text: frustration}
+    - {id: l5, node_kind: outcome, text: relief}
+    - {id: l6, node_kind: outcome, text: surprise}
+    - {id: l7, node_kind: outcome, text: approval}
+    - {id: l8, node_kind: outcome, text: curiosity}
+    - {id: l9, node_kind: outcome, text: "boredom, when nothing else matches"}
+  edges:
+    - {from: in, to: d1}
+    - {from: d1, to: l1, label: "Yes"}
+    - {from: d1, to: d2, label: "No"}
+    - {from: d2, to: l2, label: "Yes"}
+    - {from: d2, to: d3, label: "No"}
+    - {from: d3, to: l3, label: "Yes"}
+    - {from: d3, to: d4, label: "No"}
+    - {from: d4, to: l4, label: "Yes"}
+    - {from: d4, to: d5, label: "No"}
+    - {from: d5, to: l5, label: "Yes"}
+    - {from: d5, to: d6, label: "No"}
+    - {from: d6, to: l6, label: "Yes"}
+    - {from: d6, to: d7, label: "No"}
+    - {from: d7, to: l7, label: "Yes"}
+    - {from: d7, to: d8, label: "No"}
+    - {from: d8, to: l8, label: "Yes"}
+    - {from: d8, to: l9, label: "No"}
+default: boredom
+rationale: >-
+  Alarm comes before correction so a high-stakes failure that was also corrected becomes a
+  pre-action guardrail, the stronger protection. Frustration needs agent attribution so a flaky
+  network does not teach false lessons about the agent's approach. Distrust needs every misleading
+  event to be third-party so Kernle never learns to distrust the person or the agent's own
+  observations. Boredom is the explicit no-match outcome, so routine work reinforces what is known
+  instead of creating new memories.

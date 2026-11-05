@@ -1,0 +1,8 @@
+ready: 1
+kind: surface
+id: capture.surface.cli
+module: capture
+name: Capture commands
+surface_kind: section
+system: sys.cli
+summary: Terminal output of kernle raw, kernle episode, kernle note, kernle import, and kernle migrate.

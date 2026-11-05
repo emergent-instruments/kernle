@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: agents.const.max-tool-input
+module: agents
+name: MAX_TOOL_INPUT_BYTES
+value: "65536"
+unit: bytes
+description: The largest arguments an MCP or plugin tool call accepts; raw captures have their own larger limit.

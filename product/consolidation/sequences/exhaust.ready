@@ -1,0 +1,75 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.exhaust
+display_id: SEQ-CONSOLIDATION-EXHAUST
+module: consolidation
+title: Process until nothing more promotes
+summary: >-
+  Takes a checkpoint of the stack, then runs processing cycles from light transitions to
+  identity transitions until two cycles in a row promote nothing at the heaviest level.
+trigger:
+  trigger_kind: call
+  text: The agent or owner calls exhaust
+operation: consolidation.op.exhaust
+participants:
+  - id: caller
+    label: Agent or owner command
+  - id: core
+    is:
+      - sys.daemon
+    label: Kernle core
+    owner: crates/kernle-core/src/consolidation/exhaust.rs::run
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Exhaust processing
+      inputs:
+        - name: maximum cycles
+          source: The caller's limit
+          source_kind: parameter
+        - name: dry run
+          source: The caller's choice
+          source_kind: parameter
+      constants:
+        - consolidation.const.exhaust-max-cycles
+  - alt:
+      branches:
+        - when: dry run
+          items:
+            - msg:
+                from: core
+                to: caller
+                text: The transitions each level would run, without calling the model
+                reply: true
+        - when: a real run
+          items:
+            - msg:
+                from: core
+                to: core
+                text: Take a checkpoint of the stack
+                invokes:
+                  - recall.seq.checkpoint
+            - loop:
+                while: cycles remain, allowance remains, and the heaviest level has not had two empty cycles in a row
+                max: maximum cycles
+                items:
+                  - msg:
+                      from: core
+                      to: core
+                      text: Run every transition of the current level
+                      invokes:
+                        - consolidation.seq.process
+                  - note:
+                      over:
+                        - core
+                      text: After two cycles in a row with no promotions, move to the next heavier level
+            - msg:
+                from: core
+                to: caller
+                text: Cycles, promotions, suggestions, whether it converged, and the checkpoint
+                reply: true
+                results:
+                  - code: converged
+                  - code: max_cycles
+                  - code: budget_exhausted

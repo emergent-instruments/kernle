@@ -1,0 +1,6 @@
+ready: 1
+kind: system
+id: sys.embedder-source
+name: Embedding model source
+role: Supplies the pinned embedding model downloaded once at setup; receives no owner data
+system_kind: external

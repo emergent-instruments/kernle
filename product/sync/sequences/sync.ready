@@ -1,0 +1,22 @@
+ready: 1
+kind: sequence
+id: sync.seq.sync
+display_id: SEQ-SYNC
+module: sync
+title: Sync a stack with the cloud
+summary: Pushes this stack's confirmed-pending changes first, then pulls the cloud's changes page by page and applies them with the conflict rule.
+trigger:
+  trigger_kind: call
+  text: The owner runs sync, push, or pull, an agent calls the sync tool, or the scheduler syncs a linked stack
+operation: sync.op.sync
+participants:
+  - sys.daemon
+  - sys.cloud
+  - sys.home
+items: []
+parts: [sync.seq.sync.a, sync.seq.sync.b]
+rationale: >-
+  Push runs before pull so a local edit is in the cloud before the cloud's
+  view is applied, which keeps the conflict rule's inputs honest. Pull uses the
+  cloud's own cursor and pages, because a local clock can skip changes written
+  during a pull and a fixed page size silently truncates large stacks.

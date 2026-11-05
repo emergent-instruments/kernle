@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.gut-check-similarity
+module: recall
+name: GUT_CHECK_SIMILARITY
+value: "0.75"
+unit: cosine
+description: How close a tool call must be to a guardrail without triggers for the guardrail to fire.

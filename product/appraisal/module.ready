@@ -1,0 +1,24 @@
+ready: 1
+kind: module
+id: appraisal
+name: Appraisal
+summary: >-
+  Owns Kernle's computed emotion: the appraisal of every episode from observable signals, its
+  functional emotion label, judged refinement during sleep, emotion detection in text, and mood
+  summaries. Runs in the Kernle core and in sleep runs in the daemon.
+runs_in:
+  - sys.daemon
+  - sys.python
+  - sys.cli
+owns:
+  - appraisals (DATA-APPRAISAL)
+  - the salience, valence, arousal, and label mirrored onto memories
+invariants:
+  - Every episode has an appraisal that can be explained from stored signals.
+  - Emotion is computed from what happened, never from the agent describing its feelings, unless the caller states it explicitly.
+  - Without a bound model, appraisal still works from heuristics, and text detection returns neutral.
+rationale: >-
+  Emotion here is a functional appraisal: surprise, outcome, stakes, social feedback, effort,
+  novelty, and recurrence decide how much an episode matters and what it should become. The label
+  routes filing during sleep, salience ranks recall, and salience lengthens how long a memory lasts
+  before it fades. Every signal is stored, so the reason an episode mattered can always be shown.

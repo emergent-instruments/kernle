@@ -1,0 +1,94 @@
+ready: 1
+kind: sequence
+id: stacks.seq.stack
+display_id: SEQ-STACKS-MANAGE
+module: stacks
+title: List, create, rename, or delete a stack
+summary: Lets the owner manage stacks by name; deleting one hands off to complete deletion after an interactive
+  confirmation.
+trigger:
+  trigger_kind: user
+  text: The owner runs a stack command, or a script calls the stack method
+operation: stacks.op.stack
+participants:
+- actor.owner
+- sys.cli
+- sys.daemon
+- id: registry
+  is:
+  - sys.home
+  label: Stack registry
+items:
+- msg:
+    from: actor.owner
+    to: sys.cli
+    text: Manage stacks
+    owner: crates/kernle-cli/src/commands/stack.rs::run
+- alt:
+    branches:
+    - when: listing
+      items:
+      - msg:
+          from: sys.cli
+          to: registry
+          text: Read every stack with its kind, identity, size, last activity, and sync state
+          ops:
+          - op: read
+            entity: stacks.data.stack
+            by:
+            - every row
+    - when: creating a named stack
+      items:
+      - msg:
+          from: sys.cli
+          to: sys.daemon
+          text: Register the named stack and create its directory and database
+          guards:
+          - the name is a valid slug and not already taken
+          ops:
+          - op: insert
+            entity: stacks.data.stack
+            index: U1
+            set:
+            - stack_id the name
+            - kind named
+            - root_key named and the name
+            - created_at now
+          results:
+          - code: stack_exists
+            when: the name is taken
+            copy: A stack with that name already exists.
+    - when: renaming
+      items:
+      - msg:
+          from: sys.cli
+          to: sys.daemon
+          text: Change the stack's display name
+          ops:
+          - op: update
+            entity: stacks.data.stack
+            by:
+            - stack_id
+            set:
+            - display_name
+    - when: deleting
+      items:
+      - msg:
+          from: sys.cli
+          to: actor.owner
+          text: Show what the stack holds and ask for the stack's name to confirm
+          guards:
+          - standard input and output are an interactive terminal
+          results:
+          - code: needs_terminal
+            when: not an interactive terminal
+            copy: Deleting a stack needs an interactive terminal. Nothing was deleted.
+      - msg:
+          from: sys.cli
+          to: sys.daemon
+          text: Delete the stack completely
+          invokes:
+          - retention.seq.stack-delete
+rationale: Deleting a stack requires typing its name in an interactive terminal, because agents run under
+  the owner's account and their tool shells are not interactive, so no agent can delete a whole stack
+  on its own.

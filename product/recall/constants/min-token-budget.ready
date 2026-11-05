@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.min-token-budget
+module: recall
+name: MIN_TOKEN_BUDGET
+value: "100"
+unit: tokens
+description: The smallest budget a load accepts; smaller requests are raised to it.

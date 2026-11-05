@@ -1,0 +1,8 @@
+ready: 1
+kind: surface
+id: agents.surface.setup
+module: agents
+name: Setup screen
+surface_kind: screen
+system: sys.cli
+summary: Terminal output of the setup command.

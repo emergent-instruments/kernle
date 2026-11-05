@@ -1,0 +1,76 @@
+ready: 1
+kind: sequence
+id: appraisal.seq.judge
+display_id: SEQ-APPRAISAL-JUDGE
+module: appraisal
+title: Judge the most salient episodes
+summary: During sleep, asks the bound model to refine the appraisal of the most salient episodes within the run's token allowance, keeping the heuristic result when judging fails.
+trigger:
+  trigger_kind: call
+  text: A sleep run judges episodes with part of its model allowance
+participants:
+  - id: sleep
+    is: [sys.daemon]
+    label: Sleep run
+  - id: db
+    is: [sys.home]
+    label: Stack database
+  - sys.model
+items:
+  - msg:
+      from: sleep
+      to: db
+      text: Choose the episodes to judge
+      owner: crates/kernle-core/src/appraisal/judge.rs::judge
+      constants: [appraisal.const.thresholds]
+      guards:
+        - The appraisal is heuristic and has not been judged
+        - Its salience is at least the judge minimum, it has social feedback, or it holds an explicit remember request
+        - The episode's runtime may send its sessions to the model
+      ops:
+        - {op: read, entity: appraisal.data.appraisal, index: P1, order: salience descending, limit: most episodes judged per run}
+  - loop:
+      while: each chosen episode, while the allowance lasts
+      items:
+        - msg:
+            from: sleep
+            to: db
+            text: Load the evidence window before the episode's peak and its opening task
+            ops:
+              - {op: read, entity: capture.data.event, index: I1, by: [session and sequence range]}
+            note: Excerpts were scrubbed when captured and are capped at the largest judged excerpt
+        - msg:
+            from: sleep
+            to: sys.model
+            text: Ask for a judged summary and appraisal of the excerpt
+            inputs:
+              - {name: excerpt, source: The evidence window, source_kind: stored}
+              - {name: heuristic, source: The heuristic signals, source_kind: stored}
+            timeout: provider timeout from the model binding
+        - alt:
+            branches:
+              - when: the reply is valid and every value is in range
+                items:
+                  - msg: {from: sleep, to: sleep, text: Combine the judged values and name the label again, rules: [appraisal.rule.signals, appraisal.rule.label]}
+                  - msg:
+                      from: sleep
+                      to: db
+                      text: Store the judged appraisal and summary
+                      ops:
+                        - {op: update, entity: appraisal.data.appraisal, index: PK, set: [judged signals, arousal, valence, salience, label, misleading_source_ids, method judged, judge_attempts + 1, judged_at = now]}
+                        - {op: update, entity: memory.data.memory, index: PK, set: [salience, valence, arousal, label]}
+              - when: the model times out, errors, or replies with something invalid
+                items:
+                  - msg:
+                      from: sleep
+                      to: db
+                      text: Record the attempt and keep the heuristic appraisal
+                      ops:
+                        - {op: update, entity: appraisal.data.appraisal, index: PK, set: [judge_attempts + 1]}
+        - msg: {from: sleep, to: sleep, text: Charge the provider's reported tokens to the run's allowance}
+  - msg: {from: sleep, to: sleep, text: Return the episodes judged and tokens used, reply: true}
+rationale: >-
+  Only the most salient slice is judged, so the model budget goes to the episodes that decide what
+  is remembered. Each episode is judged at most once, so a provider outage never spends the budget
+  retrying the same episode every night. The judge sees the evidence window rather than the whole
+  session, which bounds both cost and how much private content leaves the machine.

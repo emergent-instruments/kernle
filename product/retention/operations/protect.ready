@@ -1,0 +1,26 @@
+ready: 1
+kind: operation
+id: retention.op.protect
+display_id: kernle.protect
+module: retention
+name: Kernle.protect(memory_type, memory_id, protected) · weaken(memory_type, memory_id, amount)
+summary: >-
+  Protects a memory from fading and from automatic change, removes protection,
+  or weakens a memory so it fades sooner. Only the owner removes protection the
+  owner set, or weakens a protected memory.
+params:
+  - { name: memory_type, type: str, source: Caller, source_kind: parameter }
+  - { name: memory_id, type: str, source: Caller, source_kind: parameter }
+  - { name: protected, type: bool, source: "Caller, default true", source_kind: parameter }
+  - { name: amount, type: float, source: "Caller, for weaken: 0 to 1 of the kind's window", source_kind: parameter }
+returns: The memory's protection and strength after the change.
+errors:
+  - code: not_found
+    when: No such memory in the caller's stack
+  - code: owner_only
+    when: The agent tries to remove protection the owner set, or to weaken a protected memory
+    copy: Only the owner can change that memory's protection.
+sequence: retention.seq.protect
+owner: crates/kernle-core/src/retention/protect.rs
+tags:
+  - { tag: cli, text: "kernle protect, kernle weaken" }

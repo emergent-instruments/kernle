@@ -1,0 +1,51 @@
+ready: 1
+kind: operation
+id: recall.op.search
+display_id: kernle.search
+module: recall
+name: Kernle.search(query, limit, record_types, context, include_dormant, valence_range, arousal_range)
+summary: >-
+  Finds memories by words and meaning, filtered by kind and emotion, ranked by
+  relevance first and then strength, salience and usage. Dormant memories appear
+  only when asked; forgotten and purged ones never do.
+params:
+  - name: query
+    type: str
+    source: Caller
+    source_kind: parameter
+  - name: limit
+    type: int
+    source: Caller, default SEARCH_DEFAULT_LIMIT
+    source_kind: parameter
+  - name: record_types
+    type: list[str] | None
+    source: Caller; memory kinds to include
+    source_kind: parameter
+  - name: context
+    type: str | None
+    source: Caller; restricts to memories tagged with this context
+    source_kind: parameter
+  - name: include_dormant
+    type: bool
+    source: Caller, default false
+    source_kind: parameter
+  - name: valence_range
+    type: tuple[float, float] | None
+    source: Caller; emotional valence filter from -1 to 1
+    source_kind: parameter
+  - name: arousal_range
+    type: tuple[float, float] | None
+    source: Caller; emotional intensity filter from 0 to 1
+    source_kind: parameter
+returns: A list of search results, each with the memory, its kind, trust tier, date, relevance and score.
+errors:
+  - code: invalid_range
+    when: An emotion range is outside its bounds or its low end exceeds its high end
+  - code: unknown_kind
+    when: A requested kind is not a memory kind
+sequence: recall.seq.search
+owner: crates/kernle-core/src/recall/search.rs::search
+tags:
+  - { tag: cli, text: "kernle search" }
+  - { tag: mcp, text: "memory_search, memory_note_search" }
+  - { tag: python, text: "Kernle.search, find_playbook, search_playbooks, search_by_emotion, get_mood_relevant_memories" }

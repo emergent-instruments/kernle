@@ -1,0 +1,46 @@
+ready: 1
+kind: rule
+id: sync.rule.conflict
+display_id: RULE-SYNC-CONFLICT
+module: sync
+title: Which version of a memory wins
+summary: The later content edit wins, equal content is no conflict, and protected or identity memories keep both versions for the owner.
+inputs:
+  - { name: local version, source: "The memory's content hash, version, and content edit time", source_kind: stored }
+  - { name: cloud version, source: "The pulled change's content hash, version, and content edit time", source_kind: payload }
+  - { name: pending push, source: Whether this memory has a pending queue row, source_kind: stored }
+decision:
+  nodes:
+    - { id: in, node_kind: input, text: A pulled change for a memory this machine also holds }
+    - { id: same, node_kind: decision, text: "Do the two contents hash the same?" }
+    - { id: del, node_kind: decision, text: "Is either side a deletion?" }
+    - { id: pend, node_kind: decision, text: "Has this machine edited it since the last sync?" }
+    - { id: guarded, node_kind: decision, text: "Is the memory protected, or a value, self-narrative, or foundational belief?" }
+    - { id: later, node_kind: decision, text: "Was the cloud's content edit later than this machine's?" }
+    - { id: none, node_kind: outcome, text: No conflict; record the cloud's version number }
+    - { id: delete, node_kind: outcome, text: The deletion wins everywhere }
+    - { id: cloud, node_kind: outcome, text: Apply the cloud version }
+    - { id: both, node_kind: outcome, text: "Keep both versions, hold the cloud's as a conflict for the owner, and keep the local push queued" }
+    - { id: localwin, node_kind: outcome, text: "Keep the local version and leave its push queued so the cloud receives it" }
+  edges:
+    - { from: in, to: same }
+    - { from: same, to: none, label: "Yes" }
+    - { from: same, to: del, label: "No" }
+    - { from: del, to: delete, label: "Yes" }
+    - { from: del, to: pend, label: "No" }
+    - { from: pend, to: cloud, label: "No" }
+    - { from: pend, to: guarded, label: "Yes" }
+    - { from: guarded, to: both, label: "Yes" }
+    - { from: guarded, to: later, label: "No" }
+    - { from: later, to: cloud, label: "Yes" }
+    - { from: later, to: localwin, label: "No" }
+constraints:
+  - text: Only content edits set the edit time; reads, access counts, strength, and decay are local to each machine and never synced.
+    hard: true
+  - text: Every losing version is kept in the memory's version history, so no edit is lost.
+    hard: true
+  - text: Pulled memories keep their original author, source type, source entity, and trust tier.
+    hard: true
+rationale: >-
+  Deletion wins because the owner's request to forget must reach every
+  machine, and a stale copy must never bring a deleted memory back.

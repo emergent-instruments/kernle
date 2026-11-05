@@ -1,0 +1,27 @@
+ready: 1
+kind: module
+id: health
+name: Health
+summary: >-
+  The memory's self-checks: one anxiety score with the actions that lower it, a
+  doctor that checks the stack's integrity and setup, and metamemory that says
+  how sure the agent can be of what it remembers. It reads every module's data
+  and writes only through other modules' calls.
+runs_in:
+  - sys.python
+  - sys.cli
+  - sys.daemon
+owns:
+  - the anxiety score and its dimensions
+  - integrity checks
+  - confidence, uncertainty, gap and contradiction reports
+invariants:
+  - There is one anxiety calculation; the Python package, command line, tool server and status all report the same score for the same stack and moment.
+  - Every reported problem names the call that resolves it.
+  - Health reports never change memory content.
+rationale: >-
+  Health tells the agent and the owner what needs attention, not what Kernle
+  could do for itself. Routine processing debt is handled by sleep, so the
+  anxiety score counts only what the agent or owner must resolve: context
+  about to be lost, unsaved work, decisions waiting in review, an incoherent
+  identity, uncertain memory, and a stale epoch.

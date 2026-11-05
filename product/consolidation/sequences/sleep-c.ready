@@ -1,0 +1,58 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.sleep.c
+display_id: SEQ-CONSOLIDATION-SLEEP-c
+module: consolidation
+title: Sleep run, process captures and tidy up
+part_of: consolidation.seq.sleep
+participants:
+  - id: core
+    is:
+      - sys.daemon
+    label: Sleep run
+    owner: crates/kernle-core/src/consolidation/sleep.rs::finish
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - loop:
+      while: a processing transition's trigger is met and allowance remains
+      items:
+        - msg:
+            from: core
+            to: core
+            text: Run the transition with automatic promotion
+            invokes:
+              - consolidation.seq.process
+  - msg:
+      from: core
+      to: core
+      text: Sweep retention for the stack
+      invokes:
+        - retention.seq.sweep
+  - msg:
+      from: core
+      to: core
+      text: Bring the search index up to date with every change
+      invokes:
+        - recall.seq.index
+  - msg:
+      from: core
+      to: db
+      text: Record the run's counters for the log
+      ops:
+        - op: update
+          entity: consolidation.data.run
+          by:
+            - id
+          set:
+            - counters
+            - budget_exhausted
+  - break:
+      when: the stack database becomes unavailable
+      items:
+        - note:
+            over:
+              - core
+            text: Changes already committed stay applied, unprocessed work stays pending, and the run is recorded as failed with the error, shown in status

@@ -1,0 +1,7 @@
+ready: 1
+kind: capability
+id: cap.forget
+name: Forget and delete
+outcome: Unused memory fades and expires on schedule, and the owner can delete any memory and its sources completely.
+actors: [actor.owner, actor.agent]
+owners: [retention]

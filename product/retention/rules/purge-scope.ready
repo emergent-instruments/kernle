@@ -1,0 +1,34 @@
+ready: 1
+kind: rule
+id: retention.rule.purge-scope
+display_id: RULE-RETENTION-PURGE-SCOPE
+module: retention
+title: What a purge removes
+summary: A purge removes the memory and everything that holds its content, offers the owner the memories that depend on it, and queues the cloud deletion.
+table:
+  columns: [what, removed, how]
+  rows:
+    - [The memory row and every version of it, always, deleted]
+    - [Its provenance links in both directions, always, deleted]
+    - [Its full-text row and vector, always, "deleted before the purge returns"]
+    - [Raw captures and transcript events cited only by it, always, deleted]
+    - [Suggestions that cite it or were promoted into it, always, deleted]
+    - [Its appraisal and usage rows, always, deleted]
+    - [Recall log rows for it, always, deleted]
+    - [Pending sync changes that carry its content, always, "payload removed and replaced by one deletion change"]
+    - [Its line in exported files, always, export files rewritten without it]
+    - [Its change-ledger rows, kept, "kept without content or name, so the owner can see something was purged"]
+    - [Memories derived from it or merged into it, owner choice, "listed in the preview as optional additions"]
+    - [Superseded predecessors, always for an owner purge, "followed recursively"]
+constraints:
+  - text: Every database connection uses secure delete, the full-text index is optimized and the write-ahead log is truncated before the purge returns.
+    hard: true
+  - text: The runtimes' own transcripts are outside Kernle's files, and the preview says so.
+    hard: true
+rationale: >-
+  "Deleted" must mean gone from Kernle's files, so every copy of the content is
+  named here, including the ones that are easy to miss: old versions, the
+  search index, sync payloads and suggestion text. The ledger keeps a
+  content-free row so the owner can still see that something was deleted and
+  when. Dependent memories are offered rather than taken, because the owner did
+  not ask for them and a lesson may stand on other evidence too.

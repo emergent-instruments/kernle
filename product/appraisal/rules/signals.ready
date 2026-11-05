@@ -1,0 +1,55 @@
+ready: 1
+kind: rule
+id: appraisal.rule.signals
+display_id: RULE-APPRAISAL-SIGNALS
+module: appraisal
+title: How an episode is appraised
+summary: >-
+  Computes stakes, surprise, outcome, social feedback, effort, novelty, recurrence, attribution,
+  and open loops from what happened, then combines them into arousal, valence, and salience.
+inputs:
+  - name: episode
+    source: "For a transcript episode, its events and the next episode in the same session; for an explicit episode, its outcome, outcome type, lessons, things to repeat and avoid, tags, and any explicit valence or arousal"
+    source_kind: stored
+  - name: history
+    source: "The stack's episodes from the last 30 and 90 days and the nearest active memories"
+    source_kind: stored
+constants:
+  - appraisal.const.markers
+  - appraisal.const.stakes-classes
+  - appraisal.const.outcome-weights
+  - appraisal.const.thresholds
+calculations:
+  - name: stakes
+    expr: highest stakes class score among the tool calls, or matched by an explicit episode's text and tags; 0 with nothing to match
+  - name: surprise
+    expr: min(1, 0.3 × failures retried within 3 events + 0.2 × self corrections + 0.3 when surprise phrases appear)
+  - name: social
+    expr: from feedback messages — frustration −1.0, else correction −0.8, else praise +0.6, else 0; directive is set by a directive phrase in feedback or an explicit remember request
+  - name: effort
+    expr: clamp((tool calls ÷ the median of the stack's recent episodes − 1) ÷ 3, 0, 1); explicit episodes with lessons or things to avoid count as 0.5
+  - name: outcome
+    expr: weighted mean of the evidence present — last test or check result, the person's approval, safety of high-stakes calls, efficiency, and an explicit outcome type of success +1, failure −1, mixed or neutral 0
+  - name: novelty
+    expr: 1 − highest similarity to active memories and the stack's episodes from 90 days; 1 when there is nothing to compare
+  - name: recurrence
+    expr: count of earlier episodes in 90 days with similarity at or above the recurrence threshold; normalized as min(1, count ÷ 3)
+  - name: attribution
+    expr: environment when at least half of error results match environment error phrases, else agent; user only when the judge says so
+  - name: open loop
+    expr: 1 when the session's last episode ends on an interrupt, an unanswered question, or offered next steps, or an explicit episode has goals left active
+  - name: arousal
+    expr: 1 − (1 − stakes)(1 − surprise)(1 − max(|social|, 0.8 × directive))(1 − 0.5 × effort)
+  - name: valence
+    expr: clamp(0.6 × outcome + 0.4 × social, −1, 1)
+  - name: salience
+    expr: clamp(arousal × (0.5 + 0.5 × max(novelty, normalized recurrence)) + 0.3 × open loop, 0, 1)
+when: The caller gave an explicit valence or arousal
+then: That value is used as given and the method is explicit; the other signals are still computed for the label
+otherwise: Every value is computed and the method is heuristic, or judged after sleep refines it
+rationale: >-
+  Every signal comes from recorded outcomes, feedback, and commands, because a model's report of
+  its own feelings would be confabulated while a computed signal can always be explained. Arousal
+  is a noisy-or, so one strong reason to care is enough. Salience multiplies arousal by novelty or
+  recurrence, so something already learned matters less and something that keeps happening matters
+  more each time.

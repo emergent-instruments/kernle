@@ -1,0 +1,7 @@
+ready: 1
+kind: capability
+id: cap.sync
+name: Sync across machines
+outcome: An owner who enables sync has the same stack on each of their machines, with no silent loss and deletions honored everywhere.
+actors: [actor.owner]
+owners: [sync]

@@ -1,0 +1,39 @@
+ready: 1
+kind: operation
+id: identity.op.epoch
+display_id: kernle.epoch
+module: identity
+name: Kernle.epoch_create(name, trigger_type, trigger_description) · epoch_close(epoch_id, summary) · get_epochs(limit) · get_current_epoch() · consolidate_epoch_closing(epoch_id)
+summary: >-
+  Opens a new chapter of the agent's life, closing any open one, and closes the current one
+  with a summary. Closing returns a reflection scaffold for the chapter that records nothing.
+params:
+  - name: name
+    type: str
+    source: The epoch's name
+    source_kind: parameter
+  - name: trigger_type
+    type: str
+    source: declared, detected, or system
+    source_kind: parameter
+  - name: trigger_description
+    type: str | None
+    source: What started the epoch
+    source_kind: parameter
+  - name: epoch_id
+    type: str | None
+    source: The epoch to close or reflect on, the current one by default
+    source_kind: parameter
+  - name: summary
+    type: str | None
+    source: The agent's summary when closing
+    source_kind: parameter
+returns: "The epoch id for create; true when closed; epochs for reads; the closing scaffold for consolidate_epoch_closing"
+errors:
+  - code: no_open_epoch
+    when: closing when no epoch is open
+sequence: identity.seq.epoch
+owner: crates/kernle-core/src/identity/epoch.rs
+tags:
+  - tag: cli
+    text: kernle epoch create|close|list|current

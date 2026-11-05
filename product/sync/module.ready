@@ -1,0 +1,21 @@
+ready: 1
+kind: module
+id: sync
+name: Sync
+summary: >-
+  Owns the client side of cloud sync: the owner's cloud account, which stacks
+  are synced, each stack's change queue, push and pull with the Kernle cloud,
+  conflicts, and deletions carried in both directions.
+runs_in: [sys.daemon, sys.cli]
+owns:
+  - sync queue, conflicts, and sync state (DATA-SYNC)
+invariants:
+  - A change is cleared from the queue only after the cloud confirms it.
+  - Reads, access counts, and decay never count as edits and are never synced.
+  - A deletion on any machine reaches every machine.
+  - Nothing is synced for a stack the owner has not linked.
+rationale: >-
+  Each stack keeps its own queue inside its own database, so syncing one stack
+  can never touch another stack's pending changes. Conflicts compare
+  content edits alone, because a machine that merely read a memory must never
+  overwrite a real edit made elsewhere.

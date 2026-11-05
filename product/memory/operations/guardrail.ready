@@ -1,0 +1,64 @@
+ready: 1
+kind: operation
+id: memory.op.guardrail
+display_id: kernle.guardrail
+module: memory
+name: Kernle.guardrail(rule, why, tools, patterns, paths, …)
+summary: Records a check the agent makes before a risky kind of action, with the tool calls that trigger it.
+params:
+  - name: rule
+    type: string
+    source: "The check, phrased as before doing X, check Y"
+    source_kind: parameter
+  - name: why
+    type: string
+    source: What went wrong that makes the check worth it
+    source_kind: parameter
+  - name: tools
+    type: list of strings
+    source: Tool names that trigger the check
+    source_kind: parameter
+  - name: patterns
+    type: list of strings
+    source: Text or patterns in the tool input that trigger the check
+    source_kind: parameter
+  - name: paths
+    type: list of strings
+    source: File path globs that trigger the check
+    source_kind: parameter
+  - name: derived_from
+    type: list of kind:id references
+    source: Captures or memories the caller says this came from
+    source_kind: parameter
+  - name: context
+    type: string
+    source: Where the memory applies, as the caller describes it
+    source_kind: parameter
+  - name: context_tags
+    type: list of strings
+    source: Tags that scope where the memory applies
+    source_kind: parameter
+  - name: source
+    type: string
+    source: The person, agent, or source the content came from
+    source_kind: parameter
+  - name: source_type
+    type: string
+    source: How the memory was acquired; defaults to direct experience
+    source_kind: parameter
+returns: >-
+  The memory id. When the same content already exists for the kind, the existing id. When the
+  input gate holds the write, the id of the suggestion that waits for review, marked as held.
+errors:
+  - code: invalid_input
+    when: a required field is missing or a value is out of range for the kind
+  - code: too_long
+    when: the content is longer than the content limit
+  - code: kernle_unavailable
+    when: Kernle is not initialized for this account, or the stack cannot be opened
+auth: The caller's account owns the Kernle home
+sequence: memory.seq.write
+owner: crates/kernle-core/src/memory/write.rs::write_memory
+tags:
+  - {tag: cli, text: kernle guardrail add}
+  - {tag: mcp, text: memory_guardrail}

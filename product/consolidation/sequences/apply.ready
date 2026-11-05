@@ -1,0 +1,103 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.apply
+display_id: SEQ-CONSOLIDATION-APPLY
+module: consolidation
+title: Validate and apply a proposed change
+summary: >-
+  Checks a model-proposed change against its filing route, the promotion gates, and the trust
+  gate, then applies it through the memory write paths or records it as a suggestion.
+trigger:
+  trigger_kind: call
+  text: A sleep run or processing session has a proposed change
+participants:
+  - id: core
+    is:
+      - sys.daemon
+    label: Kernle core
+    owner: crates/kernle-core/src/consolidation/apply.rs::apply
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - loop:
+      while: a proposed change remains
+      items:
+        - msg:
+            from: core
+            to: core
+            text: Check the change fits its route and is well formed
+            guards:
+              - The kind and change are allowed by the episode's filing route, or complete a goal the episode resolved
+              - The body is within the memory length limit and not empty
+              - At least one cited source is inside the episode or batch
+              - The target exists in a readable stack
+              - A near-duplicate of a runtime's native memory line becomes no change
+            rules:
+              - consolidation.rule.filing
+        - msg:
+            from: core
+            to: core
+            text: Check the promotion gates
+            rules:
+              - consolidation.rule.promotion-gates
+        - msg:
+            from: core
+            to: core
+            text: Ask the trust gate
+            invokes:
+              - trust.seq.gate
+        - alt:
+            branches:
+              - when: invalid, or outside its route
+                items:
+                  - note:
+                      over:
+                        - core
+                      text: Refuse it and count the refusal with its reason in the run
+              - when: a gate holds it
+                items:
+                  - note:
+                      over:
+                        - core
+                      text: The trust gate has recorded it as a suggestion with its reason
+              - when: it applies and is an add
+                items:
+                  - msg:
+                      from: core
+                      to: core
+                      text: Write the memory with its sources
+                      invokes:
+                        - memory.seq.write
+              - when: it applies and revises, supersedes, or reinforces a belief
+                items:
+                  - msg:
+                      from: core
+                      to: core
+                      text: Revise the belief
+                      invokes:
+                        - memory.seq.revise-belief
+              - when: it applies and updates, merges, reinforces, or completes another memory
+                items:
+                  - msg:
+                      from: core
+                      to: core
+                      text: Update the memory at its expected version
+                      invokes:
+                        - memory.seq.update
+              - when: it lowers trust in a misleading source
+                items:
+                  - msg:
+                      from: core
+                      to: core
+                      text: Lower the source's trust assessment
+                      invokes:
+                        - trust.seq.assess
+        - opt:
+            when: the target changed after the proposal
+            items:
+              - note:
+                  over:
+                    - core
+                  text: Apply nothing and return the episode to pending so the next run sees the current memory

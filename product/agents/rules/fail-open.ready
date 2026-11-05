@@ -1,0 +1,15 @@
+ready: 1
+kind: rule
+id: agents.rule.fail-open
+display_id: RULE-AGENTS-FAIL-OPEN
+module: agents
+title: A hook never breaks the agent
+summary: Every failure, timeout, or missing piece yields an empty, non-blocking response with a success exit.
+when: A hook handler meets any error, passes its deadline, finds Kernle uninitialized, or cannot reach the daemon for a write
+then: It returns an empty response with exit status zero and the agent continues unchanged
+constraints:
+  - text: Only two responses may block a tool call, the Kernle-home write guard and a guardrail pause, and a pause lets the identical retry through.
+    hard: true
+  - text: A hook never contacts the network.
+    hard: true
+constants: [agents.const.hook-deadline]

@@ -1,0 +1,17 @@
+ready: 1
+kind: operation
+id: health.op.doctor
+display_id: kernle.doctor
+module: health
+name: Kernle.doctor() · verify() · verify_memory(memory_type, memory_id) · find_orphaned_references()
+summary: >-
+  Checks the stack's integrity and setup, or one memory's provenance and
+  versions, and reports each finding with the call that fixes it. Read-only.
+params:
+  - { name: memory_type, type: str | None, source: "Caller, to check one memory", source_kind: parameter }
+  - { name: memory_id, type: str | None, source: "Caller, to check one memory", source_kind: parameter }
+returns: A list of checks, each passed, warning or failed, with details and the fixing call; exit status is non-zero on any failure from the command line.
+sequence: health.seq.doctor
+owner: crates/kernle-core/src/health/doctor.rs::doctor
+tags:
+  - { tag: cli, text: "kernle doctor, kernle verify, kernle audit" }

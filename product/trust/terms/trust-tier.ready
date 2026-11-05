@@ -1,0 +1,11 @@
+ready: 1
+kind: term
+id: trust.term.trust-tier
+module: trust
+name: Trust tier
+definition: >-
+  How directly a memory rests on the person or on the agent's own observation: principal (the
+  person's words), first-party (outcomes the agent observed), agent-inferred (the agent's own
+  conclusions), or third-party (outside content).
+synonyms:
+  - source trust

@@ -1,0 +1,18 @@
+ready: 1
+kind: operation
+id: identity.op.drift
+display_id: kernle.detect_identity_drift
+module: identity
+name: Kernle.detect_identity_drift(days=30)
+summary: Reports how far the agent's recent memories have moved from its values and narrative, with examples. Reads only.
+params:
+  - name: days
+    type: int
+    source: Length of the window to compare
+    source_kind: parameter
+returns: "Drift score from 0 to 1, whether it is significant, the most divergent memories, and values whose support changed"
+sequence: identity.seq.drift
+owner: crates/kernle-core/src/identity/drift.rs::detect
+tags:
+  - tag: cli
+    text: kernle identity drift [--days]

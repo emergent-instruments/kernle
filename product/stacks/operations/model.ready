@@ -1,0 +1,16 @@
+ready: 1
+kind: operation
+id: stacks.op.model
+display_id: kernle.set_model
+module: stacks
+name: Kernle.set_model(model) · kernle model set | show
+summary: Binds the model provider used for appraisal judging, extraction, and emotion detection.
+params:
+  - { name: provider, source: Command option or the model object passed in Python, source_kind: parameter, type: string }
+  - { name: model, source: Command option, source_kind: parameter, type: string }
+  - { name: daily_token_budget, source: Command option, source_kind: parameter, type: integer }
+returns: The active binding and which runtimes may send episodes to it
+sequence: stacks.seq.model
+owner: crates/kernle-core/src/stacks/model.rs::bind
+tags:
+  - { tag: cli, text: "kernle model" }

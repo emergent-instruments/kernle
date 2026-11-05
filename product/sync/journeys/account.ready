@@ -1,0 +1,15 @@
+ready: 1
+kind: journey
+id: sync.account
+display_id: FLOW-SYNC-ACCOUNT
+module: sync
+actors: [actor.owner]
+title: Sync a stack across machines
+summary: The owner signs in, links a stack, syncs it, and resolves any conflicts that need a choice.
+steps:
+  - sync.account.sign-in
+  - sync.account.link
+  - sync.account.sync
+  - sync.account.conflicts
+  - sync.account.done
+sequences: [sync.seq.auth, sync.seq.sync, sync.seq.conflicts]

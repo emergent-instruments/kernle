@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.cue-max-memories
+module: recall
+name: CUE_MAX_MEMORIES
+value: "5"
+unit: memories
+description: The most memories cued beside one prompt.

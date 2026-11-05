@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: sync.const.push-batch
+module: sync
+name: SYNC_PUSH_BATCH
+value: "100"
+unit: changes
+description: The most changes sent in one push request.

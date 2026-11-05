@@ -1,0 +1,7 @@
+ready: 1
+kind: constant
+id: identity.const.drift-alert
+module: identity
+name: DRIFT_ALERT_SCORE
+value: "0.6"
+description: Drift at or above this score is reported as significant and counts toward identity coherence in the anxiety score.

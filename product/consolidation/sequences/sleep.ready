@@ -1,0 +1,36 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.sleep
+display_id: SEQ-CONSOLIDATION-SLEEP
+module: consolidation
+title: Sleep run
+summary: >-
+  While the agent is idle, appraises new experience, judges the most salient episodes, replays
+  them into the memories their emotion calls for, processes raw captures, then sweeps
+  retention and refreshes the search index.
+trigger:
+  trigger_kind: call
+  text: The scheduler starts a sleep run for a stack
+participants:
+  - id: core
+    is:
+      - sys.daemon
+    label: Sleep run
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+  - sys.model
+items: []
+parts:
+  - consolidation.seq.sleep.a
+  - consolidation.seq.sleep.b
+  - consolidation.seq.sleep.c
+rationale: >-
+  Appraisal and judging come before replay selection so replay ranks episodes by their best
+  available appraisal. Partial progress is kept: every applied change commits on its own, and
+  a failure leaves unprocessed episodes pending for the next run.
+
+
+  The run pauses when the day's allowance is spent instead of switching to cheaper extraction,
+  so pending episodes keep their priority and resume the next day.

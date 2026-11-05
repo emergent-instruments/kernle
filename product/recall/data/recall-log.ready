@@ -1,0 +1,76 @@
+ready: 1
+kind: entity
+id: recall.data.recall-log
+display_id: DATA-RECALL-LOG
+module: recall
+entity_kind: table
+table: recall_log
+name: recall_log
+summary: One time a memory was shown to, found by, warned, or judged by the agent.
+columns:
+  - name: id
+    type: TEXT
+    keys: [PK]
+  - name: session_id
+    type: TEXT
+    nullable: true
+    rule: Runtime session when known; calls from the Python package without a session use the process id
+    indexes: [I1·1]
+  - name: tier
+    type: TEXT
+    nullable: false
+    values: [load, session_index, cue, gut_advise, speed_bump, search, feedback]
+    indexes: [I1·3]
+  - name: memory_id
+    type: TEXT
+    nullable: false
+    rule: The memory involved; rows are deleted with the memory
+    indexes: [I2·1]
+  - name: action_key
+    type: TEXT
+    nullable: true
+    rule: Hash of the tool name and normalized tool input, for gut checks only; the input text itself is never stored
+  - name: outcome
+    type: TEXT
+    nullable: true
+    values: [helped, hurt, irrelevant, wrong, outdated]
+  - name: created_at
+    type: TEXT
+    nullable: false
+    indexes: [I1·2]
+  - name: expires_at
+    type: TEXT
+    nullable: false
+    rule: created_at plus RECALL_LOG_RETENTION_DAYS
+    constants: [recall.const.recall-log-retention-days]
+    indexes: [I3·1]
+indexes:
+  - id: I1
+    name: recall_log_session_idx
+    columns: [session_id ASC, created_at ASC, tier ASC]
+    purpose: Shown-this-session exclusion for cues and gut-check history inside the hook deadline
+    serves: [recall.seq.cue, recall.seq.gut-check]
+  - id: I2
+    name: recall_log_memory_idx
+    columns: [memory_id ASC]
+    purpose: Removes a memory's rows when it is purged
+    serves: [retention.seq.purge]
+  - id: I3
+    name: recall_log_expires_idx
+    columns: [expires_at ASC]
+    purpose: Deletes expired rows in the daily sweep
+    serves: [retention.seq.sweep]
+relationships:
+  - to: memory.data.memory
+    on:
+      - from: memory_id
+        to: id
+    from_card: "0..many"
+    to_card: "1"
+    link: logical
+    on_delete: deleted with the memory by purge
+    label: the memory that was recalled
+rationale: >-
+  The log never holds prompt or tool-input text. Gut-check history needs only a
+  hash of the action, and keeping prompts here would copy the most sensitive
+  content outside capture's retention.

@@ -1,0 +1,30 @@
+ready: 1
+kind: module
+id: capture
+name: Capture
+summary: >-
+  Turns what happens into stored experience without upkeep: raw captures from agents and the owner,
+  ingestion of runtime transcripts into scrubbed events and episodes, imports, repository and
+  document seeding, and import of stacks written by an earlier Kernle release. Runs in the daemon's
+  ingestion worker and in the Kernle core.
+runs_in:
+  - sys.daemon
+  - sys.python
+  - sys.cli
+owns:
+  - raw captures (DATA-RAW)
+  - transcript events (DATA-EVENT)
+  - ingestion cursors
+invariants:
+  - Secrets are scrubbed before anything is stored.
+  - Each position in a session record becomes at most one event.
+  - Kernle never captures its own injected context or its own model sessions as experience.
+  - Imported and seeded content is third-party unless the owner marks it as their own.
+rationale: >-
+  Capture reads the runtimes' own session records instead of relying on the agent to write
+  everything down. The records are complete and survive a missed hook, so a missed hook only
+  delays memory. Explicit calls such as raw and episode remain for what the agent chooses to note.
+
+
+  Raw captures expire on a schedule because they are the least processed and most sensitive layer;
+  the memories derived from them keep a link that shows the source expired.

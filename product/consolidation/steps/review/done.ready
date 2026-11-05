@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: consolidation.review.done
+journey: consolidation.review
+title: Nothing left to review
+step_kind: outcome
+surface: consolidation.surface.review
+copy:
+  body:
+  - Nothing left to review.
+next:
+- to: $return
+  next_kind: auto

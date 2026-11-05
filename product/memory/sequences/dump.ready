@@ -1,0 +1,53 @@
+ready: 1
+kind: sequence
+id: memory.seq.dump
+display_id: SEQ-MEMORY-DUMP
+module: memory
+title: Dump or export a stack
+summary: Writes a stack's memories as markdown for reading, or as JSON with ids, versions, and provenance that imports back without loss.
+trigger:
+  trigger_kind: call
+  text: The owner or an agent dumps or exports a stack
+operation: memory.op.dump
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: memory
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Export this stack
+      call: Kernle.dump(format) · export(path, format) · export_full(path)
+      owner: crates/kernle-core/src/memory/dump.rs::dump
+  - msg: {from: core, to: core, text: Resolve and authorize the stack for this caller, invokes: [stacks.seq.resolve]}
+  - opt:
+      when: a path is given inside the Kernle home but outside the stack's export folder
+      items:
+        - msg: {from: core, to: caller, text: Refuse the path, reply: true, results: [{code: path_refused}]}
+  - msg:
+      from: core
+      to: db
+      text: Read the memories, their links, and, for JSON, their versions
+      ops:
+        - op: read
+          entity: memory.data.memory
+          index: I1
+          where: status active, plus dormant and superseded when asked
+        - op: read
+          entity: memory.data.memory-link
+        - op: read
+          entity: memory.data.memory-version
+  - msg:
+      from: core
+      to: core
+      text: Write the export with file permissions readable only by the owner
+      note: Files written to the stack's export folder are removed when the memories they contain are purged
+  - msg: {from: core, to: caller, text: Return the text or the path and counts, reply: true}

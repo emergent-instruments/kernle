@@ -1,0 +1,29 @@
+ready: 1
+kind: sequence
+id: capture.seq.ingest
+display_id: SEQ-CAPTURE-INGEST
+module: capture
+title: Ingest a runtime session
+summary: Reads new records from a session into scrubbed events, then closes finished episodes and writes them as episode memories.
+trigger:
+  trigger_kind: call
+  text: A hook says a session has new activity, the daemon catches up at start, a Codex file goes idle, or history is imported
+operation: capture.op.ingest
+participants:
+  - id: worker
+    is: [sys.daemon]
+    label: Ingestion worker
+  - id: records
+    is: [sys.claude-code, sys.codex, sys.openclaw]
+    label: Runtime session records
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items: []
+parts:
+  - capture.seq.ingest.a
+  - capture.seq.ingest.b
+rationale: >-
+  Ingestion only runs in the daemon so a hook never reads a transcript inside the agent's turn. A
+  failure leaves the cursor where it was, so the next trigger resumes from the same place and no
+  complete record is lost.

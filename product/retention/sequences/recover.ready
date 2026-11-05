@@ -1,0 +1,88 @@
+ready: 1
+kind: sequence
+id: retention.seq.recover
+display_id: SEQ-RETENTION-RECOVER
+module: retention
+title: Recover a forgotten memory
+summary: Lists recoverable memories, or returns one forgotten memory to active use at full strength.
+trigger:
+  trigger_kind: call
+  text: The agent or owner recovers a forgotten memory
+operation: retention.op.recover
+participants:
+- id: caller
+  is:
+  - actor.agent
+  - actor.owner
+  label: Agent or owner
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+items:
+- alt:
+    branches:
+    - when: listing recoverable memories
+      items:
+      - msg:
+          from: caller
+          to: db
+          text: Read forgotten memories with their purge dates
+          call: Kernle.get_forgotten_memories(limit)
+          ops:
+          - op: read
+            entity: memory.data.memory
+            where: status = forgotten
+            order: forgotten_at DESC
+    - when: recovering one memory
+      items:
+      - msg:
+          from: caller
+          to: sys.daemon
+          text: Recover this memory
+          call: Kernle.recover(memory_type, memory_id)
+      - alt:
+          branches:
+          - when: the memory is not forgotten, or was already purged
+            items:
+            - msg:
+                from: sys.daemon
+                to: caller
+                text: Not found
+                reply: true
+                results:
+                - code: not_found
+          - when: the memory is forgotten
+            items:
+            - msg:
+                from: sys.daemon
+                to: db
+                text: Make it active again and count the recovery as use
+                ops:
+                - op: update
+                  entity: memory.data.memory
+                  by:
+                  - id
+                  set:
+                  - status = active
+                  - strength = 1
+                  - forgotten_at = null
+                  - last_used_at now
+                - op: append
+                  entity: memory.data.memory-change
+                  set:
+                  - memory_id
+                  - change = recovered
+                  - actor
+            - msg:
+                from: sys.daemon
+                to: sys.daemon
+                text: Return it to search results
+                invokes:
+                - recall.seq.index
+            - msg:
+                from: sys.daemon
+                to: caller
+                text: Recovered
+                reply: true

@@ -1,0 +1,7 @@
+ready: 1
+kind: constant
+id: capture.const.injection-marker
+module: capture
+name: KERNLE_INJECTION_MARKER
+value: "⟦kernle⟧"
+description: The prefix of every context block Kernle injects, so capture can drop Kernle's own text.

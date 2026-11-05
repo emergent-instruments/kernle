@@ -1,0 +1,65 @@
+ready: 1
+kind: state_machine
+id: memory.state.memory
+module: memory
+title: Memory lifecycle
+entity: memory.data.memory
+field: status
+states:
+  - name: active
+    description: Eligible for load, cues, and gut checks
+    initial: true
+  - name: dormant
+    description: Faded below the dormancy threshold; found by search, never injected automatically
+  - name: superseded
+    description: Replaced by a newer memory; kept for history
+  - name: forgotten
+    description: Hidden everywhere and recoverable until the recovery window ends
+  - name: purged
+    description: Removed with its versions, links, index entries, and copies
+    terminal: true
+transitions:
+  - from: "[*]"
+    to: active
+    trigger: A memory is written
+    via: [memory.seq.write]
+  - from: active
+    to: dormant
+    trigger: Its strength falls below the dormancy threshold
+    via: [retention.seq.sweep]
+  - from: dormant
+    to: active
+    trigger: It is used again
+    via: [retention.seq.sweep, recall.seq.feedback]
+  - from: active
+    to: superseded
+    trigger: A newer belief supersedes it, or another memory absorbs it
+    via: [memory.seq.revise-belief]
+  - from: active
+    to: forgotten
+    trigger: It is forgotten on request, or its strength reaches zero
+    via: [retention.seq.forget, retention.seq.sweep]
+  - from: dormant
+    to: forgotten
+    trigger: It is forgotten on request, or its strength reaches zero
+    via: [retention.seq.forget, retention.seq.sweep]
+  - from: forgotten
+    to: active
+    trigger: It is recovered within the recovery window
+    via: [retention.seq.recover]
+  - from: forgotten
+    to: purged
+    trigger: The recovery window ends, or it is purged on request
+    via: [retention.seq.sweep, retention.seq.purge]
+  - from: active
+    to: purged
+    trigger: It is purged on request
+    via: [retention.seq.purge]
+  - from: dormant
+    to: purged
+    trigger: It is purged on request
+    via: [retention.seq.purge]
+  - from: superseded
+    to: purged
+    trigger: Its superseded retention window ends, or the owner purges it
+    via: [retention.seq.sweep, retention.seq.purge]

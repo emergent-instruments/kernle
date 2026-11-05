@@ -1,0 +1,58 @@
+ready: 1
+kind: rule
+id: consolidation.rule.promotion-gates
+display_id: RULE-CONSOLIDATION-GATES
+module: consolidation
+title: When a promotion applies and when it becomes a suggestion
+summary: >-
+  Beliefs and values need enough evidence to be proposed at all, identity layers always wait for review,
+  and other promotions apply automatically only when the caller asked for that and the trust gate allows
+  it.
+owner: crates/kernle-core/src/consolidation/gates.rs::check
+inputs:
+- name: proposal
+  source: The proposed memory, its kind, confidence, and cited evidence
+  source_kind: derived
+- name: automatic promotion
+  source: Whether the caller asked for automatic promotion; sleep always does
+  source_kind: parameter
+- name: gate decision
+  source: The trust gate's decision
+  source_kind: return
+rules:
+- trust.rule.input-gate
+params:
+- name: belief minimum evidence
+  value: '3'
+  unit: episodes or notes
+- name: belief minimum confidence
+  value: '0.6'
+- name: value minimum evidence
+  value: '5'
+  unit: beliefs or episodes, at least one a protected belief
+table:
+  columns:
+  - Situation
+  - Outcome
+  rows:
+  - - A belief with fewer than the minimum evidence or below the minimum confidence
+    - Not proposed; the source is marked skipped
+  - - A value with fewer than the minimum evidence, or none of it protected beliefs
+    - Not proposed; the source is marked skipped
+  - - A value, a self-narrative, or a foundational belief
+    - Suggestion held as an identity layer
+  - - The trust gate holds or quarantines the change
+    - Suggestion with the gate's reason
+  - - Confidence below 0.5
+    - Suggestion held for low confidence
+  - - Automatic promotion asked for, and none of the above
+    - Applied through the memory write
+  - - Automatic promotion not asked for
+    - Suggestion held because review was requested
+precedence:
+- Rows are checked top to bottom; the first match decides.
+default: Suggestion held because review was requested
+rationale: >-
+  Identity layers should be hard to write and easy to read. A value or self-narrative shapes every later
+  session, so automatic processing only ever proposes them; the agent's own deliberate call or the owner's
+  review makes them real.

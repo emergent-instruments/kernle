@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.suggestion-retention-days
+module: consolidation
+name: SUGGESTION_RETENTION_DAYS
+value: "90"
+unit: days
+source: config.toml#review.retention_days
+description: How long a resolved suggestion keeps its proposal text.

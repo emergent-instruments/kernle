@@ -1,0 +1,17 @@
+ready: 1
+kind: operation
+id: stacks.op.init
+display_id: kernle.init
+module: stacks
+name: kernle init
+summary: Creates or repairs the Kernle home without overwriting existing choices; safe to run again.
+params:
+  - { name: provider, source: The owner's choice on screen or the provider option, source_kind: surface, type: string }
+returns: The home path, the personal stack, the daemon state, whether semantic search is available, and the chosen provider
+errors:
+  - { code: not_owner, when: the home belongs to another OS account, copy: "This Kernle home belongs to another account. Nothing was changed." }
+sequence: stacks.seq.init
+owner: crates/kernle-cli/src/commands/init.rs::run
+tags:
+  - { tag: cli, text: "kernle init" }
+  - { tag: python, text: "Kernle.init()" }

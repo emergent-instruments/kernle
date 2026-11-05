@@ -1,0 +1,14 @@
+ready: 1
+kind: quality
+id: capture.quality.scrub
+display_id: QC-CAPTURE-SCRUB
+module: capture
+title: No secret is stored
+applies_to:
+  - capture.seq.raw
+  - capture.seq.ingest
+  - capture.seq.import
+  - capture.seq.seed
+  - capture.rule.scrub
+measure: Matches of any secret class in the raw capture, event, and memory tables after capture of a test corpus seeded with every class.
+target: Zero matches.

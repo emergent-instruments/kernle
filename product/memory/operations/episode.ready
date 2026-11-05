@@ -1,0 +1,88 @@
+ready: 1
+kind: operation
+id: memory.op.episode
+display_id: kernle.episode
+module: memory
+name: Kernle.episode(objective, outcome, …)
+summary: Records an experience the agent went through, with what it learned, and appraises it.
+params:
+  - name: objective
+    type: string
+    source: What the agent was trying to do
+    source_kind: parameter
+  - name: outcome
+    type: string
+    source: What happened
+    source_kind: parameter
+  - name: outcome_type
+    type: string
+    source: success, failure, mixed, or neutral; inferred from the outcome text when omitted
+    source_kind: parameter
+  - name: lessons
+    type: list of strings
+    source: What the agent learned
+    source_kind: parameter
+  - name: repeat
+    type: list of strings
+    source: Approaches worth repeating
+    source_kind: parameter
+  - name: avoid
+    type: list of strings
+    source: Approaches to avoid
+    source_kind: parameter
+  - name: tags
+    type: list of strings
+    source: Caller tags
+    source_kind: parameter
+  - name: valence
+    type: number
+    source: An explicit emotional valence from -1 to 1; replaces the computed one
+    source_kind: parameter
+  - name: arousal
+    type: number
+    source: An explicit arousal from 0 to 1; replaces the computed one
+    source_kind: parameter
+  - name: emotional_tags
+    type: list of strings
+    source: Emotions the caller names
+    source_kind: parameter
+  - name: derived_from
+    type: list of kind:id references
+    source: Captures or memories the caller says this came from
+    source_kind: parameter
+  - name: context
+    type: string
+    source: Where the memory applies, as the caller describes it
+    source_kind: parameter
+  - name: context_tags
+    type: list of strings
+    source: Tags that scope where the memory applies
+    source_kind: parameter
+  - name: source
+    type: string
+    source: The person, agent, or source the content came from
+    source_kind: parameter
+  - name: source_type
+    type: string
+    source: How the memory was acquired; defaults to direct experience
+    source_kind: parameter
+returns: >-
+  The memory id. When the same content already exists for the kind, the existing id. When the
+  input gate holds the write, the id of the suggestion that waits for review, marked as held.
+errors:
+  - code: invalid_input
+    when: a required field is missing or a value is out of range for the kind
+  - code: too_long
+    when: the content is longer than the content limit
+  - code: kernle_unavailable
+    when: Kernle is not initialized for this account, or the stack cannot be opened
+auth: The caller's account owns the Kernle home
+sequence: memory.seq.write
+owner: crates/kernle-core/src/memory/write.rs::write_memory
+tags:
+  - {tag: cli, text: kernle episode}
+  - {tag: mcp, text: memory_episode}
+  - {tag: python, text: "episode, episodes_batch, episode_with_emotion"}
+files:
+  - path: product/memory/files/memory-kinds.ts
+    role: contract

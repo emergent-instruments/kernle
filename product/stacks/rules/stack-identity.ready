@@ -1,0 +1,47 @@
+ready: 1
+kind: rule
+id: stacks.rule.stack-identity
+display_id: RULE-STACKS-IDENTITY
+module: stacks
+title: Which stack a request uses
+summary: The first available identity wins, from an explicit choice down to the personal stack.
+inputs:
+  - { name: named stack, source: The call's stack argument or the command-line stack option, source_kind: parameter }
+  - { name: environment stack, source: The stack environment variable, source_kind: config }
+  - { name: OpenClaw agent, source: The plugin request, source_kind: payload }
+  - { name: repository identity, source: "The working directory's repository, origin remote, and top-level folder", source_kind: derived }
+decision:
+  nodes:
+    - { id: in, node_kind: input, text: A request with its working directory and runtime }
+    - { id: explicit, node_kind: decision, text: "Did the caller name a stack?" }
+    - { id: env, node_kind: decision, text: "Does the environment name a stack?" }
+    - { id: claw, node_kind: decision, text: "Did the request come from an OpenClaw agent?" }
+    - { id: git, node_kind: decision, text: "Is the working directory inside a git repository?" }
+    - { id: origin, node_kind: decision, text: "Does the repository have an origin remote?" }
+    - { id: named, node_kind: outcome, text: Use the named stack }
+    - { id: agent, node_kind: outcome, text: Use that agent's stack }
+    - { id: repo, node_kind: outcome, text: "Use the project stack for the normalized origin; clones and worktrees share it" }
+    - { id: path, node_kind: outcome, text: Use the project stack for the repository's top-level folder }
+    - { id: user, node_kind: outcome, text: Use the personal stack }
+  edges:
+    - { from: in, to: explicit }
+    - { from: explicit, to: named, label: "Yes" }
+    - { from: explicit, to: env, label: "No" }
+    - { from: env, to: named, label: "Yes" }
+    - { from: env, to: claw, label: "No" }
+    - { from: claw, to: agent, label: "Yes" }
+    - { from: claw, to: git, label: "No" }
+    - { from: git, to: origin, label: "Yes" }
+    - { from: git, to: user, label: "No" }
+    - { from: origin, to: repo, label: "Yes" }
+    - { from: origin, to: path, label: "No" }
+default: The personal stack
+constraints:
+  - text: The origin is normalized by removing the scheme, credentials, and a trailing .git, and lowercasing the host.
+    hard: true
+  - text: A stack name is a slug of letters, digits, hyphens, and underscores, and can never point outside the home.
+    hard: true
+rationale: >-
+  The repository's origin identifies a project better than its folder name:
+  two unrelated folders called api must not share memory, while separate clones
+  and worktrees of one repository should share their experience.

@@ -1,0 +1,10 @@
+ready: 1
+kind: step
+id: health.check.healthy
+journey: health.check
+title: Memory is healthy
+step_kind: outcome
+surface: health.surface.doctor
+copy:
+  body:
+  - All checks passed.

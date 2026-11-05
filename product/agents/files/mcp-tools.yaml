@@ -1,0 +1,69 @@
+# Tools served by `kernle mcp` (stdio, one stack per server process resolved by
+# stacks.seq.resolve from the server's working directory) and registered with the
+# same names and shapes by the OpenClaw plugin. Each tool runs the operation named.
+# Every tool validates its arguments (types, enums, lengths, no control characters,
+# at most MAX_TOOL_INPUT_BYTES) before the operation runs; errors never echo argument values.
+server:
+  name: kernle
+  transport: stdio
+  state: stateless; every call carries what it needs
+tools:
+  # Load and checkpoints
+  memory_load: recall.op.load
+  memory_checkpoint_save: recall.op.checkpoint
+  memory_checkpoint_load: recall.op.checkpoint
+  # Writes
+  memory_episode: memory.op.episode
+  memory_note: memory.op.note
+  memory_belief: memory.op.belief
+  memory_value: memory.op.value
+  memory_goal: memory.op.goal
+  memory_drive: memory.op.drive
+  memory_relationship: memory.op.relationship
+  memory_playbook: memory.op.playbook
+  memory_guardrail: memory.op.guardrail
+  memory_raw: capture.op.raw
+  memory_auto_capture: capture.op.auto-capture
+  # Updates
+  memory_episode_update: memory.op.update
+  memory_goal_update: memory.op.update
+  memory_belief_update: memory.op.update
+  # Lists and reads
+  memory_belief_list: memory.op.list
+  memory_value_list: memory.op.list
+  memory_goal_list: memory.op.list
+  memory_drive_list: memory.op.list
+  memory_get: memory.op.list
+  memory_trace: memory.op.lineage
+  # Search and time
+  memory_search: recall.op.search
+  memory_note_search: recall.op.search
+  memory_raw_search: capture.op.raw-search
+  memory_when: recall.op.when
+  memory_feedback: recall.op.feedback
+  # Consolidation
+  memory_consolidate: consolidation.op.consolidate
+  memory_consolidate_advanced: consolidation.op.consolidate
+  memory_process: consolidation.op.process
+  memory_process_status: consolidation.op.process-status
+  memory_process_exhaust: consolidation.op.exhaust
+  suggestion_list: consolidation.op.suggestions
+  suggestion_accept: consolidation.op.suggestions
+  suggestion_dismiss: consolidation.op.suggestions
+  suggestion_extract: consolidation.op.suggestions
+  # Forgetting
+  memory_forget: retention.op.forget
+  # Health and status
+  memory_status: stacks.op.status
+  memory_anxiety: health.op.anxiety
+  # Seeding (root comes only from configuration)
+  memory_seed_repo: capture.op.seed
+  memory_seed_docs: capture.op.seed
+  memory_seed_status: capture.op.seed
+  # Sync
+  memory_sync: sync.op.sync
+not_offered_to_agents:
+  - Purge, stack deletion, and protect need the owner's interactive terminal.
+errors:
+  kernle_unavailable: Kernle is not initialized or its daemon cannot be reached and the call needs a write; nothing was recorded.
+  invalid_arguments: The arguments failed validation; the message names the field, never its value.

@@ -1,0 +1,39 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.hold
+display_id: SEQ-CONSOLIDATION-HOLD
+module: consolidation
+title: Record a held change as a suggestion
+summary: Stores a change that a gate held, with its reason and evidence, so the agent or owner can decide it.
+trigger:
+  trigger_kind: call
+  text: The trust gate or a promotion gate holds a change
+participants:
+  - id: caller
+    label: Trust gate or promotion gate
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: db
+      text: Record the suggestion, skipping a duplicate of one already pending
+      ops:
+        - op: insert
+          entity: consolidation.data.suggestion
+          conflict: an identical pending proposal for the same sources is kept once
+          set:
+            - memory_kind
+            - change
+            - target_id
+            - target_version
+            - proposal
+            - source_ids
+            - evidence_tier
+            - hold_reason
+            - confidence
+            - run_id
+            - status pending
+            - created_at now

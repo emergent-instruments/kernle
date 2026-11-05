@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: retention.const.forget-recovery-days
+module: retention
+name: FORGET_RECOVERY_DAYS
+value: "30"
+unit: days
+description: How long a forgotten memory can be recovered before it is purged.

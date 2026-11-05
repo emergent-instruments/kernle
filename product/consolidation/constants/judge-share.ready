@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.judge-share
+module: consolidation
+name: JUDGE_SHARE
+value: "0.4"
+unit: share of the remaining allowance
+source: config.toml#sleep.judge_share
+description: The part of a run's remaining allowance that judging episodes may use before extraction.

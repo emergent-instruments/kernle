@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.speed-bump-arousal
+module: recall
+name: SPEED_BUMP_AROUSAL
+value: "0.80"
+unit: score
+description: How intense a guardrail's source experience must be before it can pause a tool call.

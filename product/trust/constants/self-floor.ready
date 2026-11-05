@@ -1,0 +1,7 @@
+ready: 1
+kind: constant
+id: trust.const.self-floor
+module: trust
+name: SELF_TRUST_FLOOR
+value: "0.5"
+description: The lowest trust the agent assigns to its own observations.

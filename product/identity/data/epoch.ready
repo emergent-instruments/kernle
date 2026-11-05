@@ -1,0 +1,66 @@
+ready: 1
+kind: entity
+id: identity.data.epoch
+display_id: DATA-EPOCH
+module: identity
+entity_kind: table
+table: epoch
+name: epoch
+summary: One chapter of the agent's life, from a declared or detected start to its close.
+columns:
+  - name: id
+    type: TEXT
+    keys:
+      - PK
+  - name: epoch_number
+    type: INTEGER
+    nullable: false
+    keys:
+      - UK
+    rule: Increases by one for each epoch in the stack
+  - name: name
+    type: TEXT
+    nullable: false
+  - name: trigger_type
+    type: TEXT
+    nullable: false
+    values:
+      - declared
+      - detected
+      - system
+  - name: trigger_description
+    type: TEXT
+    nullable: true
+  - name: started_at
+    type: TEXT
+    nullable: false
+  - name: ended_at
+    type: TEXT
+    nullable: true
+    indexes:
+      - P1·where
+    rule: Empty while the epoch is open
+  - name: summary
+    type: TEXT
+    nullable: true
+    rule: Written when the epoch closes
+  - name: key_memory_ids
+    type: TEXT
+    nullable: false
+    rule: JSON lists of the beliefs, relationships, goals, and drives that defined the epoch
+indexes:
+  - id: P1
+    name: epoch_one_open_idx
+    unique: true
+    definition: UNIQUE ((1)) WHERE ended_at IS NULL
+    where: ended_at IS NULL
+    purpose: At most one open epoch per stack
+    serves:
+      - identity.seq.epoch
+relationships:
+  - to: memory.data.memory
+    link: logical
+    from_card: "1"
+    to_card: 0..many
+    label: Memories carry the epoch they were formed in
+    reason: Memory owns the epoch reference on each memory; closing an epoch changes no memory

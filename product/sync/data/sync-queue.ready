@@ -1,0 +1,49 @@
+ready: 1
+kind: entity
+id: sync.data.sync-queue
+display_id: DATA-SYNC-QUEUE
+module: sync
+entity_kind: table
+table: sync_queue
+name: sync_queue
+summary: One change to one memory waiting to reach the cloud.
+columns:
+  - name: change_id
+    type: INTEGER
+    keys: [PK]
+    rule: The memory change ledger entry this row carries
+  - name: memory_id
+    type: TEXT
+    nullable: false
+    indexes: [P1·1]
+  - name: change
+    type: TEXT
+    nullable: false
+    values: [upsert, forget, recover, purge]
+  - name: state
+    type: TEXT
+    nullable: false
+    values: [pending, pushed, dead]
+    indexes: [P1·where]
+  - name: attempts
+    type: INTEGER
+    nullable: false
+    default: "0"
+    constants: [sync.const.retry-max]
+  - name: last_error
+    type: TEXT
+    nullable: true
+  - name: queued_at
+    type: TEXT
+    nullable: false
+indexes:
+  - id: P1
+    name: sync_queue_pending_idx
+    unique: true
+    columns: [memory_id ASC]
+    where: state = 'pending'
+    purpose: One pending change per memory; a later edit replaces the earlier pending one
+    serves: [sync.seq.sync.a]
+lifecycle: Pushed rows are deleted once the cloud confirms them; dead rows stay until the owner retries or the memory is purged.
+invariants:
+  - The queue holds no memory content; the content is read from the memory at push time, so purging a memory leaves nothing here but its deletion.

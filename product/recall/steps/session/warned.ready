@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: recall.session.warned
+journey: recall.session
+title: A guardrail note appears beside the call
+step_kind: system
+surface: recall.surface.agent-context
+presentation: inline
+does:
+  - The call proceeds with the guardrail in context
+next:
+  - to: recall.session.search
+    next_kind: auto

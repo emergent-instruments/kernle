@@ -1,0 +1,88 @@
+ready: 1
+kind: entity
+id: appraisal.data.appraisal
+display_id: DATA-APPRAISAL
+module: appraisal
+entity_kind: table
+table: appraisal
+name: appraisal
+summary: The appraisal of one episode memory.
+columns:
+  - name: memory_id
+    type: TEXT
+    keys: [PK, FK]
+    fk: {entity: memory.data.memory, column: id, on_delete: CASCADE}
+  - {name: stakes, type: REAL, nullable: false, check: stakes BETWEEN 0 AND 1}
+  - {name: surprise, type: REAL, nullable: false, check: surprise BETWEEN 0 AND 1}
+  - {name: outcome, type: REAL, nullable: false, check: outcome BETWEEN -1 AND 1}
+  - {name: social, type: REAL, nullable: false, check: social BETWEEN -1 AND 1}
+  - {name: directive, type: INTEGER, nullable: false, values: ["0", "1"]}
+  - {name: effort, type: REAL, nullable: false, check: effort BETWEEN 0 AND 1}
+  - {name: novelty, type: REAL, nullable: false, check: novelty BETWEEN 0 AND 1}
+  - {name: recurrence, type: INTEGER, nullable: false}
+  - {name: attribution, type: TEXT, nullable: false, values: [agent, user, environment]}
+  - {name: open_loop, type: INTEGER, nullable: false, values: ["0", "1"]}
+  - {name: arousal, type: REAL, nullable: false}
+  - {name: valence, type: REAL, nullable: false}
+  - name: salience
+    type: REAL
+    nullable: false
+    indexes: ["P1·1", "P2·1"]
+  - name: label
+    type: TEXT
+    nullable: false
+    values: [distrust, alarm, correction, frustration, relief, surprise, approval, curiosity, boredom]
+  - name: method
+    type: TEXT
+    nullable: false
+    values: [heuristic, judged, explicit]
+    indexes: ["P1·where"]
+    rule: Explicit values given by the caller are never overwritten by heuristics or judging
+  - {name: misleading_source_ids, type: TEXT, nullable: true, rule: Events the judge named as misleading}
+  - {name: judge_attempts, type: INTEGER, nullable: false, default: "0", rule: At most one judging attempt is made}
+  - name: explicit_request
+    type: INTEGER
+    nullable: false
+    default: "0"
+    values: ["0", "1"]
+    rule: Set when the episode holds an explicit remember request; such episodes replay first
+  - name: replay_state
+    type: TEXT
+    nullable: false
+    default: pending
+    values: [pending, replayed, reinforced, skipped]
+    rule: Written by consolidation as sleep replays or reinforces the episode
+    indexes: ["P2·where"]
+  - name: replay_attempts
+    type: INTEGER
+    nullable: false
+    default: "0"
+    rule: Failed extraction attempts, written by consolidation
+  - {name: appraised_at, type: TEXT, nullable: false}
+  - {name: judged_at, type: TEXT, nullable: true}
+indexes:
+  - id: P1
+    name: appraisal_judge_queue_idx
+    columns: [salience DESC]
+    where: method = 'heuristic' AND judge_attempts = 0
+    purpose: Picks the most salient heuristic appraisals to judge during sleep
+    serves: [appraisal.seq.judge]
+  - id: P2
+    name: appraisal_replay_queue_idx
+    columns: [salience DESC]
+    where: replay_state = 'pending'
+    purpose: Lists episodes waiting for replay during sleep, most salient first
+    requested_by: consolidation
+    serves: [consolidation.seq.sleep]
+access:
+  writers:
+    - appraisal writes every column except the replay columns
+    - consolidation writes replay_state and replay_attempts
+relationships:
+  - to: memory.data.memory
+    on: [{from: memory_id, to: id}]
+    from_card: 0..1
+    to_card: "1"
+    link: fk
+    on_delete: CASCADE
+    label: appraises an episode

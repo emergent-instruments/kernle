@@ -1,0 +1,52 @@
+ready: 1
+kind: operation
+id: trust.op.trust
+display_id: kernle.trust
+module: trust
+name: >-
+  Kernle.trust_set(entity, domain, score, evidence) · trust_show · trust_list · trust_compute · trust_chain
+  · seed_trust · apply_trust_decay
+summary: >-
+  Records and reads the agent's trust in other entities. Setting a score adds direct evidence; computing
+  returns decayed and transitive trust with the evidence behind it; seeding adds the default assessments
+  for the owner and the agent itself.
+params:
+- name: entity
+  type: str
+  source: The entity the agent is judging
+  source_kind: parameter
+- name: domain
+  type: str
+  source: The domain the score applies to, general by default
+  source_kind: parameter
+- name: score
+  type: float
+  source: Trust from 0 to 1, for trust_set
+  source_kind: parameter
+- name: evidence
+  type: str
+  source: Optional episode id or text explaining the score
+  source_kind: parameter
+- name: chain
+  type: list[str]
+  source: The entities between the agent and the target, for trust_chain
+  source_kind: parameter
+returns: >-
+  The assessment id for trust_set; assessments with domain scores, decayed trust, chain used, and evidence
+  for the reads
+errors:
+- code: score_out_of_range
+  when: the score is outside 0 to 1
+- code: chain_too_long
+  when: the chain is longer than the maximum trust chain depth
+- code: not_found
+  when: no assessment exists for the entity being shown
+sequence: trust.seq.assess
+owner: crates/kernle-core/src/trust/assess.rs
+tags:
+- tag: cli
+  text: kernle trust set|show|list|compute|chain|seed|decay
+- tag: python
+  text: >-
+    trust_set, trust_show, trust_list, trust_compute, trust_chain, seed_trust, apply_trust_decay, compute_direct_trust,
+    compute_transitive_trust, compute_self_trust_floor

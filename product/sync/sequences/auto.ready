@@ -1,0 +1,26 @@
+ready: 1
+kind: sequence
+id: sync.seq.auto
+display_id: SEQ-SYNC-AUTO
+module: sync
+title: Sync linked stacks in the background
+summary: Syncs each linked stack on an interval when it has pending changes or has not pulled recently, never inside a hook.
+trigger:
+  trigger_kind: schedule
+  text: Every sync interval while the daemon runs
+participants:
+  - sys.daemon
+items:
+  - loop:
+      while: linked stacks remain
+      items:
+        - msg:
+            from: sys.daemon
+            to: sys.daemon
+            text: Sync the stack when it has pending changes or its last pull is older than the interval
+            constants: [sync.const.auto-interval]
+            invokes: [sync.seq.sync]
+            guards: [the owner is signed in, the stack has no sync already running]
+rationale: >-
+  Background sync runs only in the daemon, so loading memory or answering a
+  hook never waits on the network.

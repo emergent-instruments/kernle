@@ -1,0 +1,19 @@
+ready: 1
+kind: operation
+id: recall.op.cue
+display_id: kernle.recall.cue
+module: recall
+name: CueInject(stack, session, prompt)
+summary: Returns the few memories most relevant to a prompt that this session has not already seen, or nothing.
+params:
+  - name: prompt
+    type: str
+    source: The runtime's prompt-submit hook payload
+    source_kind: payload
+  - name: session_id
+    type: str
+    source: The runtime's hook payload
+    source_kind: payload
+returns: Rendered cue text, or empty.
+sequence: recall.seq.cue
+owner: crates/kernle-core/src/recall/cue.rs::cue

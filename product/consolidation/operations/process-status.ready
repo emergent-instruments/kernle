@@ -1,0 +1,17 @@
+ready: 1
+kind: operation
+id: consolidation.op.process-status
+display_id: kernle.process_status
+module: consolidation
+name: Kernle.process_status()
+summary: >-
+  Reports what is waiting for each transition, which triggers are met, the last runs and their
+  results, pending suggestions by reason, and today's model spend against the budget.
+returns: "Per transition: unprocessed count, trigger state, last run; plus recent runs, pending suggestions by hold reason, and tokens spent today with the budget"
+sequence: consolidation.seq.status
+owner: crates/kernle-core/src/consolidation/status.rs::status
+tags:
+  - tag: cli
+    text: kernle process status
+  - tag: mcp
+    text: memory_process_status

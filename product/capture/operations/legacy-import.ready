@@ -1,0 +1,31 @@
+ready: 1
+kind: operation
+id: capture.op.legacy-import
+display_id: kernle.migrate
+module: capture
+name: kernle migrate [--from <path>] [--stack <id>] [--dry-run]
+summary: Imports stacks written by an earlier Kernle release into per-stack databases, keeping ids, provenance, dates, and protection.
+params:
+  - name: from
+    type: string
+    source: The earlier database; defaults to the earlier release's default location
+    source_kind: parameter
+  - name: stack
+    type: string
+    source: One stack to import; defaults to every stack in the file
+    source_kind: parameter
+  - name: dry_run
+    type: boolean
+    source: Report what would be imported without writing
+    source_kind: parameter
+returns: Per stack, counts imported by kind, repeats skipped, records not carried over and why.
+errors:
+  - code: unreadable
+    when: the file is not a database written by an earlier Kernle release
+  - code: kernle_unavailable
+    when: Kernle is not initialized for this account, or the stack cannot be opened
+auth: Owner command in an interactive terminal
+sequence: capture.seq.legacy-import
+owner: crates/kernle-core/src/capture/legacy.rs::import_legacy
+tags:
+  - {tag: cli, text: kernle migrate}

@@ -1,0 +1,27 @@
+# How each runtime reaches Kernle. Behavior is owned by the sequences named.
+claude-code:
+  adapter: Kernle Claude Code plugin running `kernle hook <event>` (agents.seq.hook)
+  hooks:
+    SessionStart: session index (recall.seq.load)
+    UserPromptSubmit: cue injection (recall.seq.cue)
+    PreToolUse: home write guard, opt-in native memory capture, gut check (recall.seq.gut-check)
+    PreCompact: automatic checkpoint (recall.seq.checkpoint) and ingestion enqueue
+    Stop: ingestion enqueue (async hook)
+    SessionEnd: automatic checkpoint and ingestion enqueue
+  tools: "kernle mcp" over stdio (agents/files/mcp-tools.yaml)
+  transcripts: "~/.claude/projects/*/*.jsonl"
+codex:
+  adapter: MCP server entry "kernle mcp" in the Codex configuration
+  hooks: none
+  tools: "kernle mcp" over stdio
+  transcripts: "~/.codex/sessions/**/*.jsonl, ingested by the daemon watcher"
+openclaw:
+  adapter: Kernle OpenClaw plugin (an ordinary plugin, not the memory slot)
+  hooks:
+    before_agent_start: session index
+    before_prompt_build: cue injection
+    before_tool_call: home write guard and gut check, resolved per call for the calling agent
+    agent_end: ingest the completed turn and save an automatic checkpoint
+    tool_result_persist: shorten long Kernle output
+  tools: plugin-registered tools with the same contract as the MCP tools
+  transcripts: forwarded turns, spooled to ~/.kernle/spool/openclaw.jsonl while the daemon is unreachable

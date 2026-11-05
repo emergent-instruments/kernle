@@ -1,0 +1,7 @@
+ready: 1
+kind: capability
+id: cap.health
+name: Check memory health
+outcome: The agent and owner see what needs attention, how confident each memory is, and whether the stack is intact.
+actors: [actor.agent, actor.owner]
+owners: [health]

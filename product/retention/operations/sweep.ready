@@ -1,0 +1,10 @@
+ready: 1
+kind: operation
+id: retention.op.sweep
+display_id: kernle.retention.sweep
+module: retention
+name: RetentionSweep(stack)
+summary: Applies strength, dormancy, forgetting, expiry and scheduled purges to one stack.
+returns: Counts of memories that changed status or were purged, and captures and events expired.
+sequence: retention.seq.sweep
+owner: crates/kernle-core/src/retention/sweep.rs::sweep

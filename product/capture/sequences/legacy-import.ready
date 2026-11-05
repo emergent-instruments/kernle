@@ -1,0 +1,69 @@
+ready: 1
+kind: sequence
+id: capture.seq.legacy-import
+display_id: SEQ-CAPTURE-LEGACY
+module: capture
+title: Import stacks written by an earlier release
+summary: >-
+  Reads every stack from an earlier release's shared database into its own per-stack database,
+  keeping ids, provenance, dates, protection, and forgotten state, and leaving the earlier file
+  unchanged.
+trigger:
+  trigger_kind: call
+  text: The owner runs the legacy import, or setup finds an earlier database and offers it
+operation: capture.op.legacy-import
+participants:
+  - id: caller
+    is: [sys.cli]
+    label: CLI command
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: capture
+  - id: old
+    is: [sys.home]
+    label: Earlier release database
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Import the earlier stacks
+      call: kernle migrate [--from] [--stack] [--dry-run]
+      owner: crates/kernle-core/src/capture/legacy.rs::import_legacy
+  - msg: {from: core, to: old, text: Open the earlier database read-only and list its stacks}
+  - break:
+      when: the file is not a database written by an earlier Kernle release
+      items:
+        - msg: {from: core, to: caller, text: Report that the file is not recognized, reply: true, results: [{code: unreadable}]}
+  - loop:
+      while: each stack in the file
+      items:
+        - msg: {from: core, to: core, text: Create the stack if it does not exist, invokes: [stacks.op.stack]}
+        - msg:
+            from: core
+            to: core
+            text: Write each memory with its original id, dates, confidence, protection, and sources
+            invokes: [memory.seq.write]
+            note: A memory whose id already exists in the stack is skipped, so a repeated import changes nothing
+        - msg:
+            from: core
+            to: db
+            text: Carry provenance and history over as links and versions
+            ops:
+              - {op: insert, entity: memory.data.memory-link, set: [derived_from and source episodes as links]}
+              - {op: insert, entity: memory.data.memory-version, set: [belief confidence history as versions]}
+        - msg: {from: core, to: core, text: "Carry over raw captures, checkpoints, epochs, narratives, summaries, trust assessments, and pending suggestions through their owners", invokes: [capture.seq.raw, recall.op.checkpoint, identity.op.epoch, identity.op.narrative, identity.op.summary, trust.op.trust, consolidation.op.suggestions]}
+        - note:
+            over: [core]
+            text: >-
+              Memories the earlier release had forgotten arrive forgotten, with the recovery window
+              starting at import. Stored vectors, the sync queue, and sync state are not carried
+              over: the search index embeds every memory again and the first sync starts fresh.
+  - msg: {from: core, to: caller, text: "Return per stack the counts imported, skipped, and not carried over", reply: true}
+rationale: >-
+  The earlier file stays untouched so the import can be repeated or abandoned without loss. Vectors
+  are rebuilt because the earlier release mixed fallback hash vectors with model vectors, and
+  mixing them would make search unreliable.

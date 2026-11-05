@@ -1,0 +1,32 @@
+ready: 1
+kind: operation
+id: recall.op.feedback
+display_id: kernle.feedback
+module: recall
+name: Kernle.feedback(memory_id, verdict, note) · record_access(memory_type, memory_id)
+summary: >-
+  Records whether a recalled memory helped, was wrong, or was outdated, and
+  records an agent's deliberate use of a memory. Feedback changes ranking and
+  use; it never edits or deletes the memory.
+params:
+  - name: memory_id
+    type: str
+    source: Caller
+    source_kind: parameter
+  - name: verdict
+    type: "helped | wrong | outdated"
+    source: Caller
+    source_kind: parameter
+  - name: note
+    type: str | None
+    source: Caller, at most 500 characters
+    source_kind: parameter
+returns: Recorded, or not found.
+errors:
+  - code: not_found
+    when: The memory is not in the caller's stack
+sequence: recall.seq.feedback
+owner: crates/kernle-core/src/recall/feedback.rs
+tags:
+  - { tag: cli, text: "kernle feedback" }
+  - { tag: mcp, text: memory_feedback }

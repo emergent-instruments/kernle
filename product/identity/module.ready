@@ -1,0 +1,26 @@
+ready: 1
+kind: module
+id: identity
+name: Identity
+summary: >-
+  Keeps who the agent is over time: the self-narrative, the synthesized identity read at load,
+  drift between what the agent does and what it values, epochs that mark chapters of its life,
+  and period summaries. Runs in the Kernle core inside the daemon and the Python package.
+runs_in:
+  - sys.daemon
+  - sys.python
+owns:
+  - Self-narratives (DATA-SELF-NARRATIVE)
+  - Epochs (DATA-EPOCH)
+  - Period summaries (DATA-SUMMARY)
+  - Identity confidence and drift rules
+invariants:
+  - An identity layer changes only through the agent's deliberate call or an accepted suggestion.
+  - At most one active self-narrative of each type.
+  - At most one open epoch per stack.
+rationale: >-
+  Identity layers are hard to write and easy to read. They shape every later session, so no
+  background process writes them: sleep and processing only propose, and the agent's own
+  deliberate call or the owner's review makes a change real. Values and foundational beliefs
+  live in memory with the other layers; this module owns what describes the agent as a whole
+  and how it changes over time.

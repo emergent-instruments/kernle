@@ -1,0 +1,124 @@
+ready: 1
+kind: sequence
+id: memory.seq.update
+display_id: SEQ-MEMORY-UPDATE
+module: memory
+title: Update a memory
+summary: Changes a memory's fields as a new version, unless the memory is protected or owner-written and the caller is not the owner.
+trigger:
+  trigger_kind: call
+  text: An agent or the owner changes an episode, goal, belief, or other memory
+operation: memory.op.update
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: memory
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Change these fields of this memory
+      call: Kernle.update_<kind>(id, fields…, expected_version)
+      owner: crates/kernle-core/src/memory/update.rs::update_memory
+      inputs:
+        - name: id
+          source: The memory to change
+          source_kind: parameter
+        - name: expected_version
+          source: The version the caller read, or the current one
+          source_kind: parameter
+        - name: origin
+          source: Agent, owner command, processing, or sleep
+          source_kind: session
+  - msg:
+      from: core
+      to: core
+      text: Resolve and authorize the stack for this caller
+      invokes: [stacks.seq.resolve]
+  - msg:
+      from: core
+      to: db
+      text: Load the memory
+      ops:
+        - op: read
+          entity: memory.data.memory
+          index: PK
+  - alt:
+      branches:
+        - when: no live memory has this id
+          items:
+            - msg: {from: core, to: caller, text: Report that the memory is not found, reply: true, results: [{code: not_found}]}
+        - when: the memory changed since the expected version
+          items:
+            - msg: {from: core, to: caller, text: Report the conflict with the current version, reply: true, results: [{code: conflict}]}
+        - when: the change was pulled from the cloud by sync
+          items:
+            - transaction:
+                label: Apply the pulled version as it was written on the other device
+                items:
+                  - note:
+                      over: [core, db]
+                      text: The version keeps the other device's author, trust tier, and appraisal; the input gate is not applied again
+                      ops:
+                        - op: update
+                          entity: memory.data.memory
+                          index: PK
+                          set: [content, payload, content_hash, current_version, author, trust_tier, updated_at from the other device]
+                        - op: insert
+                          entity: memory.data.memory-version
+                        - op: append
+                          entity: memory.data.memory-change
+                          set: [change updated, actor sync]
+            - msg: {from: core, to: core, text: Signal the search index, invokes: [recall.seq.index]}
+            - msg: {from: core, to: caller, text: Return the applied version, reply: true, results: [{code: updated}]}
+        - when: the memory is protected or owner-written and the caller is not the owner
+          items:
+            - msg:
+                from: core
+                to: core
+                text: Keep the change as a suggestion for the owner
+                invokes: [consolidation.op.suggestions]
+                rules: [trust.rule.input-gate]
+            - msg: {from: core, to: caller, text: Report that the change waits for review, reply: true, results: [{code: held}]}
+        - when: the change may apply
+          items:
+            - msg:
+                from: core
+                to: core
+                text: Check the changed fields for the kind
+                rules: [memory.rule.kind-validation]
+            - transaction:
+                label: Store the new version and its change record together
+                items:
+                  - msg:
+                      from: core
+                      to: db
+                      text: Save the new version
+                      ops:
+                        - op: update
+                          entity: memory.data.memory
+                          index: PK
+                          where: current_version = expected version
+                          set: [content, payload, content_hash, current_version + 1, author, updated_at = now, last_used_at = now]
+                        - op: insert
+                          entity: memory.data.memory-version
+                        - op: append
+                          entity: memory.data.memory-change
+                          set: [change updated]
+            - opt:
+                when: an episode's outcome or lessons changed
+                items:
+                  - msg: {from: core, to: core, text: Appraise the episode again, invokes: [appraisal.seq.appraise]}
+            - msg: {from: core, to: core, text: Signal the search index, invokes: [recall.seq.index]}
+            - msg: {from: core, to: caller, text: Return the new version, reply: true, results: [{code: updated}]}
+rationale: >-
+  An agent's update to a memory the owner wrote or protected waits for the owner, because an
+  instruction injected into the agent must not be able to rewrite what the owner chose to keep.
+  An update counts as use of the memory, so it also resets its idle time.

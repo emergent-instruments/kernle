@@ -1,0 +1,27 @@
+ready: 1
+kind: journey
+id: retention.forget
+display_id: FLOW-RETENTION-FORGET
+module: retention
+actors: [actor.owner]
+title: Forget or delete a memory
+summary: The owner forgets a memory reversibly, recovers it, or purges it for good after reviewing everything the purge removes.
+trigger: The owner wants a memory out of the agent's view, or gone
+steps:
+  - retention.forget.choose
+  - retention.forget.forgotten
+  - retention.forget.recover
+  - retention.forget.pick
+  - retention.forget.preview
+  - retention.forget.purged
+  - retention.forget.cancelled
+  - retention.forget.no-terminal
+  - retention.forget.not-found
+sequences:
+  - retention.seq.forget
+  - retention.seq.recover
+  - retention.seq.purge
+rationale: >-
+  The preview reminds the owner that runtimes keep their own transcripts:
+  Kernle can only promise deletion of what it holds, and the owner may need the
+  runtime's own controls as well.

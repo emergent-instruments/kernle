@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.sleep-debounce
+module: consolidation
+name: SLEEP_DEBOUNCE_MINUTES
+value: "10"
+unit: minutes
+source: config.toml#sleep.debounce_minutes
+description: Quiet time after the latest activity before a sleep run starts.

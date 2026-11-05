@@ -1,0 +1,43 @@
+ready: 1
+kind: rule
+id: trust.rule.entity-trust
+display_id: RULE-TRUST-ENTITY
+module: trust
+title: How trust in an entity is computed
+summary: >-
+  Trust in an entity combines direct evidence, decays toward neutral without new evidence, and passes
+  through other entities only a few steps deep and never above the weakest link.
+owner: crates/kernle-core/src/trust/assess.rs::compute
+inputs:
+- name: assessment
+  source: The entity's domain scores and the episodes cited as evidence
+  source_kind: stored
+- name: age
+  source: Days since the assessment last changed
+  source_kind: derived
+- name: chain
+  source: Assessments of the entities along a trust chain
+  source_kind: stored
+constants:
+- trust.const.decay-half-life
+- trust.const.chain-depth
+- trust.const.self-floor
+calculations:
+- name: direct trust
+  expr: >-
+    for the asked domain (general when the domain has no score), the evidence-weighted mean of set and
+    observed scores, each episode weighted by its salience
+- name: decayed trust
+  expr: 0.5 + (direct trust - 0.5) × 0.5 ^ (days since last change ÷ decay half-life)
+- name: transitive trust
+  expr: >-
+    product of decayed trust along the chain, capped at the lowest link, for chains of at most the chain
+    depth
+- name: self trust
+  expr: the agent's trust in its own observations never falls below the self-trust floor
+then: The computed trust is returned with the evidence it rests on and the chain used
+default: 0.5 (neutral) for an entity with no evidence
+rationale: >-
+  Decay toward neutral keeps one bad interaction from defining an entity forever, and keeps old praise
+  from vouching for an entity that has changed. Bounding chain depth keeps "a friend of a friend of a
+  friend" from carrying meaningful trust.

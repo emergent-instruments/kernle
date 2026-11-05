@@ -1,0 +1,20 @@
+ready: 1
+kind: rule
+id: agents.rule.settings-merge
+display_id: RULE-AGENTS-SETTINGS-MERGE
+module: agents
+title: Changing a runtime's configuration safely
+summary: Kernle adds or removes only its own entries, keeps everything else exactly, and can always be undone.
+constraints:
+  - text: Hook and server lists are merged by appending Kernle's entries; existing entries keep their order and content.
+    hard: true
+  - text: An entry already present is not added twice.
+    hard: true
+  - text: A configuration file that does not parse is refused with nothing changed and the parse error shown.
+    hard: true
+  - text: Before any change the file is copied to a timestamped backup beside it, and the new content is written to a temporary file and renamed into place.
+    hard: true
+  - text: Removal deletes only entries that carry Kernle's command or plugin name and leaves every other entry as it is.
+    hard: true
+when: Setup or removal changes a runtime's configuration file
+then: The rule's constraints apply to every write of that file

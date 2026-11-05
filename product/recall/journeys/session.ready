@@ -1,0 +1,31 @@
+ready: 1
+kind: journey
+id: recall.session
+display_id: FLOW-RECALL-SESSION
+module: recall
+actors: [actor.agent, actor.owner]
+title: Memory during an agent session
+summary: The agent receives a memory index at the start, cues beside prompts, gut checks before risky actions, and uses recall tools as it works.
+trigger: A session starts in a connected runtime, or the agent loads its memory
+steps:
+  - recall.session.start
+  - recall.session.prompt
+  - recall.session.plan-tool
+  - recall.session.warned
+  - recall.session.paused
+  - recall.session.search
+  - recall.session.feedback
+  - recall.session.checkpoint
+  - recall.session.end
+sequences:
+  - recall.seq.session-index
+  - recall.seq.load
+  - recall.seq.cue
+  - recall.seq.gut-check
+  - recall.seq.search
+  - recall.seq.feedback
+  - recall.seq.checkpoint
+rationale: >-
+  With nothing to say, Kernle adds nothing: empty preambles and no-memory
+  messages would cost context in every session. Codex has no hooks, so its
+  sessions use only the tool path from the search step on.

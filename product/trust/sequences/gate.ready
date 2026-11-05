@@ -1,0 +1,128 @@
+ready: 1
+kind: sequence
+id: trust.seq.gate
+display_id: SEQ-TRUST-GATE
+module: trust
+title: Gate a proposed memory change
+summary: >-
+  Works out the trust tier a proposed change carries and applies it, holds it for review, or
+  quarantines it.
+trigger:
+  trigger_kind: call
+  text: A memory write, processing promotion, sleep extraction, import, or sync pull proposes a change
+operation: trust.op.gate
+participants:
+  - id: caller
+    label: Write path (memory write, processing, sleep, import, or sync)
+  - id: core
+    is:
+      - sys.daemon
+    label: Kernle core
+    owner: crates/kernle-core/src/trust/gate.rs
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Decide how to treat this proposed change
+      call: trust::gate(proposal, sources, requester)
+      inputs:
+        - name: proposal
+          source: The kind, content, and target of the change
+          source_kind: parameter
+        - name: sources
+          source: The memories, raw entries, and events the claim depends on
+          source_kind: parameter
+        - name: requester
+          source: Whether a deliberate call, processing, sleep, an import, or sync proposes it
+          source_kind: parameter
+  - msg:
+      from: core
+      to: db
+      text: Read the trust tier of each cited source
+      ops:
+        - op: read
+          entity: memory.data.memory
+          by:
+            - id
+          returns: trust tier and status of each cited memory
+        - op: read
+          entity: capture.data.raw-entry
+          by:
+            - id
+          returns: trust tier of each cited raw entry
+        - op: read
+          entity: capture.data.event
+          by:
+            - id
+          returns: trust tier of each cited event
+      rules:
+        - trust.rule.source-tier
+  - opt:
+      when: the change targets an existing memory
+      items:
+        - msg:
+            from: core
+            to: db
+            text: Read who wrote the target's latest version and whether it is protected
+            ops:
+              - op: read
+                entity: memory.data.memory
+                by:
+                  - id
+                returns: protection flag and current version
+              - op: read
+                entity: memory.data.memory-version
+                by:
+                  - memory id
+                  - current version
+                returns: author of the latest version
+  - note:
+      over:
+        - core
+      text: Take the lowest tier among the cited sources, then apply the input gate
+      rules:
+        - trust.rule.source-tier
+        - trust.rule.input-gate
+  - alt:
+      branches:
+        - when: the gate applies the change
+          items:
+            - msg:
+                from: core
+                to: caller
+                text: Apply, with the derived tier
+                reply: true
+                results:
+                  - code: apply
+        - when: the gate holds or quarantines the change
+          items:
+            - msg:
+                from: core
+                to: core
+                text: Record the held change for review with its reason
+                invokes:
+                  - consolidation.seq.hold
+            - msg:
+                from: core
+                to: caller
+                text: Held for review, with the suggestion and the reason
+                reply: true
+                results:
+                  - code: review
+                    when: the change touches owner or protected content, or is a preference the person never stated
+                  - code: quarantine
+                    when: a behavior-changing memory rests only on outside content
+        - when: the caller only asks how the change would be treated
+          items:
+            - msg:
+                from: core
+                to: caller
+                text: Return the decision without recording anything
+                reply: true
+rationale: >-
+  One gate for every write path keeps the tiers honest: an import, a sync pull, and a sleep
+  extraction cannot each decide differently whether outside content may shape behavior.

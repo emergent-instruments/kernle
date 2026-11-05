@@ -1,0 +1,24 @@
+ready: 1
+kind: operation
+id: recall.op.boot
+display_id: kernle.boot
+module: recall
+name: Kernle.boot_set(key, value) · boot_get · boot_list · boot_delete · boot_clear
+summary: Keeps a small set of settings that are always loaded at the top of working memory.
+params:
+  - name: key
+    type: str
+    source: Caller
+    source_kind: parameter
+  - name: value
+    type: str
+    source: Caller, for set
+    source_kind: parameter
+returns: The value, the list of settings, or whether a setting was removed.
+errors:
+  - code: too_many_settings
+    when: Setting a new key would make the settings larger than a quarter of the default load budget
+sequence: recall.seq.boot
+owner: crates/kernle-core/src/recall/boot.rs
+tags:
+  - { tag: cli, text: "kernle boot set|get|list|delete|clear" }

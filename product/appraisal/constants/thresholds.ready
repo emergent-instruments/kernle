@@ -1,0 +1,17 @@
+ready: 1
+kind: constant
+id: appraisal.const.thresholds
+module: appraisal
+name: APPRAISAL_THRESHOLDS
+description: Thresholds the label and judging rules use.
+table:
+  columns: [Setting, Value]
+  rows:
+    - [alarm minimum stakes, "0.7"]
+    - [surprise minimum, "0.6"]
+    - [recurrence similarity, "0.80"]
+    - [effort baseline when fewer than 10 episodes exist, "8 tool calls"]
+    - [evidence window before the peak, "20 events"]
+    - [judge minimum salience, "0.5"]
+    - [most episodes judged per sleep run, "40"]
+    - [largest judged excerpt, "6000 tokens"]

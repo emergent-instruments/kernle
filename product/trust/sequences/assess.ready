@@ -1,0 +1,119 @@
+ready: 1
+kind: sequence
+id: trust.seq.assess
+display_id: SEQ-TRUST-ASSESS
+module: trust
+title: Record and compute trust in an entity
+summary: >-
+  Sets, lowers, seeds, decays, and computes the agent's trust in entities, always returning the
+  evidence the trust rests on.
+trigger:
+  trigger_kind: call
+  text: The agent or owner calls a trust command, or sleep lowers trust in a misleading source
+operation: trust.op.trust
+participants:
+  - id: caller
+    label: Agent, owner command, or sleep run
+  - id: core
+    is:
+      - sys.daemon
+    label: Kernle core
+    owner: crates/kernle-core/src/trust/assess.rs
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Trust request for an entity
+      invokes:
+        - stacks.seq.resolve
+  - alt:
+      branches:
+        - when: setting a score, or sleep lowering a misleading source
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Record the score and its evidence for the domain
+                guards:
+                  - The score is between 0 and 1
+                ops:
+                  - op: upsert
+                    entity: trust.data.trust-assessment
+                    index: U1
+                    set:
+                      - dimensions for the domain
+                      - evidence_ids append
+                      - source
+                      - updated_at now
+            - msg:
+                from: core
+                to: db
+                text: Log the change for sync
+                ops:
+                  - op: enqueue
+                    entity: sync.data.sync-queue
+                    set:
+                      - the assessment change
+        - when: seeding defaults
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Add neutral assessments for the owner and the agent itself when missing
+                constants:
+                  - trust.const.self-floor
+                ops:
+                  - op: insert
+                    entity: trust.data.trust-assessment
+                    index: U1
+                    conflict: do nothing
+                    set:
+                      - source seed
+        - when: computing, showing, listing, or following a chain
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Read the assessments involved
+                guards:
+                  - The chain is no longer than the maximum depth
+                constants:
+                  - trust.const.chain-depth
+                ops:
+                  - op: read
+                    entity: trust.data.trust-assessment
+                    index: U1
+            - note:
+                over:
+                  - core
+                text: Combine direct evidence, decay toward neutral, and pass through the chain
+                rules:
+                  - trust.rule.entity-trust
+        - when: applying decay to every assessment
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Store each decayed score
+                rules:
+                  - trust.rule.entity-trust
+                ops:
+                  - op: update
+                    entity: trust.data.trust-assessment
+                    set:
+                      - dimensions decayed
+  - msg:
+      from: core
+      to: caller
+      text: The assessment with its trust, the chain used, and its evidence
+      reply: true
+      results:
+        - code: ok
+        - code: not_found
+          when: no assessment exists for the entity
+        - code: chain_too_long
+          when: the chain exceeds the maximum depth

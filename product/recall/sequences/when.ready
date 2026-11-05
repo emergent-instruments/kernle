@@ -1,0 +1,56 @@
+ready: 1
+kind: sequence
+id: recall.seq.when
+display_id: SEQ-RECALL-WHEN
+module: recall
+title: Answer what happened in a period
+summary: Reads a period, then returns that period's episodes, notes and checkpoints as a timeline.
+trigger:
+  trigger_kind: call
+  text: The agent or owner asks what happened in a period
+operation: recall.op.when
+participants:
+  - id: caller
+    is: [actor.agent, actor.owner]
+    label: Agent or owner
+  - id: api
+    is: [sys.python, sys.cli]
+    label: Kernle Python package, command line or tool server
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: api
+      text: Ask what happened
+      call: Kernle.what_happened(when)
+      inputs:
+        - { name: when, source: The caller, source_kind: parameter }
+  - alt:
+      branches:
+        - when: the period cannot be read
+          items:
+            - msg:
+                from: api
+                to: caller
+                text: Refuse the period
+                reply: true
+                results:
+                  - code: invalid_period
+                    copy: Kernle could not understand that period. Try today, last week, or a date range.
+        - when: the period is a date range in the stack's local time
+          items:
+            - msg:
+                from: api
+                to: db
+                text: Read memories and checkpoints created in the period
+                ops:
+                  - { op: read, entity: memory.data.memory, where: "created_at in the period and status is active or dormant", order: created_at ASC }
+                  - { op: read, entity: recall.data.checkpoint, index: I1, where: "created_at in the period" }
+            - msg:
+                from: api
+                to: caller
+                text: Return the timeline grouped by day
+                reply: true
+                rules: [recall.rule.render]

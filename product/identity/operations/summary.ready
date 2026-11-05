@@ -1,0 +1,39 @@
+ready: 1
+kind: operation
+id: identity.op.summary
+display_id: kernle.summary
+module: identity
+name: Kernle.summary_save(content, scope, period_start, period_end, key_themes, supersedes, epoch_id) · summary_get(summary_id) · summary_list(scope)
+summary: Saves and reads the agent's summaries of periods of its life; a new summary can supersede earlier ones of the same period.
+params:
+  - name: content
+    type: str
+    source: The summary text
+    source_kind: parameter
+  - name: scope
+    type: str
+    source: month, quarter, year, decade, or epoch
+    source_kind: parameter
+  - name: period_start
+    type: str
+    source: ISO date the period starts
+    source_kind: parameter
+  - name: period_end
+    type: str
+    source: ISO date the period ends
+    source_kind: parameter
+  - name: supersedes
+    type: list[str] | None
+    source: Summaries this one replaces
+    source_kind: parameter
+returns: "The summary id for save; summaries for reads"
+errors:
+  - code: invalid_scope
+    when: the scope is not one of the five
+  - code: invalid_period
+    when: the period ends before it starts
+sequence: identity.seq.summary
+owner: crates/kernle-core/src/identity/summary.rs
+tags:
+  - tag: cli
+    text: kernle summary save|show|list

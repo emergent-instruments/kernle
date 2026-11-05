@@ -1,0 +1,10 @@
+ready: 1
+kind: step
+id: health.check.fix
+journey: health.check
+title: The owner runs the named fix
+step_kind: action
+does:
+  - Runs the command the doctor named, such as starting the daemon or binding a model
+next:
+  - { to: health.check.doctor, label: Run the doctor again, next_kind: action }

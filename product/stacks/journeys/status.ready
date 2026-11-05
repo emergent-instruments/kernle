@@ -1,0 +1,13 @@
+ready: 1
+kind: journey
+id: stacks.status
+display_id: FLOW-STACKS-STATUS
+module: stacks
+actors: [actor.owner]
+title: Check memory status
+summary: The owner sees whether Kernle is running, what it spends, and what each stack holds and needs.
+steps:
+  - stacks.status.view
+sequences: [stacks.seq.status]
+related:
+  - { to: consolidation.review, label: Review pending suggestions, relation: leads_to }

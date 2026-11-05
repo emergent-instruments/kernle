@@ -1,0 +1,102 @@
+ready: 1
+kind: sequence
+id: health.seq.doctor
+display_id: SEQ-HEALTH-DOCTOR
+module: health
+title: Check the stack's integrity
+summary: Runs every integrity and setup check, or the checks for one memory, and reports each finding
+  with its fix.
+trigger:
+  trigger_kind: call
+  text: The owner or agent runs the doctor or verifies a memory
+operation: health.op.doctor
+participants:
+- id: caller
+  is:
+  - actor.owner
+  - actor.agent
+  label: Owner or agent
+- id: api
+  is:
+  - sys.python
+  - sys.cli
+  label: Kernle Python package or command line
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database and home files
+items:
+- msg:
+    from: caller
+    to: api
+    text: Run the doctor
+    call: Kernle.doctor()
+    invokes:
+    - stacks.seq.resolve
+- alt:
+    branches:
+    - when: one memory is named
+      items:
+      - msg:
+          from: api
+          to: db
+          text: Check that memory's versions and provenance
+          call: Kernle.verify_memory(memory_type, memory_id)
+          rules:
+          - health.rule.integrity
+          ops:
+          - op: read
+            entity: memory.data.memory
+            by:
+            - id
+          - op: read
+            entity: memory.data.memory-version
+            by:
+            - memory_id
+          - op: read
+            entity: memory.data.memory-link
+            by:
+            - from memory
+    - when: the whole stack is checked
+      items:
+      - msg:
+          from: api
+          to: db
+          text: Check schema, versions, provenance, index coverage and file modes
+          rules:
+          - health.rule.integrity
+          ops:
+          - op: read
+            entity: memory.data.memory
+          - op: read
+            entity: memory.data.memory-version
+          - op: read
+            entity: memory.data.memory-link
+          - op: read
+            entity: recall.data.search-index
+          - op: read
+            entity: recall.data.index-state
+          - op: read
+            entity: sync.data.sync-queue
+            where: state = dead
+          - op: read
+            entity: sync.data.sync-conflict
+            where: unresolved
+      - msg:
+          from: api
+          to: sys.daemon
+          text: Ask whether the daemon answers and the bound models respond
+          invokes:
+          - stacks.op.daemon
+          - stacks.op.model
+- msg:
+    from: api
+    to: caller
+    text: Report each check as passed, warning or failed, with the call that fixes it
+    reply: true
+    results:
+    - when: every check passes
+      copy: All checks passed.
+    - when: any check fails
+      code: failed

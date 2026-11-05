@@ -1,0 +1,21 @@
+ready: 1
+kind: operation
+id: appraisal.op.detect-emotion
+display_id: kernle.detect_emotion
+module: appraisal
+name: Kernle.detect_emotion(text)
+summary: Estimates the emotional valence and arousal of a piece of text, or returns neutral when no model is bound.
+params:
+  - name: text
+    type: string
+    source: The text to read
+    source_kind: parameter
+returns: Valence from −1 to 1, arousal from 0 to 1, emotion tags, and a confidence that is 0 when no model was used.
+errors:
+  - code: kernle_unavailable
+    when: Kernle is not initialized for this account
+auth: The caller's account owns the Kernle home
+sequence: appraisal.seq.emotion
+owner: crates/kernle-core/src/appraisal/emotion.rs::detect_emotion
+tags:
+  - {tag: cli, text: kernle emotion detect}

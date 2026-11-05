@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: recall.const.injection-marker
+module: recall
+name: KERNLE_INJECTION_MARKER
+value: "⟦kernle⟧"
+description: >-
+  The prefix of every block Kernle injects, so capture can recognise Kernle's own
+  output in transcripts and never store it as new experience.

@@ -1,0 +1,9 @@
+ready: 1
+kind: step
+id: identity.reflect.done
+journey: identity.reflect
+title: Reflection finished
+step_kind: outcome
+next:
+  - to: $return
+    next_kind: auto

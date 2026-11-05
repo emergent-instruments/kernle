@@ -1,0 +1,11 @@
+ready: 1
+kind: system
+id: sys.claude-code
+name: Claude Code
+role: The owner's coding agent runtime, which runs Kernle hooks and MCP tools and writes its own transcripts
+system_kind: external
+connections:
+  - to: sys.claude-plugin
+    label: Loads the Kernle plugin
+  - to: sys.cli
+    label: Runs hook commands and the MCP server

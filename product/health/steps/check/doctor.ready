@@ -1,0 +1,14 @@
+ready: 1
+kind: step
+id: health.check.doctor
+journey: health.check
+title: The doctor reports each check
+step_kind: screen
+surface: health.surface.doctor
+sees:
+  - One line per check, passed, warning or failed, with the fixing command
+sequences: [health.seq.doctor]
+rules: [health.rule.integrity]
+next:
+  - { to: health.check.fix, when: a check fails or warns, next_kind: result }
+  - { to: health.check.healthy, when: every check passes, next_kind: result }

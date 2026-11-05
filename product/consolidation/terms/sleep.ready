@@ -1,0 +1,9 @@
+ready: 1
+kind: term
+id: consolidation.term.sleep
+module: consolidation
+name: Sleep
+definition: A background run, while the agent is idle, that turns recent experience into memories and tidies the stack.
+synonyms:
+  - sleep run
+  - consolidation run

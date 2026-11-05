@@ -1,0 +1,58 @@
+ready: 1
+kind: entity
+id: memory.data.memory-version
+module: memory
+entity_kind: table
+table: memory_version
+name: memory_version
+summary: The full content of one version of one memory.
+primary_key: [memory_id, version]
+columns:
+  - name: memory_id
+    type: TEXT
+    keys: [PK, FK]
+    fk: {entity: memory.data.memory, column: id, on_delete: CASCADE}
+  - name: version
+    type: INTEGER
+    keys: [PK]
+  - name: author
+    type: TEXT
+    nullable: false
+    values: [agent, owner, processing, sleep, sync, import]
+  - name: op_id
+    type: TEXT
+    nullable: true
+    rule: The caller's operation id; an operation applies at most once
+    indexes: ["P1·1"]
+  - name: content
+    type: TEXT
+    nullable: false
+  - name: payload
+    type: TEXT
+    nullable: false
+  - name: confidence
+    type: REAL
+    nullable: false
+  - name: reason
+    type: TEXT
+    nullable: true
+    rule: Why the version was written, such as the evidence for a belief revision
+  - name: created_at
+    type: TEXT
+    nullable: false
+indexes:
+  - id: P1
+    name: memory_version_op_key
+    unique: true
+    columns: [op_id ASC]
+    where: op_id IS NOT NULL
+    purpose: A retried write or update with the same operation id applies once
+    serves: [memory.seq.write, memory.seq.update]
+relationships:
+  - to: memory.data.memory
+    on: [{from: memory_id, to: id}]
+    from_card: 1..many
+    to_card: "1"
+    link: fk
+    on_delete: CASCADE
+    label: is a version of

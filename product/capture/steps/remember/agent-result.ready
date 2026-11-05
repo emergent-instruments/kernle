@@ -1,0 +1,12 @@
+ready: 1
+kind: step
+id: capture.remember.agent-result
+journey: capture.remember
+title: The agent sees it was kept
+step_kind: outcome
+surface: capture.surface.tool-result
+copy:
+  body:
+    - "Saved {kind} {id}."
+sees:
+  - The memory's kind and id, or that the same memory already existed

@@ -1,0 +1,17 @@
+ready: 1
+kind: surface
+id: consolidation.surface.log
+module: consolidation
+name: Memory log
+surface_kind: screen
+system: sys.cli
+audience: The owner, or the agent through the status tools
+summary: Terminal output of recent runs and what each one changed.
+elements:
+  - name: Run list
+    description: Newest first; each run with stack, time, and counts learned, updated, forgotten, held, and quarantined, plus a budget note
+  - name: Run entries
+    description: For one run, each change with the memory's kind and summary, the change, why it mattered (emotion label and top appraisal reasons), and the sessions it came from
+states:
+  - No runs yet, with when the next sleep is due
+  - Deleted memories shown as a memory of their kind that was forgotten, without content

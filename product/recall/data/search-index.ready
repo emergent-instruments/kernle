@@ -1,0 +1,61 @@
+ready: 1
+kind: entity
+id: recall.data.search-index
+display_id: DATA-SEARCH-INDEX
+module: recall
+entity_kind: table
+table: memory_vector
+name: memory_vector
+summary: >-
+  The searchable form of one active, dormant or forgotten memory: its
+  full-text row and, when an embedding model is available, its vector.
+columns:
+  - name: memory_id
+    type: TEXT
+    keys: [PK, FK]
+    fk:
+      entity: memory.data.memory
+      column: id
+      on_delete: CASCADE
+  - name: version
+    type: INTEGER
+    nullable: false
+    rule: The memory version the row was computed from
+  - name: model_id
+    type: TEXT
+    nullable: true
+    rule: The embedding model that produced the vector; a vector counts only when it equals the stack's bound embedding model
+  - name: vector
+    type: BLOB
+    nullable: true
+    rule: float32 array; empty when no embedding model is available, never a hash stand-in
+  - name: kind
+    type: TEXT
+    nullable: false
+    rule: Copied from the memory so filters run inside the index
+    indexes: [I1·1]
+derivations:
+  - by: recall.seq.index
+    columns: [version, model_id, vector, kind]
+    text: Computed from the memory's current content, name and kind
+indexes:
+  - id: I1
+    name: memory_vector_kind_idx
+    columns: [kind ASC]
+    purpose: Restricts brute-force similarity to the requested kinds
+    serves: [recall.seq.search]
+relationships:
+  - to: memory.data.memory
+    on:
+      - from: memory_id
+        to: id
+    from_card: "0..1"
+    to_card: "1"
+    link: fk
+    on_delete: CASCADE
+    label: searchable form of one memory
+notes: >-
+  A companion full-text table, memory_fts (FTS5 over content and kind-specific
+  text), holds one row per indexed memory and is kept in step with this table by
+  recall.seq.index. Vectors live only in the stack's own database, so one
+  stack's vectors never crowd another's results.

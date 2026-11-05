@@ -1,0 +1,14 @@
+ready: 1
+kind: step
+id: stacks.setup.done
+journey: stacks.setup
+title: Setup complete
+step_kind: outcome
+surface: stacks.surface.init
+copy:
+  body:
+  - 'Kernle is ready. Next: kernle setup claude-code, codex, or openclaw.'
+next:
+- to: agents.connect
+  label: Connect a runtime
+  next_kind: action

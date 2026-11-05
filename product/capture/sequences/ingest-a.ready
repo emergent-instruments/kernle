@@ -1,0 +1,70 @@
+ready: 1
+kind: sequence
+id: capture.seq.ingest.a
+display_id: SEQ-CAPTURE-INGEST-a
+module: capture
+title: Ingest a runtime session — store events
+part_of: capture.seq.ingest
+participants:
+  - id: worker
+    is: [sys.daemon]
+    label: Ingestion worker
+  - id: records
+    is: [sys.claude-code, sys.codex, sys.openclaw]
+    label: Runtime session records
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: worker
+      to: records
+      text: Read the session's working folder and session id from its first record
+      owner: crates/kernle-core/src/capture/ingest.rs::ingest_source
+  - msg: {from: worker, to: worker, text: Resolve the stack for the session's folder or OpenClaw agent, invokes: [stacks.seq.resolve]}
+  - msg:
+      from: worker
+      to: db
+      text: Read how far this source has been read
+      ops:
+        - {op: read, entity: capture.data.ingest-cursor, index: PK}
+  - opt:
+      when: the file's device or inode differs, or the file is shorter than the stored offset
+      items:
+        - note: {over: [worker], text: Start again from the beginning; positions already stored are skipped by the unique key}
+  - msg:
+      from: worker
+      to: records
+      text: Read complete records after the stored offset, stopping before a line still being written
+  - loop:
+      while: each complete record
+      items:
+        - msg: {from: worker, to: worker, text: Decide what the record becomes, rules: [capture.rule.classify], constants: [capture.const.injection-marker]}
+        - opt:
+            when: the record is kept
+            items:
+              - msg: {from: worker, to: worker, text: Remove secrets and trim long text to its first and last halves, rules: [capture.rule.scrub], constants: [capture.const.max-event-chars]}
+  - transaction:
+      label: Store the events and move the cursor together
+      items:
+        - msg:
+            from: worker
+            to: db
+            text: Store the events and the new offset
+            constants: [capture.const.event-retention-days]
+            ops:
+              - op: insert
+                entity: capture.data.event
+                index: U1
+                conflict: do nothing
+                set: [session_id, seq, runtime, source_key, source_pos, kind, actor, trust_tier, payload, expires_at = now + event retention]
+              - op: upsert
+                entity: capture.data.ingest-cursor
+                index: PK
+                set: [byte_offset, next_pos, file_dev, file_ino, updated_at]
+  - break:
+      when: the database write fails
+      items:
+        - note: {over: [worker, db], text: Roll back; the cursor stays where it was and the next trigger resumes from the same offset}
+  - continue:
+      to: capture.seq.ingest.b

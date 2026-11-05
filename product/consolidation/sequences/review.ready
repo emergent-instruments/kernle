@@ -1,0 +1,146 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.review
+display_id: SEQ-CONSOLIDATION-REVIEW
+module: consolidation
+title: Resolve a suggestion
+summary: >-
+  Accepts, modifies, rejects, or dismisses a held change; accepting writes the memory, promotes
+  the suggestion, and marks its sources in one transaction.
+trigger:
+  trigger_kind: call
+  text: The agent or owner resolves a suggestion through review, the CLI, an MCP tool, or the Python package
+operation: consolidation.op.suggestions
+participants:
+  - id: caller
+    label: Agent tool or owner command
+  - id: core
+    is:
+      - sys.daemon
+    label: Kernle core
+    owner: crates/kernle-core/src/consolidation/review.rs::resolve
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Resolve this suggestion
+      invokes:
+        - stacks.seq.resolve
+      inputs:
+        - name: decision
+          source: Accept, accept with modifications, reject, or dismiss
+          source_kind: parameter
+        - name: requester role
+          source: Owner in an interactive terminal, or the agent
+          source_kind: session
+  - msg:
+      from: core
+      to: db
+      text: Load the suggestion and its target
+      ops:
+        - op: read
+          entity: consolidation.data.suggestion
+          by:
+            - id
+        - op: read
+          entity: memory.data.memory
+          by:
+            - target_id
+          returns: current version
+  - alt:
+      branches:
+        - when: the suggestion is not pending
+          items:
+            - msg:
+                from: core
+                to: caller
+                text: Not found
+                reply: true
+                results:
+                  - code: not_found
+        - when: the agent accepts a quarantined change or a change to owner content
+          items:
+            - msg:
+                from: core
+                to: caller
+                text: Refuse; only the owner may accept it
+                reply: true
+                results:
+                  - code: owner_only
+                    copy: This change needs the owner. Run kernle review in a terminal.
+        - when: accept, and the target changed since the proposal
+          items:
+            - msg:
+                from: core
+                to: caller
+                text: Show the current memory beside the proposal for a fresh decision
+                reply: true
+                results:
+                  - code: target_changed
+        - when: accept or accept with modifications
+          items:
+            - transaction:
+                label: One commit for the memory, the suggestion, and the marks
+                items:
+                  - msg:
+                      from: core
+                      to: core
+                      text: Write or change the memory, as the owner's or agent's content
+                      invokes:
+                        - memory.seq.write
+                        - memory.seq.update
+                        - memory.seq.revise-belief
+                        - retention.seq.purge
+                      note: A held forget request is carried out through purge after the owner accepts it.
+                  - msg:
+                      from: core
+                      to: db
+                      text: Promote the suggestion and mark its sources
+                      ops:
+                        - op: update
+                          entity: consolidation.data.suggestion
+                          by:
+                            - id
+                          set:
+                            - status promoted or modified
+                            - resolved_at now
+                            - promoted_to
+                        - op: upsert
+                          entity: consolidation.data.transition-mark
+                          set:
+                            - outcome promoted
+            - msg:
+                from: core
+                to: caller
+                text: The memory it became
+                reply: true
+                results:
+                  - code: promoted
+        - when: reject or dismiss
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Close the suggestion without applying it
+                ops:
+                  - op: update
+                    entity: consolidation.data.suggestion
+                    by:
+                      - id
+                    set:
+                      - status rejected or dismissed
+                      - resolved_at now
+            - msg:
+                from: core
+                to: caller
+                text: Closed
+                reply: true
+rationale: >-
+  Accepting a quarantined change needs the owner in an interactive terminal because agents run
+  under the owner's account and could otherwise approve the very change their input produced.
+  An accepted or edited change is recorded as the accepter's content, so the input gate then
+  protects it from automatic rewrites.

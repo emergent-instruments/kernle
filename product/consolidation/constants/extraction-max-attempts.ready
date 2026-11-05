@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.extraction-max-attempts
+module: consolidation
+name: EXTRACTION_MAX_ATTEMPTS
+value: "2"
+unit: attempts
+source: config.toml#sleep.extraction_max_attempts
+description: Failed extraction attempts before an episode is skipped.

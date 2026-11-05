@@ -1,0 +1,75 @@
+ready: 1
+kind: entity
+id: consolidation.data.transition-mark
+display_id: DATA-TRANSITION-MARK
+module: consolidation
+entity_kind: table
+table: transition_mark
+name: transition_mark
+summary: The record that one source has been through one processing transition.
+columns:
+  - name: source_id
+    type: TEXT
+    keys:
+      - PK
+    rule: A raw entry, episode, or belief id
+  - name: transition
+    type: TEXT
+    keys:
+      - PK
+    values:
+      - raw_to_episode
+      - raw_to_note
+      - episode_to_belief
+      - episode_to_goal
+      - episode_to_relationship
+      - episode_to_drive
+      - episode_to_guardrail
+      - episode_to_playbook
+      - belief_to_value
+  - name: outcome
+    type: TEXT
+    nullable: false
+    values:
+      - promoted
+      - suggested
+      - skipped
+    rule: Skipped means the model found nothing to promote from this source for this transition
+  - name: run_id
+    type: TEXT
+    nullable: false
+    keys:
+      - FK
+    fk:
+      entity: consolidation.data.run
+      column: id
+  - name: marked_at
+    type: TEXT
+    nullable: false
+primary_key:
+  - source_id
+  - transition
+relationships:
+  - to: consolidation.data.run
+    on:
+      - from: run_id
+        to: id
+    from_card: 0..many
+    to_card: "1"
+    link: fk
+    label: The run that processed the source
+  - to: memory.data.memory
+    link: logical
+    from_card: 0..many
+    to_card: 0..1
+    label: source_id names an episode or belief for episode and belief transitions
+    reason: Purging the memory deletes its marks
+  - to: capture.data.raw-entry
+    link: logical
+    from_card: 0..many
+    to_card: 0..1
+    label: source_id names a raw entry for raw transitions
+    reason: Purging the raw entry deletes its marks
+invariants:
+  - A source is unprocessed for a transition exactly when it has no mark for that transition.
+  - A failed batch writes no marks, so its sources stay eligible.

@@ -1,0 +1,125 @@
+ready: 1
+kind: sequence
+id: memory.seq.revise-belief
+display_id: SEQ-MEMORY-REVISE
+module: memory
+title: Revise, supersede, or reinforce a belief
+summary: >-
+  Changes a belief's confidence with a reason, replaces it with a newer belief, raises its
+  confidence when evidence agrees, or weighs one episode against the beliefs it relates to.
+trigger:
+  trigger_kind: call
+  text: An agent, processing, or sleep revises a belief, or asks which beliefs an episode supports or contradicts
+operation: memory.op.revise-belief
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: memory
+  - id: db
+    is: [sys.home]
+    label: Stack database
+  - sys.model
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Revise this belief
+      call: Kernle.revise_belief(id, confidence, reason) · supersede_belief(old_id, statement, reason) · reinforce_belief(id) · revise_beliefs_from_episode(episode_id)
+      owner: crates/kernle-core/src/memory/revise.rs::revise_belief
+  - msg: {from: core, to: core, text: Resolve and authorize the stack for this caller, invokes: [stacks.seq.resolve]}
+  - alt:
+      branches:
+        - when: reinforce
+          items:
+            - msg:
+                from: core
+                to: db
+                text: Raise the belief's confidence and count the reinforcement as use
+                constants: [memory.const.reinforce-step]
+                ops:
+                  - op: update
+                    entity: memory.data.memory
+                    index: PK
+                    set: [confidence + reinforcement step capped at 1, payload times reinforced + 1, last_used_at = now]
+                  - op: append
+                    entity: memory.data.memory-change
+                    set: [change reinforced]
+        - when: revise
+          items:
+            - msg:
+                from: core
+                to: core
+                text: Update the belief's confidence as a new version with the reason
+                invokes: [memory.seq.update]
+        - when: supersede
+          items:
+            - msg:
+                from: core
+                to: core
+                text: Write the newer belief through the write path
+                invokes: [memory.seq.write]
+            - transaction:
+                label: Mark the old belief superseded and link the two
+                items:
+                  - note:
+                      over: [core, db]
+                      text: The old belief stays for history and is never injected again
+                      ops:
+                        - op: update
+                          entity: memory.data.memory
+                          index: PK
+                          set: [status superseded]
+                        - op: insert
+                          entity: memory.data.memory-link
+                          set: [from the newer belief, to the old belief, relation supersedes]
+                        - op: append
+                          entity: memory.data.memory-change
+                          set: [change superseded]
+        - when: weigh an episode
+          items:
+            - msg:
+                from: core
+                to: core
+                text: Find the active beliefs related to the episode
+                invokes: [recall.op.search]
+            - opt:
+                when: a model is bound to the stack
+                items:
+                  - msg:
+                      from: core
+                      to: sys.model
+                      text: Ask whether the episode supports, contradicts, or is unrelated to each belief
+            - loop:
+                while: each related belief
+                items:
+                  - alt:
+                      branches:
+                        - when: the episode supports it
+                          items:
+                            - msg: {from: core, to: core, text: Reinforce the belief and link the episode as evidence}
+                        - when: the episode contradicts it
+                          items:
+                            - msg:
+                                from: core
+                                to: core
+                                text: Propose a revision for review and link the episode as contradicting evidence
+                                invokes: [consolidation.op.suggestions]
+  - opt:
+      when: a protected, foundational, or owner-written belief would be revised or superseded by anyone but the owner
+      items:
+        - msg:
+            from: core
+            to: core
+            text: Keep the revision as a suggestion instead
+            invokes: [consolidation.op.suggestions]
+            rules: [trust.rule.input-gate]
+  - msg: {from: core, to: core, text: Signal the search index, invokes: [recall.seq.index]}
+  - msg: {from: core, to: caller, text: Return the result, reply: true}
+rationale: >-
+  A belief that changes keeps every earlier version, so the agent and the owner can see how a view
+  formed and why it moved. A contradiction found in one episode only proposes a revision, because a
+  single surprising outcome is not enough to overturn a belief that many episodes support.

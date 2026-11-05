@@ -1,0 +1,20 @@
+ready: 1
+kind: operation
+id: sync.op.sync
+display_id: kernle.sync
+module: sync
+name: Kernle.sync() · kernle sync | push | pull
+summary: Pushes then pulls a linked stack; no change is cleared until the cloud confirms it, and deletions travel both ways.
+params:
+  - { name: direction, source: "The command: both, push only, or pull only", source_kind: parameter, type: string }
+returns: Counts of changes pushed, pulled, conflicts held, and changes marked dead
+errors:
+  - { code: not_linked, copy: "This stack is not synced. Run kernle sync enable to link it." }
+  - { code: not_signed_in, copy: "Sign in with kernle auth login to sync." }
+  - { code: cloud_unreachable, when: the cloud cannot be reached, copy: "The cloud could not be reached. Changes stay queued." }
+sequence: sync.seq.sync
+owner: crates/kernle-core/src/sync/mod.rs::sync
+tags:
+  - { tag: cli, text: "kernle sync" }
+  - { tag: mcp, text: memory_sync }
+  - { tag: python, text: "Kernle.sync()" }

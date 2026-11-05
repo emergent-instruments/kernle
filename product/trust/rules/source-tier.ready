@@ -1,0 +1,45 @@
+ready: 1
+kind: rule
+id: trust.rule.source-tier
+display_id: RULE-TRUST-TIER
+module: trust
+title: Trust tier of a capture or memory
+summary: >-
+  Every capture gets a tier from who produced it, and a derived memory gets the lowest tier among the
+  sources its claim depends on.
+owner: crates/kernle-core/src/trust/tier.rs::tier_for
+table:
+  columns:
+  - Source
+  - Tier
+  rows:
+  - - The person's own typed words, or an owner command in an interactive terminal
+    - principal
+  - - The outcome of a tool the agent ran (success or failure, exit status, test counts)
+    - first_party
+  - - >-
+      The agent's deliberate memory call, assistant messages, or model extraction during processing or
+      sleep
+    - agent_inferred
+  - - >-
+      Tool output text, file contents, web pages, other tools' results, and imports of unknown authorship
+    - third_party
+calculations:
+- name: derived tier
+  expr: >-
+    lowest tier among the sources the derived claim depends on, ordered principal > first_party > agent_inferred
+    > third_party
+  notes: >-
+    A source counts only when the extraction cites it as support for the claim. Context the model saw
+    but did not cite does not raise or lower the tier.
+- name: tier after owner review
+  expr: principal when the owner accepts or edits the memory in review
+default: Third-party, when the source cannot be identified
+constraints:
+- text: >-
+    A tier is never raised by adding more citations; only owner review or an owner edit raises it.
+  hard: true
+rationale: |-
+  Taking the highest tier among cited sources lets injected text borrow trust by citing the person's task message next to it. Taking the lowest tier means a claim is only as trusted as the weakest thing it stands on, so outside content cannot launder itself through a citation.
+
+  Tool status and tool output are separate sources because whether a command succeeded is something the agent observed, while what a file or page printed may have been written by anyone.

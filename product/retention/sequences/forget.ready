@@ -1,0 +1,101 @@
+ready: 1
+kind: sequence
+id: retention.seq.forget
+display_id: SEQ-RETENTION-FORGET
+module: retention
+title: Forget a memory
+summary: Moves one unprotected memory out of view, recoverable until its recovery window ends.
+trigger:
+  trigger_kind: call
+  text: The agent or owner forgets a memory
+operation: retention.op.forget
+participants:
+- id: caller
+  is:
+  - actor.agent
+  - actor.owner
+  label: Agent or owner
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+items:
+- msg:
+    from: caller
+    to: sys.daemon
+    text: Forget this memory
+    call: Kernle.forget(memory_type, memory_id, reason)
+    invokes:
+    - stacks.seq.resolve
+- msg:
+    from: sys.daemon
+    to: db
+    text: Find the memory in the caller's stack
+    ops:
+    - op: read
+      entity: memory.data.memory
+      by:
+      - id and kind
+- alt:
+    branches:
+    - when: there is no such memory
+      items:
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Not found
+          reply: true
+          results:
+          - code: not_found
+    - when: the memory is protected
+      items:
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Refuse to forget it
+          reply: true
+          results:
+          - code: protected
+            copy: That memory is protected. Remove its protection first.
+    - when: the memory can be forgotten
+      items:
+      - transaction:
+          items:
+          - msg:
+              from: sys.daemon
+              to: db
+              text: Mark it forgotten and record why
+              ops:
+              - op: update
+                entity: memory.data.memory
+                by:
+                - id
+                set:
+                - status = forgotten
+                - strength = 0
+                - forgotten_at now
+              - op: append
+                entity: memory.data.memory-change
+                set:
+                - memory_id
+                - change = forgotten
+                - actor
+                - reason
+      - msg:
+          from: sys.daemon
+          to: sys.daemon
+          text: Remove it from search results
+          invokes:
+          - recall.seq.index
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Forgotten, with the date it will be purged
+          reply: true
+          constants:
+          - retention.const.forget-recovery-days
+          results:
+          - copy: Forgotten. You can recover it until {purge_date}.
+rationale: Forgetting is reversible so a mistaken or manipulated request costs nothing permanent; real
+  deletion is a separate, deliberate purge.

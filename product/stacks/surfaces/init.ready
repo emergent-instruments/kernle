@@ -1,0 +1,8 @@
+ready: 1
+kind: surface
+id: stacks.surface.init
+module: stacks
+name: Init screen
+surface_kind: screen
+system: sys.cli
+summary: Terminal output of the init command, with the provider choice.

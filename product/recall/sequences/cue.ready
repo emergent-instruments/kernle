@@ -1,0 +1,120 @@
+ready: 1
+kind: sequence
+id: recall.seq.cue
+display_id: SEQ-RECALL-CUE
+module: recall
+title: Cue memories beside a prompt
+summary: Adds the few memories most relevant to a new prompt that this session has not already seen, or
+  nothing.
+trigger:
+  trigger_kind: call
+  text: A runtime's prompt-submit hook reaches Kernle
+operation: recall.op.cue
+participants:
+- id: hook
+  is:
+  - sys.cli
+  - sys.openclaw-plugin
+  label: Hook handler or OpenClaw plugin
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+items:
+- msg:
+    from: hook
+    to: sys.daemon
+    text: Ask for cues for this prompt
+    inputs:
+    - name: prompt
+      source: The hook payload
+      source_kind: payload
+    - name: session_id
+      source: The hook payload
+      source_kind: payload
+    constants:
+    - recall.const.cue-min-prompt-chars
+- alt:
+    branches:
+    - when: the prompt is shorter than the minimum, or is a slash command
+      items:
+      - msg:
+          from: sys.daemon
+          to: hook
+          text: Nothing to add
+          reply: true
+    - when: the prompt can carry cues
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Find active memories relevant to the prompt
+          rules:
+          - recall.rule.relevance
+          - recall.rule.priority
+          constants:
+          - recall.const.cue-min-relevance
+          ops:
+          - op: read
+            entity: recall.data.search-index
+            note: words and meaning
+          - op: read
+            entity: memory.data.memory
+            by:
+            - id
+            where: status = active
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Leave out memories already shown in this session
+          ops:
+          - op: read
+            entity: recall.data.recall-log
+            index: I1
+            by:
+            - session_id
+      - msg:
+          from: sys.daemon
+          to: sys.daemon
+          text: Keep the top few that fit the cue budget, each as a short excerpt
+          constants:
+          - recall.const.cue-max-memories
+          - recall.const.cue-budget
+      - opt:
+          when: at least one memory qualifies
+          items:
+          - msg:
+              from: sys.daemon
+              to: db
+              text: Record the cues
+              ops:
+              - op: insert
+                entity: recall.data.recall-log
+                set:
+                - tier = cue
+                - memory_id
+                - session_id
+                - created_at now
+                - expires_at
+              - op: upsert
+                entity: recall.data.usage
+                by:
+                - memory_id
+                set:
+                - recalled_count + 1
+      - msg:
+          from: sys.daemon
+          to: hook
+          text: Return the excerpts as labeled notes, or nothing
+          reply: true
+          rules:
+          - recall.rule.render
+- note:
+    over:
+    - hook
+    - db
+    text: Without the daemon the hook uses word overlap only over the read-only database, without the
+      shown-this-session exclusion and without logging
+rationale: The person's actual request is the best cue, so injection waits for the prompt instead of guessing
+  at session start. Memories already in context are not repeated because that only spends tokens.

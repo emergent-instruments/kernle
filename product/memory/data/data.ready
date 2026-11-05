@@ -1,0 +1,16 @@
+ready: 1
+kind: entity_group
+id: memory.data
+module: memory
+title: Memory data
+summary: Memories, their versions, their provenance links, and the change ledger.
+entities:
+  - memory.data.memory
+  - memory.data.memory-version
+  - memory.data.memory-link
+  - memory.data.memory-change
+rationale: >-
+  The memory row holds what ranking, decay, and trust need. Versions keep every past content so
+  belief history and revision can be shown. Links form the provenance graph that lineage and purge
+  walk. The ledger outlives purged memories without their content, so a stack can show that
+  something was forgotten and why.

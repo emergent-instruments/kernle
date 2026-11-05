@@ -1,0 +1,12 @@
+ready: 1
+kind: step
+id: retention.forget.recover
+journey: retention.forget
+title: The owner recovers a forgotten memory
+step_kind: outcome
+surface: retention.surface.forget
+copy:
+  body:
+  - Recovered.
+sequences:
+- retention.seq.recover

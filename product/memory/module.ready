@@ -1,0 +1,31 @@
+ready: 1
+kind: module
+id: memory
+name: Memory
+summary: >-
+  Owns the stratified memory records of a stack: writing, updating, and revising every kind,
+  their versions and provenance links, the content-free change ledger, listing, lineage, and
+  dump. Runs in the Kernle core inside the daemon, or in-process when the daemon is stopped.
+runs_in:
+  - sys.daemon
+  - sys.python
+  - sys.cli
+owns:
+  - memory (DATA-MEMORY)
+  - memory versions
+  - provenance links
+  - change ledger
+invariants:
+  - Every memory of every kind is written through one write path.
+  - A memory, its version, its links, and its change row commit together or not at all.
+  - Every memory can be traced to the captures, events, and memories it came from.
+  - The change ledger never holds memory content.
+rationale: >-
+  One table holds every memory kind, with the fields that differ by kind in a validated payload.
+  Decay, trust, recall ranking, provenance, deletion, and sync then work the same way for every
+  kind, which is what keeps the layers consistent. The kinds themselves keep their own calls so
+  agents write an episode, a belief, or a value in the words they already use.
+
+
+  The change ledger is the single signal that something changed. The search index and the sync
+  queue both read it after their own cursors, so no writer can forget to update either one.

@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: trust.const.decay-half-life
+module: trust
+name: TRUST_DECAY_HALF_LIFE_DAYS
+value: "90"
+unit: days
+source: config.toml#trust.decay_half_life_days
+description: How quickly an entity's trust drifts back toward neutral without new evidence.

@@ -1,4 +1,0 @@
-[submodule "audits"]
-	path = audits
-	url = git@github.com:emergent-instruments/kernle-audits.git
-	branch = main

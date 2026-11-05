@@ -1,0 +1,63 @@
+ready: 1
+kind: entity
+id: memory.data.memory-link
+module: memory
+entity_kind: table
+table: memory_link
+name: memory_link
+summary: One provenance edge from a memory to something it came from or relates to.
+primary_key: [from_id, to_kind, to_id, relation]
+columns:
+  - name: from_id
+    type: TEXT
+    keys: [PK, FK]
+    fk: {entity: memory.data.memory, column: id, on_delete: CASCADE}
+  - name: to_kind
+    type: TEXT
+    keys: [PK]
+    values: [memory, raw, event]
+    indexes: ["I1·1"]
+  - name: to_id
+    type: TEXT
+    keys: [PK]
+    indexes: ["I1·2"]
+    rule: May outlive its target when a raw capture or event expires; lineage then shows the source as expired
+  - name: relation
+    type: TEXT
+    keys: [PK]
+    values: [derived_from, evidence, supersedes, merged_from, contradicts, about_entity]
+  - name: created_at
+    type: TEXT
+    nullable: false
+indexes:
+  - id: I1
+    name: memory_link_target_idx
+    columns: [to_kind ASC, to_id ASC]
+    purpose: Finds every memory derived from a source, for reverse lineage and the purge cascade
+    serves: [memory.seq.lineage]
+relationships:
+  - to: memory.data.memory
+    on: [{from: from_id, to: id}]
+    from_card: 0..many
+    to_card: "1"
+    link: fk
+    on_delete: CASCADE
+    label: starts at
+  - to: memory.data.memory
+    on: [{from: to_id, to: id}]
+    from_card: 0..many
+    to_card: 0..1
+    link: logical
+    label: points at a memory when to_kind is memory
+  - to: capture.data.raw-entry
+    on: [{from: to_id, to: id}]
+    from_card: 0..many
+    to_card: 0..1
+    link: logical
+    label: points at a raw capture when to_kind is raw
+  - to: capture.data.event
+    on: [{from: to_id, to: id}]
+    from_card: 0..many
+    to_card: 0..1
+    link: logical
+    label: points at a transcript event when to_kind is event

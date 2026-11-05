@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: sync.const.auto-interval
+module: sync
+name: SYNC_AUTO_INTERVAL
+value: "15"
+unit: minutes
+description: How often the daemon syncs a linked stack that has pending changes or has not pulled recently.

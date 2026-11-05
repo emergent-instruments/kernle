@@ -1,0 +1,29 @@
+ready: 1
+kind: operation
+id: retention.op.purge
+display_id: kernle.purge
+module: retention
+name: Kernle.purge(memory_type, memory_id)
+summary: >-
+  Deletes a memory and every copy of its content for good, and queues its
+  deletion in the cloud. The owner sees a cascade preview and confirms; an
+  agent's request covers one unprotected memory the owner did not write, and
+  anything else waits for the owner.
+params:
+  - { name: memory_type, type: str, source: Caller, source_kind: parameter }
+  - { name: memory_id, type: str, source: "Caller; the owner may give a name or text and pick from matches", source_kind: parameter }
+returns: Counts of memories, versions, captures and events removed, or held for the owner.
+errors:
+  - code: not_found
+    when: No such memory in the caller's stack
+  - code: needs_terminal
+    when: The owner's request does not come from an interactive terminal
+    copy: Purging needs an interactive terminal so you can review what will be deleted.
+  - code: held_for_owner
+    when: An agent asks to purge a protected, owner-written or identity memory
+    copy: That deletion is waiting for the owner's review.
+sequence: retention.seq.purge
+owner: crates/kernle-core/src/retention/purge.rs::purge
+tags:
+  - { tag: cli, text: "kernle purge" }
+  - { tag: mcp, text: memory_purge }

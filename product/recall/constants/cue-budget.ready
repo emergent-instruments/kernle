@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.cue-budget
+module: recall
+name: CUE_BUDGET
+value: "800"
+unit: tokens
+description: The most context cues add beside one prompt.

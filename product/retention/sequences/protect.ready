@@ -1,0 +1,116 @@
+ready: 1
+kind: sequence
+id: retention.seq.protect
+display_id: SEQ-RETENTION-PROTECT
+module: retention
+title: Protect or weaken a memory
+summary: Sets or removes a memory's protection, or shortens its life, with owner-set protection changeable
+  only by the owner.
+trigger:
+  trigger_kind: call
+  text: The agent or owner protects, unprotects or weakens a memory
+operation: retention.op.protect
+participants:
+- id: caller
+  is:
+  - actor.agent
+  - actor.owner
+  label: Agent or owner
+- sys.daemon
+- id: db
+  is:
+  - sys.home
+  label: Stack database
+items:
+- msg:
+    from: caller
+    to: sys.daemon
+    text: Change the memory's protection or strength
+    call: Kernle.protect(memory_type, memory_id, protected)
+    inputs:
+    - name: requester
+      source: 'The entry point: owner command line or agent call'
+      source_kind: session
+    invokes:
+    - stacks.seq.resolve
+- msg:
+    from: sys.daemon
+    to: db
+    text: Find the memory and who protected it
+    ops:
+    - op: read
+      entity: memory.data.memory
+      by:
+      - id
+    - op: read
+      entity: memory.data.memory-change
+      by:
+      - memory_id
+      where: change = protected
+      order: id DESC
+      limit: '1'
+- alt:
+    branches:
+    - when: there is no such memory
+      items:
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Not found
+          reply: true
+          results:
+          - code: not_found
+    - when: the agent asks to unprotect owner-set protection, or to weaken a protected memory
+      items:
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Refuse; only the owner can do that
+          reply: true
+          results:
+          - code: owner_only
+            copy: Only the owner can change that memory's protection.
+    - when: protecting or unprotecting is allowed
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Store the protection and record who set it
+          ops:
+          - op: update
+            entity: memory.data.memory
+            by:
+            - id
+            set:
+            - is_protected
+          - op: append
+            entity: memory.data.memory-change
+            set:
+            - memory_id
+            - change = protected
+            - actor
+            - reason
+    - when: weakening is allowed
+      items:
+      - msg:
+          from: sys.daemon
+          to: db
+          text: Move the memory's last use back by the given share of its window
+          call: Kernle.weaken(memory_type, memory_id, amount)
+          ops:
+          - op: update
+            entity: memory.data.memory
+            by:
+            - id
+            set:
+            - last_used_at earlier by amount × window
+            - strength
+          rules:
+          - retention.rule.strength
+- msg:
+    from: sys.daemon
+    to: caller
+    text: Return the protection and strength
+    reply: true
+rationale: Weakening moves the last-use time rather than editing strength, so strength stays a pure function
+  of stored times and the next sweep agrees with it.

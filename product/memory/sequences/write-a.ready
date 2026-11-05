@@ -1,0 +1,107 @@
+ready: 1
+kind: sequence
+id: memory.seq.write.a
+display_id: SEQ-MEMORY-WRITE-a
+module: memory
+title: Write a memory — check, tier, and gate
+part_of: memory.seq.write
+participants:
+  - id: caller
+    is: [sys.python, sys.cli]
+    label: Python API, CLI command, or MCP tool
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: memory
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Write a memory of this kind
+      call: Kernle.<kind>(fields…, derived_from, context, context_tags, source, source_type)
+      owner: crates/kernle-core/src/memory/write.rs::write_memory
+      inputs:
+        - name: kind
+          source: The call used, such as episode or belief
+          source_kind: parameter
+        - name: fields
+          source: The kind's fields
+          source_kind: parameter
+        - name: origin
+          source: Who is writing (agent, owner command, processing, sleep, import, transcript capture)
+          source_kind: session
+        - name: op_id
+          source: The caller's operation id, or a new one
+          source_kind: parameter
+      idempotency: A repeated operation id returns the first result
+  - msg:
+      from: core
+      to: core
+      text: Resolve and authorize the stack for this caller
+      invokes: [stacks.seq.resolve]
+  - msg:
+      from: core
+      to: core
+      text: Check the kind's fields and the content length
+      rules: [memory.rule.kind-validation]
+      constants: [memory.const.max-content-chars]
+  - alt:
+      branches:
+        - when: a field is missing, out of range, or too long
+          items:
+            - msg:
+                from: core
+                to: caller
+                text: Refuse the write
+                reply: true
+                results:
+                  - code: invalid_input
+                    when: a field is missing or out of range
+                  - code: too_long
+                    when: the content is longer than the limit
+        - when: the fields are valid and the memory is a change pulled from the cloud by sync
+          items:
+            - note:
+                over: [core]
+                text: >-
+                  The memory keeps its original id, provenance, and trust tier; the trust gate and
+                  appraisal already ran on the device that wrote it
+            - continue:
+                to: memory.seq.write.b
+        - when: the fields are valid
+          items:
+            - msg:
+                from: core
+                to: core
+                text: Set the trust tier from where the content and its sources came from
+                rules: [trust.rule.source-tier]
+            - msg:
+                from: core
+                to: core
+                text: Pass the memory through the input gate
+                invokes: [trust.seq.gate]
+                rules: [trust.rule.input-gate]
+            - alt:
+                branches:
+                  - when: the gate holds the memory for review
+                    items:
+                      - msg:
+                          from: core
+                          to: core
+                          text: Keep the proposal as a suggestion with the reason it is held
+                          invokes: [consolidation.op.suggestions]
+                      - msg:
+                          from: core
+                          to: caller
+                          text: Report that the memory waits for review
+                          reply: true
+                          results:
+                            - code: held
+                              when: the input gate held the memory
+                  - when: the gate accepts the memory
+                    items:
+                      - continue:
+                          to: memory.seq.write.b

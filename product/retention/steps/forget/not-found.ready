@@ -1,0 +1,10 @@
+ready: 1
+kind: step
+id: retention.forget.not-found
+journey: retention.forget
+title: No memory matches
+step_kind: error
+surface: retention.surface.forget
+copy:
+  body:
+  - No matching memory.

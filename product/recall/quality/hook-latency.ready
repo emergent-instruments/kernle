@@ -1,0 +1,13 @@
+ready: 1
+kind: quality
+id: recall.quality.hook-latency
+display_id: QC-RECALL-LATENCY
+module: recall
+title: Hook-path recall latency
+applies_to:
+  - recall.seq.session-index
+  - recall.seq.cue
+  - recall.seq.gut-check
+measure: Wall time from the hook handler's start to its output, with the daemon running and a stack of 10,000 memories
+scope: Session start, prompt submit and pre-tool hooks
+target: At most 50 milliseconds at the 95th percentile, and never past the hook deadline

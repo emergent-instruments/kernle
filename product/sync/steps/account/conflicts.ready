@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: sync.account.conflicts
+journey: sync.account
+title: Resolve conflicts
+step_kind: decision
+surface: sync.surface.sync
+copy:
+  actions: [Keep this machine's, Keep the cloud's, Keep both]
+sequences: [sync.seq.conflicts]
+rules: [sync.rule.conflict]
+next:
+  - { to: sync.account.done, next_kind: result }

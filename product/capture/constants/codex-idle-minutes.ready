@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: capture.const.codex-idle-minutes
+module: capture
+name: CODEX_IDLE_INGEST_MINUTES
+value: "10"
+unit: minutes
+description: How long a Codex session file stays unchanged before the daemon ingests it, since Codex has no hooks.

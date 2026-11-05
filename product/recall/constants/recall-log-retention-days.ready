@@ -1,0 +1,8 @@
+ready: 1
+kind: constant
+id: recall.const.recall-log-retention-days
+module: recall
+name: RECALL_LOG_RETENTION_DAYS
+value: "90"
+unit: days
+description: How long a recall log row is kept.

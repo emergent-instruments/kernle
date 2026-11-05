@@ -1,0 +1,21 @@
+ready: 1
+kind: constant
+id: retention.const.idle-windows
+module: retention
+name: IDLE_WINDOWS
+description: How many days of no use bring each kind of memory from full strength to forgotten, before salience extends the window.
+table:
+  columns: [kind, days]
+  rows:
+    - [episode, "180"]
+    - [note, "180"]
+    - [belief, "365"]
+    - [goal, "365"]
+    - [drive, "365"]
+    - [relationship, "365"]
+    - [playbook, "365"]
+    - [guardrail, "365"]
+    - [entity model, "365"]
+    - [value, never]
+    - [self-narrative, never]
+notes: Owners and agents change the windows with the decay configuration call; the table holds the defaults.

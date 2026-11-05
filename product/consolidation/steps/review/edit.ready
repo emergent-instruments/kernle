@@ -1,0 +1,14 @@
+ready: 1
+kind: step
+id: consolidation.review.edit
+journey: consolidation.review
+title: Edit the proposal before accepting
+step_kind: action
+presentation: external
+does:
+  - Changes the proposed text in the editor and saves it, which accepts it as the owner's own words
+sequences:
+  - consolidation.seq.review
+next:
+  - to: consolidation.review.list
+    next_kind: result

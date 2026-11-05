@@ -1,0 +1,46 @@
+ready: 1
+kind: sequence
+id: capture.seq.ingest.b
+display_id: SEQ-CAPTURE-INGEST-b
+module: capture
+title: Ingest a runtime session — close episodes
+part_of: capture.seq.ingest
+participants:
+  - id: worker
+    is: [sys.daemon]
+    label: Ingestion worker
+  - id: db
+    is: [sys.home]
+    label: Stack database
+items:
+  - msg:
+      from: worker
+      to: db
+      text: Load the session's events that are not yet in an episode
+      ops:
+        - {op: read, entity: capture.data.event, index: P1, by: [session]}
+  - msg: {from: worker, to: worker, text: Split the events into episodes and find which are closed, rules: [appraisal.rule.segment], constants: [capture.const.episode-idle-close]}
+  - loop:
+      while: each closed episode
+      items:
+        - msg:
+            from: worker
+            to: worker
+            text: Write the episode memory with its objective, outcome, and evidence events
+            invokes: [memory.seq.write]
+            inputs:
+              - {name: objective, source: The task message that opened the episode, source_kind: derived}
+              - {name: outcome, source: The last tool results and the agent's last message, source_kind: derived}
+              - {name: evidence, source: The episode's events, source_kind: stored}
+            note: The write appraises the episode from its events
+        - msg:
+            from: worker
+            to: db
+            text: Link the events to their episode
+            ops:
+              - {op: update, entity: capture.data.event, by: [session and sequence range], set: [episode_id]}
+  - opt:
+      when: an episode is still open
+      items:
+        - note: {over: [worker], text: "Its events stay unlinked for a later pass, because the person's reaction usually arrives in the next message"}
+  - msg: {from: worker, to: worker, text: Ask for consolidation, invokes: [consolidation.seq.schedule]}

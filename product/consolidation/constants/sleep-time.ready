@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.sleep-time
+module: consolidation
+name: SLEEP_TIME
+value: "03:30"
+unit: local time
+source: config.toml#sleep.nightly_time
+description: When the nightly run starts for stacks with pending work.

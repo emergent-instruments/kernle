@@ -1,0 +1,69 @@
+ready: 1
+kind: sequence
+id: capture.seq.import
+display_id: SEQ-CAPTURE-IMPORT
+module: capture
+title: Import memories or runtime history
+summary: Writes each item of a file through the normal write path as third-party unless the owner marks it as theirs, or ingests a runtime's recent sessions.
+trigger:
+  trigger_kind: call
+  text: The owner runs an import, or connecting a runtime offers to import its history
+operation: capture.op.import
+participants:
+  - id: caller
+    is: [sys.cli, sys.python]
+    label: CLI command or Python API
+  - id: core
+    is: [sys.daemon]
+    label: Kernle core
+    component: capture
+  - id: records
+    is: [sys.claude-code, sys.codex]
+    label: Runtime session records
+items:
+  - msg:
+      from: caller
+      to: core
+      text: Import this file or runtime history
+      call: kernle import <source> [--format] [--since] [--as-mine] [--dry-run]
+      owner: crates/kernle-core/src/capture/import.rs::import_memories
+      inputs:
+        - {name: as_mine, source: The owner's flag; ignored unless the caller is an owner command, source_kind: parameter}
+  - msg: {from: core, to: core, text: Resolve and authorize the stack for this caller, invokes: [stacks.seq.resolve]}
+  - alt:
+      branches:
+        - when: the source is a runtime's history
+          items:
+            - opt:
+                when: the runtime is OpenClaw
+                items:
+                  - msg: {from: core, to: caller, text: Report that this runtime has no importable history, reply: true, results: [{code: not_available}]}
+            - loop:
+                while: each session file changed within the window, oldest first
+                items:
+                  - msg: {from: core, to: records, text: Ingest the session, invokes: [capture.seq.ingest], constants: [capture.const.history-import-days]}
+        - when: the source is a file
+          items:
+            - msg: {from: core, to: core, text: "Parse the file into items of known kinds, or raw text"}
+            - break:
+                when: the file cannot be parsed
+                items:
+                  - msg: {from: core, to: caller, text: Report the parse failure, reply: true, results: [{code: unreadable}]}
+            - loop:
+                while: each item
+                items:
+                  - msg: {from: core, to: core, text: Remove secrets from the item, rules: [capture.rule.scrub]}
+                  - alt:
+                      branches:
+                        - when: the item is a memory of a known kind
+                          items:
+                            - msg: {from: core, to: core, text: "Write it as imported, third-party unless the owner marked it as theirs", invokes: [memory.seq.write], rules: [trust.rule.source-tier]}
+                        - when: the item is plain text
+                          items:
+                            - msg: {from: core, to: core, text: Capture it as raw text, invokes: [capture.seq.raw]}
+  - msg: {from: core, to: caller, text: "Return counts written, repeated, held, and refused", reply: true}
+rationale: >-
+  Imported content is third-party by default because Kernle cannot know who wrote a file, and a
+  behavior-changing memory that rests only on outside text is held for review. The owner can mark
+  a file as their own words, which only an owner command can do, so an agent cannot launder text
+  it read into owner-level trust.

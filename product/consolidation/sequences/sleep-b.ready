@@ -1,0 +1,139 @@
+ready: 1
+kind: sequence
+id: consolidation.seq.sleep.b
+display_id: SEQ-CONSOLIDATION-SLEEP-b
+module: consolidation
+title: Sleep run, replay and extract
+part_of: consolidation.seq.sleep
+participants:
+  - id: core
+    is:
+      - sys.daemon
+    label: Sleep run
+    owner: crates/kernle-core/src/consolidation/sleep.rs::replay
+  - id: db
+    is:
+      - sys.home
+    label: Stack database
+  - id: native
+    is:
+      - sys.claude-code
+      - sys.openclaw
+    label: Runtime native memory files
+  - sys.model
+items:
+  - loop:
+      while: an episode is chosen to replay, in replay order
+      items:
+        - alt:
+            branches:
+              - when: the episode holds an explicit request to remember and no model may be used for it (allowance spent, provider none, or the runtime may not send sessions to the model)
+                items:
+                  - note:
+                      over:
+                        - core
+                      text: Propose the remembered text as the requested kind, citing the request and the person's messages in the episode
+              - when: the model may be used
+                items:
+                  - msg:
+                      from: core
+                      to: db
+                      text: Load the evidence window and the memories recalled during the episode
+                      ops:
+                        - op: read
+                          entity: capture.data.event
+                          by:
+                            - session
+                            - evidence window
+                        - op: read
+                          entity: recall.data.recall-log
+                          by:
+                            - session
+                            - episode time span
+                  - msg:
+                      from: core
+                      to: core
+                      text: Find related existing memories
+                      invokes:
+                        - recall.op.search
+                  - msg:
+                      from: core
+                      to: native
+                      text: Read the runtime's own memory for this project, read-only, to avoid duplicating it
+                  - msg:
+                      from: core
+                      to: sys.model
+                      text: Ask what this episode should become
+                      rules:
+                        - consolidation.rule.filing
+                      timeout: 60 seconds
+                      note: >-
+                        A runtime-CLI provider runs with Kernle's model-session marker, so capture
+                        never ingests that session and Kernle's hooks stay silent inside it.
+                      tags:
+                        - tag: marker
+                          text: KERNLE_MODEL_SESSION=1
+                  - alt:
+                      branches:
+                        - when: the reply is valid
+                          items:
+                            - msg:
+                                from: core
+                                to: core
+                                text: Record whether each recalled memory helped, hurt, or was irrelevant
+                                invokes:
+                                  - recall.op.feedback
+                        - when: error, timeout, or invalid reply
+                          items:
+                            - msg:
+                                from: core
+                                to: db
+                                text: Count the failed attempt
+                                constants:
+                                  - consolidation.const.extraction-max-attempts
+                                ops:
+                                  - op: update
+                                    entity: appraisal.data.appraisal
+                                    by:
+                                      - episode
+                                    set:
+                                      - replay attempts plus one
+                                      - replay skipped at the attempt limit
+                            - break:
+                                when: the provider itself failed
+                                items:
+                                  - note:
+                                      over:
+                                        - core
+                                      text: Leave the remaining episodes pending for the next run
+              - when: no allowance remains and the episode holds no explicit request
+                items:
+                  - note:
+                      over:
+                        - core
+                      text: Leave the episode pending for tomorrow's allowance
+        - msg:
+            from: core
+            to: core
+            text: Validate and apply each proposed change
+            invokes:
+              - consolidation.seq.apply
+        - msg:
+            from: core
+            to: db
+            text: Charge the reported tokens and mark the episode replayed
+            ops:
+              - op: update
+                entity: consolidation.data.run
+                by:
+                  - id
+                set:
+                  - model_tokens plus reported tokens
+              - op: update
+                entity: appraisal.data.appraisal
+                by:
+                  - episode
+                set:
+                  - replay done
+  - continue:
+      to: consolidation.seq.sleep.c

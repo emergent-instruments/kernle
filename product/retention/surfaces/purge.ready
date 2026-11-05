@@ -1,0 +1,8 @@
+ready: 1
+kind: surface
+id: retention.surface.purge
+module: retention
+name: kernle purge
+surface_kind: screen
+system: sys.cli
+summary: "The interactive purge: pick a match, review the cascade, confirm or cancel."

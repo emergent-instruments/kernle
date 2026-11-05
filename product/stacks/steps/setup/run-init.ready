@@ -1,0 +1,13 @@
+ready: 1
+kind: step
+id: stacks.setup.run-init
+journey: stacks.setup
+title: Run init
+step_kind: screen
+surface: stacks.surface.init
+sees:
+  - The home path, the personal stack, the daemon service, and the embedding model download progress
+sequences: [stacks.seq.init]
+next:
+  - { to: stacks.setup.choose-provider, when: the model download is verified, next_kind: result }
+  - { to: stacks.setup.keyword-only, when: the download or checksum fails, next_kind: result }

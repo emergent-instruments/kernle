@@ -1,0 +1,24 @@
+ready: 1
+kind: rule
+id: health.rule.integrity
+display_id: RULE-HEALTH-INTEGRITY
+module: health
+title: What the doctor checks
+summary: The doctor runs a fixed list of checks over the stack and its setup and reports each as passed, warning or failed with the call that fixes it.
+table:
+  columns: [check, fails when, fixed by]
+  rows:
+    - [Database schema, the stack's database is not at the binary's schema, kernle doctor reports and the daemon upgrades at start]
+    - [Current versions, a memory's current version has no stored version or the stored content differs, the daemon rebuilds the memory from its latest version]
+    - [Provenance, a link points at a memory or capture that does not exist, kernle doctor lists the links; the next sweep removes them]
+    - [Search index, an active memory has no index row or its vector came from another model, the index rebuilds]
+    - [File modes, a directory is not owner-only or a file is readable by others, kernle doctor shows the command that restores the modes]
+    - [Daemon, the daemon is not running or answering, kernle daemon start]
+    - [Model binding, no inference model is bound or the bound model fails a test call, kernle model set]
+    - [Embedding model, the pinned embedding model is missing or fails its checksum, kernle init]
+    - [Connected runtimes, a connected runtime's adapter files are missing or changed, kernle setup]
+    - [Sync, the sync queue holds dead changes or unresolved conflicts, kernle sync conflicts]
+rationale: >-
+  The doctor reports and points at the fix rather than repairing silently,
+  because a repair that guesses wrong can destroy memory. The repairs it points
+  at are each owned by the module that owns the data.

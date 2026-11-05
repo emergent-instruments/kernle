@@ -1,0 +1,112 @@
+ready: 1
+kind: sequence
+id: stacks.seq.resolve
+display_id: SEQ-STACKS-RESOLVE
+module: stacks
+title: Resolve and authorize a request
+summary: Refuses callers outside the owner's account, then finds or creates the stack the request belongs
+  to.
+trigger:
+  trigger_kind: call
+  text: Any Kernle call, command, hook, MCP tool, or plugin request
+operation: stacks.op.resolve
+participants:
+- id: caller
+  label: Python package, command-line tool, or OpenClaw plugin
+  is:
+  - sys.python
+  - sys.cli
+  - sys.openclaw-plugin
+- sys.daemon
+- id: git
+  label: Local git repository
+- id: registry
+  is:
+  - sys.home
+  label: Stack registry
+items:
+- msg:
+    from: caller
+    to: sys.daemon
+    text: Ask which stack this request uses
+    owner: crates/kernle-core/src/stacks/resolve.rs::resolve
+    inputs:
+    - name: peer account
+      source: The socket's peer credentials
+      source_kind: session
+    - name: stack name
+      source: The call's stack argument or the command-line stack option
+      source_kind: parameter
+    - name: environment stack
+      source: The stack environment variable
+      source_kind: config
+    - name: working directory
+      source: The runtime's hook or MCP payload, or the process's own directory
+      source_kind: payload
+    - name: runtime
+      source: The entry point
+      source_kind: derived
+- alt:
+    branches:
+    - when: the caller's OS account does not own the Kernle home
+      items:
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Refuse without revealing any memory, name, or count
+          reply: true
+          results:
+          - code: not_owner
+            when: the peer account differs from the home's owner
+    - when: the caller owns the home
+      items:
+      - msg:
+          from: sys.daemon
+          to: git
+          text: Find the repository's top-level folder and origin remote
+          guards:
+          - only when no stack is named and the request is not from OpenClaw
+      - msg:
+          from: sys.daemon
+          to: registry
+          text: Find the stack for the chosen identity, or create it
+          rules:
+          - stacks.rule.stack-identity
+          ops:
+          - op: upsert
+            entity: stacks.data.stack
+            index: U1
+            by:
+            - root_key
+            conflict: a concurrent create resolves to the same row
+            set:
+            - stack_id new slug
+            - kind
+            - root_key
+            - display_name from the folder or agent name
+            - created_at now
+      - opt:
+          when: the request is capture, recall, or a write and the stack's last activity is older than
+            the touch interval
+          items:
+          - note:
+              over:
+              - registry
+              text: Mark the stack active
+              ops:
+              - op: update
+                entity: stacks.data.stack
+                by:
+                - stack_id
+                set:
+                - last_active_at now
+      - msg:
+          from: sys.daemon
+          to: caller
+          text: Return the stack and its directory
+          reply: true
+          constants:
+          - stacks.const.activity-touch
+rationale: The access boundary is the OS account that owns the home. Agents run under that account, so
+  the owner and agent roles set default behavior rather than a security wall; the guards that matter against
+  a misbehaving agent live in the processes that write or delete memory.

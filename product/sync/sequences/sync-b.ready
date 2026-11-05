@@ -1,0 +1,74 @@
+ready: 1
+kind: sequence
+id: sync.seq.sync.b
+display_id: SEQ-SYNC-b
+module: sync
+title: Pull cloud changes
+summary: Pulls the cloud's changes from its cursor page by page and applies each one, deletions included, using the conflict rule.
+part_of: sync.seq.sync
+participants:
+  - sys.daemon
+  - sys.cloud
+  - sys.home
+items:
+  - loop:
+      while: the cloud reports more pages
+      items:
+        - msg:
+            from: sys.daemon
+            to: sys.cloud
+            text: Ask for the next page of changes after the stored cursor
+            owner: crates/kernle-core/src/sync/pull.rs::pull
+            http: { method: GET, path: "/sync/pull?cursor={cursor}" }
+            inputs:
+              - { name: cursor, source: The stored cloud cursor, source_kind: stored }
+        - loop:
+            while: changes remain on the page
+            items:
+              - msg:
+                  from: sys.daemon
+                  to: sys.daemon
+                  text: Decide between the local and cloud versions
+                  rules: [sync.rule.conflict]
+              - alt:
+                  branches:
+                    - when: the cloud version wins
+                      items:
+                        - msg:
+                            from: sys.daemon
+                            to: sys.home
+                            text: Apply the cloud version through the memory write path as a sync change, keeping its provenance
+                            invokes: [memory.seq.update]
+                    - when: the cloud memory is new here
+                      items:
+                        - msg:
+                            from: sys.daemon
+                            to: sys.home
+                            text: Add the memory through the memory write path as a sync change, keeping its provenance and trust
+                            invokes: [memory.seq.write]
+                    - when: the cloud forgot the memory
+                      items:
+                        - msg:
+                            from: sys.daemon
+                            to: sys.home
+                            text: Forget it here too
+                            invokes: [retention.seq.forget]
+                    - when: the cloud purged the memory
+                      items:
+                        - msg:
+                            from: sys.daemon
+                            to: sys.home
+                            text: Purge it here too
+                            invokes: [retention.seq.purge]
+                    - when: both versions are kept for the owner
+                      items:
+                        - note:
+                            over: [sys.home]
+                            text: Record the conflict without full content
+                            ops:
+                              - { op: insert, entity: sync.data.sync-conflict, set: [memory_id, local_version, cloud_version, summary] }
+        - note:
+            over: [sys.home]
+            text: Store the page's cursor only after every change on it is applied
+            ops:
+              - { op: update, entity: sync.data.sync-state, set: [cloud_cursor, last_pull_at now] }

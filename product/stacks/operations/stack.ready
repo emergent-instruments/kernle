@@ -1,0 +1,19 @@
+ready: 1
+kind: operation
+id: stacks.op.stack
+display_id: kernle.stack
+module: stacks
+name: kernle stack list | create | rename | delete
+summary: Manages stacks by name; deletion is complete and needs an interactive confirmation.
+params:
+  - { name: action, source: The subcommand, source_kind: parameter, type: string }
+  - { name: name, source: The stack name argument, source_kind: parameter, type: string }
+returns: The stack list, the created or renamed stack, or deletion counts
+errors:
+  - { code: stack_exists, when: creating a name already taken, copy: "A stack with that name already exists." }
+  - { code: needs_terminal, when: deleting without an interactive terminal, copy: "Deleting a stack needs an interactive terminal. Nothing was deleted." }
+sequence: stacks.seq.stack
+owner: crates/kernle-cli/src/commands/stack.rs::run
+tags:
+  - { tag: cli, text: "kernle stack" }
+  - { tag: python, text: "Kernle.stack" }

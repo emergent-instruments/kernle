@@ -1,0 +1,9 @@
+ready: 1
+kind: constant
+id: consolidation.const.batch-size
+module: consolidation
+name: PROCESS_BATCH_SIZE
+value: "10"
+unit: sources
+source: config.toml#process.batch_size
+description: Sources one processing session sends to the model for a transition.

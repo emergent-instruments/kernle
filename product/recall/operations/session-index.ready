@@ -1,0 +1,19 @@
+ready: 1
+kind: operation
+id: recall.op.session-index
+display_id: kernle.recall.session_index
+module: recall
+name: SessionIndex(stack, session, runtime)
+summary: Returns the session-start index of memory pointers and where the agent left off, within its budget, or nothing.
+params:
+  - name: session_id
+    type: str
+    source: The runtime's session-start hook payload
+    source_kind: payload
+  - name: runtime
+    type: str
+    source: The adapter that called
+    source_kind: payload
+returns: Rendered index text, or empty when the stack has no memories.
+sequence: recall.seq.session-index
+owner: crates/kernle-core/src/recall/session_index.rs
