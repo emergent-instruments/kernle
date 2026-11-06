@@ -5,8 +5,10 @@ display_id: kernle.epoch
 module: identity
 name: Kernle.epoch_create(name, trigger_type, trigger_description) · epoch_close(epoch_id, summary) · get_epochs(limit) · get_current_epoch() · consolidate_epoch_closing(epoch_id)
 summary: >-
-  Opens a new chapter of the agent's life, closing any open one, and closes the current one
-  with a summary. Closing returns a reflection scaffold for the chapter that records nothing.
+  Opens a new chapter of the agent's life, closing any open one, or closes the current chapter
+  with a summary.
+notes: >-
+  Closing returns a reflection scaffold for the chapter that records nothing.
 params:
   - name: name
     type: str

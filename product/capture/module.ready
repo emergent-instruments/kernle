@@ -3,10 +3,11 @@ kind: module
 id: capture
 name: Capture
 summary: >-
-  Turns what happens into stored experience without upkeep: raw captures from agents and the owner,
-  ingestion of runtime transcripts into scrubbed events and episodes, imports, repository and
-  document seeding, and import of stacks written by an earlier Kernle release. Runs in the daemon's
-  ingestion worker and in the Kernle core.
+  Turns what happens into stored experience: raw captures, transcript ingestion, imports, seeding,
+  and stacks from earlier releases.
+notes: >-
+  Transcripts become scrubbed events and episodes without agent upkeep; repositories and document
+  folders can be seeded as raw captures.
 runs_in:
   - sys.daemon
   - sys.python

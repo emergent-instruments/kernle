@@ -5,6 +5,8 @@ display_id: RULE-APPRAISAL-SEGMENT
 module: appraisal
 title: Where one episode ends and the next begins
 summary: >-
+  Decides where one episode of work ends and the next begins.
+notes: >-
   A message from the person starts a new episode unless it is feedback on the agent's last turn;
   an episode closes when the next task starts, the session ends, or the session goes idle.
 inputs:

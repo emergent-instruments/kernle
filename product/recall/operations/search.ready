@@ -5,9 +5,11 @@ display_id: kernle.search
 module: recall
 name: Kernle.search(query, limit, record_types, context, include_dormant, valence_range, arousal_range)
 summary: >-
-  Finds memories by words and meaning, filtered by kind and emotion, ranked by
-  relevance first and then strength, salience and usage. Dormant memories appear
-  only when asked; forgotten and purged ones never do.
+  Finds memories by words and meaning, filtered by kind and emotion, and ranked by relevance
+  first.
+notes: >-
+  After relevance, results rank by strength, salience, and usage. Dormant memories appear only
+  when asked; forgotten and purged ones never do.
 params:
   - name: query
     type: str

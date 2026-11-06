@@ -5,8 +5,11 @@ display_id: RULE-TRUST-ENTITY
 module: trust
 title: How trust in an entity is computed
 summary: >-
-  Trust in an entity combines direct evidence, decays toward neutral without new evidence, and passes
-  through other entities only a few steps deep and never above the weakest link.
+  Combines evidence into trust in an entity, decays it without new evidence, and limits how far
+  trust passes between entities.
+notes: >-
+  Trust decays toward neutral, passes through other entities only a few steps deep, and never
+  exceeds the weakest link.
 owner: crates/kernle-core/src/trust/assess.rs::compute
 inputs:
 - name: assessment

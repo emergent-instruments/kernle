@@ -5,9 +5,11 @@ display_id: SEQ-CONSOLIDATION-SLEEP
 module: consolidation
 title: Sleep run
 summary: >-
-  While the agent is idle, appraises new experience, judges the most salient episodes, replays
-  them into the memories their emotion calls for, processes raw captures, then sweeps
-  retention and refreshes the search index.
+  While the agent is idle, turns new experience into the memories its emotion calls for, then
+  sweeps retention and refreshes the index.
+notes: >-
+  A run appraises new experience, judges the most salient episodes, replays them into memories,
+  and processes raw captures before the sweep and index refresh.
 trigger:
   trigger_kind: call
   text: The scheduler starts a sleep run for a stack

@@ -3,9 +3,10 @@ kind: module
 id: stacks
 name: Stacks
 summary: >-
-  Owns the Kernle home, the registry of memory stacks and how each request
-  finds its stack, owner-only access, configuration and credentials, the model
-  binding, and the daemon's lifecycle.
+  Owns the Kernle home, the stack registry and stack resolution, owner-only access, configuration,
+  and the daemon's lifecycle.
+notes: >-
+  It also owns credentials and the model binding.
 runs_in: [sys.cli, sys.daemon, sys.python]
 owns:
   - stack registry (DATA-STACK)

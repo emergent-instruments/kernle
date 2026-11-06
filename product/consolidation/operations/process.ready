@@ -5,10 +5,11 @@ display_id: kernle.process
 module: consolidation
 name: Kernle.process(transition=None, force=False, auto_promote=False, batch_size=None)
 summary: >-
-  Runs one processing session for one transition, or for every transition whose trigger is met,
-  promoting sources up the hierarchy with the bound model. Without automatic promotion every
-  result is a suggestion; with it, results apply unless a promotion gate or the trust gate holds
-  them. A session never processes a source twice for the same transition.
+  Runs one processing session that promotes sources up the memory hierarchy with the bound model.
+notes: >-
+  It runs one transition, or every transition whose trigger is met. Without automatic promotion
+  every result is a suggestion; with it, results apply unless a promotion gate or the trust gate
+  holds them. A session never processes a source twice for the same transition.
 params:
   - name: transition
     type: str | None

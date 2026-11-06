@@ -4,7 +4,11 @@ id: health.op.anxiety
 display_id: kernle.anxiety
 module: health
 name: Kernle.anxiety(context_tokens, context_limit, detailed) · get_anxiety_report · get_recommended_actions
-summary: Returns the anxiety score, its level, each measurable dimension, and the actions that lower it, each with the call that performs it. Read-only.
+summary: >-
+  Returns the read-only anxiety score with its level, its dimensions, and the actions that lower
+  it.
+notes: >-
+  Each action names the call that performs it.
 params:
   - { name: context_tokens, type: int | None, source: "Caller or a hook; tokens of context in use", source_kind: parameter }
   - { name: context_limit, type: int | None, source: "Caller or a hook; the runtime's context size", source_kind: parameter }

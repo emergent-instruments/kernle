@@ -5,8 +5,11 @@ display_id: SEQ-CONSOLIDATION-APPLY
 module: consolidation
 title: Validate and apply a proposed change
 summary: >-
-  Checks a model-proposed change against its filing route, the promotion gates, and the trust
-  gate, then applies it through the memory write paths or records it as a suggestion.
+  Checks a model-proposed change against its filing route and gates, then applies it or records it
+  as a suggestion.
+notes: >-
+  The checks are the filing route, the promotion gates, and the trust gate; applied changes go
+  through the memory write paths.
 trigger:
   trigger_kind: call
   text: A sleep run or processing session has a proposed change

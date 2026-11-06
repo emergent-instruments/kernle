@@ -5,9 +5,11 @@ display_id: RULE-CONSOLIDATION-GATES
 module: consolidation
 title: When a promotion applies and when it becomes a suggestion
 summary: >-
-  Beliefs and values need enough evidence to be proposed at all, identity layers always wait for review,
-  and other promotions apply automatically only when the caller asked for that and the trust gate allows
-  it.
+  Decides whether a promotion may be proposed, must wait for review, or may apply automatically.
+notes: >-
+  Beliefs and values need enough evidence to be proposed at all, identity layers always wait for
+  review, and other promotions apply automatically only when the caller asked for that and the
+  trust gate allows it.
 owner: crates/kernle-core/src/consolidation/gates.rs::check
 inputs:
 - name: proposal

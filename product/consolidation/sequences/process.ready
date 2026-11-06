@@ -5,8 +5,10 @@ display_id: SEQ-CONSOLIDATION-PROCESS
 module: consolidation
 title: Run one processing transition
 summary: >-
-  Sends one batch of sources that have not been through a transition to the model, then
-  applies or suggests what comes back and marks those sources for that transition only.
+  Sends one batch of unprocessed sources through a transition and applies or suggests what the
+  model returns.
+notes: >-
+  Those sources are then marked for that transition only, so other transitions still see them.
 trigger:
   trigger_kind: call
   text: A process or exhaust call, or a sleep run, runs a transition

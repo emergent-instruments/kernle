@@ -4,8 +4,11 @@ id: recall.rule.priority
 display_id: RULE-RECALL-PRIORITY
 module: recall
 title: Which memories earn a place in working memory
-summary: Boot settings and the agent's identity come first; everything else is ordered by kind, strength,
-  salience, relevance and how often it helped, and added until the budget is full.
+summary: >-
+  Decides which memories go into working memory first and fills the token budget in that order.
+notes: >-
+  Boot settings and the agent's identity come first; everything else is ordered by kind, strength,
+  salience, relevance, and how often it helped.
 inputs:
 - name: candidates
   source: Active memories in the stack

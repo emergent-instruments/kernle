@@ -5,8 +5,11 @@ display_id: RULE-TRUST-GATE
 module: trust
 title: Whether a memory change applies, waits for review, or is quarantined
 summary: >-
-  Behavior-changing memories with only outside support are quarantined, preferences need the person's
-  own words, and owner or protected content never changes automatically.
+  Decides whether a memory change applies now, waits for review, or is quarantined, based on what
+  supports it.
+notes: >-
+  Behavior-changing memories with only outside support are quarantined, preferences need the
+  person's own words, and owner or protected content never changes automatically.
 owner: crates/kernle-core/src/trust/gate.rs::decide
 inputs:
 - name: proposal

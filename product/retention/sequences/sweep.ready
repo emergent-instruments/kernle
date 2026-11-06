@@ -4,8 +4,11 @@ id: retention.seq.sweep
 display_id: SEQ-RETENTION-SWEEP
 module: retention
 title: Daily retention sweep
-summary: Once a day for every stack, expires old captures and events, updates every memory's strength
-  and status, and purges forgotten memories past their recovery window.
+summary: >-
+  Once a day for every stack, expires old captures and events, updates memory strength, and purges
+  expired forgotten memories.
+notes: >-
+  Status changes such as dormancy follow from the updated strength.
 trigger:
   trigger_kind: schedule
   text: Daily at the retention time for every stack, and at daemon start when the last sweep is more than

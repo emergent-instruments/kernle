@@ -5,9 +5,10 @@ display_id: kernle.load
 module: recall
 name: Kernle.load(budget, truncate, context, query)
 summary: >-
-  Returns the stack's working memory, chosen by kind, strength, salience and
-  relevance within a token budget and rendered as labeled notes. Read-only for
-  memory content; inclusion is logged but is not use.
+  Returns the stack's working memory within a token budget, rendered as labeled notes.
+notes: >-
+  Memories are chosen by kind, strength, salience, and relevance. Load never changes memory
+  content, and inclusion is logged but is not use.
 params:
   - name: budget
     type: int

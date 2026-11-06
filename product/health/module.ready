@@ -3,10 +3,11 @@ kind: module
 id: health
 name: Health
 summary: >-
-  The memory's self-checks: one anxiety score with the actions that lower it, a
-  doctor that checks the stack's integrity and setup, and metamemory that says
-  how sure the agent can be of what it remembers. It reads every module's data
-  and writes only through other modules' calls.
+  Runs the memory's self-checks: the anxiety score, the doctor's integrity checks, and metamemory.
+notes: >-
+  Anxiety comes with the actions that lower it, and metamemory says how sure the agent can be of
+  what it remembers. Health reads every module's data and writes only through other modules'
+  calls.
 runs_in:
   - sys.python
   - sys.cli

@@ -5,10 +5,10 @@ display_id: kernle.purge
 module: retention
 name: Kernle.purge(memory_type, memory_id)
 summary: >-
-  Deletes a memory and every copy of its content for good, and queues its
-  deletion in the cloud. The owner sees a cascade preview and confirms; an
-  agent's request covers one unprotected memory the owner did not write, and
-  anything else waits for the owner.
+  Deletes a memory and every copy of its content for good, and queues its deletion in the cloud.
+notes: >-
+  The owner sees a cascade preview and confirms; an agent's request covers one unprotected memory
+  the owner did not write, and anything else waits for the owner.
 params:
   - { name: memory_type, type: str, source: Caller, source_kind: parameter }
   - { name: memory_id, type: str, source: "Caller; the owner may give a name or text and pick from matches", source_kind: parameter }

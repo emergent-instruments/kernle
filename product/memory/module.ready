@@ -3,9 +3,10 @@ kind: module
 id: memory
 name: Memory
 summary: >-
-  Owns the stratified memory records of a stack: writing, updating, and revising every kind,
-  their versions and provenance links, the content-free change ledger, listing, lineage, and
-  dump. Runs in the Kernle core inside the daemon, or in-process when the daemon is stopped.
+  Owns a stack's stratified memory records: writes, updates, revisions, versions, provenance, the
+  change ledger, listing, and dump.
+notes: >-
+  Lineage is read from the provenance links, and the change ledger holds no content.
 runs_in:
   - sys.daemon
   - sys.python

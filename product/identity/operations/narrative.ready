@@ -5,8 +5,10 @@ display_id: kernle.narrative
 module: identity
 name: Kernle.narrative_save(content, narrative_type, key_themes, unresolved_tensions, epoch_id) · narrative_get_active(narrative_type) · narrative_list(narrative_type, active_only)
 summary: >-
-  Saves a new self-narrative as the active one of its type, keeping the previous one inactive,
-  and reads narratives. Saving is a deliberate identity change by the agent or owner.
+  Saves a new self-narrative as the active one of its type, keeping the previous one inactive, and
+  reads narratives.
+notes: >-
+  Saving is a deliberate identity change by the agent or owner.
 params:
   - name: content
     type: str

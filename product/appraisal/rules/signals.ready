@@ -5,8 +5,11 @@ display_id: RULE-APPRAISAL-SIGNALS
 module: appraisal
 title: How an episode is appraised
 summary: >-
-  Computes stakes, surprise, outcome, social feedback, effort, novelty, recurrence, attribution,
-  and open loops from what happened, then combines them into arousal, valence, and salience.
+  Computes an episode's appraisal signals from what happened and combines them into arousal,
+  valence, and salience.
+notes: >-
+  The signals are stakes, surprise, outcome, social feedback, effort, novelty, recurrence,
+  attribution, and open loops.
 inputs:
   - name: episode
     source: "For a transcript episode, its events and the next episode in the same session; for an explicit episode, its outcome, outcome type, lessons, things to repeat and avoid, tags, and any explicit valence or arousal"
