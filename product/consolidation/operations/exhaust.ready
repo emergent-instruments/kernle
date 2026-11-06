@@ -5,9 +5,10 @@ display_id: kernle.exhaust
 module: consolidation
 name: Kernle.exhaust(max_cycles=20, auto_promote=True, dry_run=False)
 summary: >-
-  Runs processing in cycles until nothing more promotes, from light transitions to identity
-  ones, within the daily model budget. A checkpoint of the stack is taken before the first
-  cycle so the owner can restore it.
+  Runs processing in cycles, from light transitions to identity ones, until nothing more promotes
+  or the daily model budget runs out.
+notes: >-
+  A checkpoint of the stack is taken before the first cycle so the owner can restore it.
 params:
   - name: max_cycles
     type: int

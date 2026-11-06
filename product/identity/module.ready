@@ -3,9 +3,10 @@ kind: module
 id: identity
 name: Identity
 summary: >-
-  Keeps who the agent is over time: the self-narrative, the synthesized identity read at load,
-  drift between what the agent does and what it values, epochs that mark chapters of its life,
-  and period summaries. Runs in the Kernle core inside the daemon and the Python package.
+  Keeps who the agent is over time: self-narrative, synthesized identity, drift from its values,
+  epochs, and period summaries.
+notes: >-
+  The synthesized identity is read at load, and epochs mark chapters of the agent's life.
 runs_in:
   - sys.daemon
   - sys.python

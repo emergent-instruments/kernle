@@ -9,11 +9,12 @@ outcome: >-
   mistakes, while the person who runs them can see, correct, and truly delete
   every memory.
 summary: >-
-  A local memory engine for AI agents. It captures experience automatically and
-  through deliberate calls, appraises what mattered, consolidates it into
-  beliefs, values, goals, guardrails, and playbooks while the agent is idle,
-  and brings it back as labeled notes at session start, beside prompts, and
-  before risky actions.
+  A local memory engine that lets AI agents remember what they have lived through and recall it
+  when it matters.
+notes: >-
+  Kernle captures experience automatically and through deliberate calls, appraises what mattered,
+  consolidates it into beliefs, values, goals, guardrails, and playbooks while the agent is idle,
+  and brings it back as labeled notes at session start, beside prompts, and before risky actions.
 boundary:
   text: >-
     A Rust engine with a per-user daemon, shipped as a Python package with the

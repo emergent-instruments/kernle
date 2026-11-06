@@ -5,8 +5,10 @@ display_id: SEQ-CONSOLIDATION-EXHAUST
 module: consolidation
 title: Process until nothing more promotes
 summary: >-
-  Takes a checkpoint of the stack, then runs processing cycles from light transitions to
-  identity transitions until two cycles in a row promote nothing at the heaviest level.
+  Checkpoints the stack, then runs processing cycles until two cycles in a row promote nothing at
+  the heaviest level.
+notes: >-
+  Cycles run from light transitions to identity transitions.
 trigger:
   trigger_kind: call
   text: The agent or owner calls exhaust

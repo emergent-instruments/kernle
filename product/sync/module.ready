@@ -3,9 +3,10 @@ kind: module
 id: sync
 name: Sync
 summary: >-
-  Owns the client side of cloud sync: the owner's cloud account, which stacks
-  are synced, each stack's change queue, push and pull with the Kernle cloud,
-  conflicts, and deletions carried in both directions.
+  Owns the client side of cloud sync: the account, synced stacks, each stack's change queue, push
+  and pull, and conflicts.
+notes: >-
+  Deletions are carried in both directions.
 runs_in: [sys.daemon, sys.cli]
 owns:
   - sync queue, conflicts, and sync state (DATA-SYNC)

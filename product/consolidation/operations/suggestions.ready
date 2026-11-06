@@ -5,9 +5,11 @@ display_id: kernle.suggestions
 module: consolidation
 name: Kernle.get_suggestions(status, memory_type, limit, min_confidence) · accept_suggestion(id, modifications) · reject_suggestion(id, reason) · dismiss_suggestion(id, reason) · extract_suggestions()
 summary: >-
-  Lists held changes with why each waits and what supports it, and resolves them. Accepting
-  applies the change in one transaction; accepting with modifications records the modified
-  text; rejecting and dismissing never apply it. Quarantined changes and changes to owner
+  Lists held memory changes with why each waits and what supports it, and accepts, modifies,
+  rejects, or dismisses them.
+notes: >-
+  Accepting applies the change in one transaction; accepting with modifications records the
+  modified text; rejecting and dismissing never apply it. Quarantined changes and changes to owner
   content are accepted only by the owner in an interactive terminal.
 params:
   - name: suggestion_id

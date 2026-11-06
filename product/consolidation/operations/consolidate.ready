@@ -5,10 +5,12 @@ display_id: kernle.consolidate
 module: consolidation
 name: Kernle.consolidate(context=None) · scaffold_advanced_consolidation()
 summary: >-
-  Returns a reflection scaffold for the agent: recent episodes with their emotion labels,
-  repeated lessons, cross-domain patterns, beliefs ready to become values, and entity models
-  pointing at one generalization, each with a prompt. It records nothing; what the agent
-  concludes goes through its own memory calls or suggestions.
+  Returns a reflection scaffold that helps the agent notice patterns in its recent experience, and
+  records nothing.
+notes: >-
+  The scaffold holds recent episodes with their emotion labels, repeated lessons, cross-domain
+  patterns, beliefs ready to become values, and entity models pointing at one generalization, each
+  with a prompt. What the agent concludes goes through its own memory calls or suggestions.
 params:
   - name: context
     type: str | None

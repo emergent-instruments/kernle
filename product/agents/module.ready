@@ -3,10 +3,11 @@ kind: module
 id: agents
 name: Agents
 summary: >-
-  Connects agent runtimes to Kernle: answers Claude Code and OpenClaw hooks
-  within their deadline, serves the MCP tools to Claude Code and Codex, runs
-  the OpenClaw plugin, and installs or removes each runtime's adapter without
-  disturbing the owner's own configuration.
+  Connects agent runtimes to Kernle through hooks, the MCP tool server, and the OpenClaw plugin.
+notes: >-
+  Hooks from Claude Code and OpenClaw are answered within their deadline, the MCP tools are served
+  to Claude Code and Codex, and each runtime's adapter is installed or removed without disturbing
+  the owner's own configuration.
 runs_in: [sys.cli, sys.claude-plugin, sys.openclaw-plugin]
 owns:
   - hook handling

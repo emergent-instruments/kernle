@@ -3,10 +3,11 @@ kind: module
 id: retention
 name: Retention
 summary: >-
-  Owns forgetting: memory strength and how it fades, dormancy, forgetting and
-  recovery, protection, real deletion with its cascade, scheduled expiry of raw
-  captures and events, and deletion of a whole stack. It runs in the daemon's
-  daily sweep and through owner and agent requests.
+  Owns forgetting: strength and fading, dormancy, forgetting and recovery, protection, real
+  deletion, expiry, and stack deletion.
+notes: >-
+  Expiry covers raw captures and events. Retention runs in the daemon's daily sweep and through
+  owner and agent requests.
 runs_in:
   - sys.daemon
   - sys.cli

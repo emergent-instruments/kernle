@@ -3,10 +3,11 @@ kind: module
 id: trust
 name: Trust
 summary: >-
-  Decides how much each source of memory is trusted: the trust tier of every capture and
-  derived memory, the input gate that holds behavior-changing memories with weak support, and
-  the agent's trust assessments of other entities. Runs in the Kernle core inside the daemon
-  and the Python package.
+  Decides how much each source of memory is trusted, including the input gate and the agent's
+  trust in other entities.
+notes: >-
+  Every capture and derived memory gets a trust tier, and the input gate holds behavior-changing
+  memories with weak support.
 runs_in:
   - sys.daemon
   - sys.python

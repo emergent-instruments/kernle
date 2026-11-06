@@ -5,9 +5,10 @@ display_id: kernle.forget
 module: retention
 name: Kernle.forget(memory_type, memory_id, reason)
 summary: >-
-  Moves one memory out of working memory, cues and search, recoverable until
-  its recovery window ends; nothing is deleted until then. Protected memories
-  are refused.
+  Hides one memory from working memory, cues, and search, recoverable until its recovery window
+  ends.
+notes: >-
+  Nothing is deleted until the window ends, and protected memories are refused.
 params:
   - { name: memory_type, type: str, source: Caller, source_kind: parameter }
   - { name: memory_id, type: str, source: Caller, source_kind: parameter }

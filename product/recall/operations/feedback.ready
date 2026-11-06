@@ -5,9 +5,10 @@ display_id: kernle.feedback
 module: recall
 name: Kernle.feedback(memory_id, verdict, note) · record_access(memory_type, memory_id)
 summary: >-
-  Records whether a recalled memory helped, was wrong, or was outdated, and
-  records an agent's deliberate use of a memory. Feedback changes ranking and
-  use; it never edits or deletes the memory.
+  Records whether a recalled memory helped, was wrong, or was outdated, and records deliberate use
+  of a memory.
+notes: >-
+  Feedback changes ranking and use; it never edits or deletes the memory.
 params:
   - name: memory_id
     type: str

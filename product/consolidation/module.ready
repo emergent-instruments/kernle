@@ -3,11 +3,12 @@ kind: module
 id: consolidation
 name: Consolidation
 summary: >-
-  Turns experience into higher layers of memory: scheduled sleep runs that appraise, replay,
-  and extract; the processing transitions from raw captures up to values; the suggestion
-  queue and its review; the reflection scaffold for the agent; and the daily model budget.
-  Runs in the daemon's scheduler, with review and manual runs through the CLI, MCP tools, and
-  the Python package.
+  Turns experience into higher layers of memory through sleep runs, processing, and the suggestion
+  queue, within a daily model budget.
+notes: >-
+  Sleep runs appraise, replay, and extract; processing transitions carry raw captures up to
+  values; held changes wait in the suggestion queue for review; and the agent can ask for a
+  reflection scaffold.
 runs_in:
   - sys.daemon
   - sys.cli

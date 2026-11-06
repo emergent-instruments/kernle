@@ -5,9 +5,10 @@ display_id: SEQ-MEMORY-WRITE
 module: memory
 title: Write a memory
 summary: >-
-  Checks a memory's fields, sets its trust tier, passes it through the input gate, and stores it
-  with its version, provenance, and change record in one commit, or returns the existing memory
-  when the content is a repeat.
+  Checks, tiers, and gates a memory, then stores it with its version, provenance, and change
+  record in one commit.
+notes: >-
+  When the content is a repeat, the existing memory is returned instead.
 trigger:
   trigger_kind: call
   text: An agent, the owner, processing, sleep, import, or transcript capture writes a memory of any kind

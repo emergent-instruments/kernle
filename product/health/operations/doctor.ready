@@ -5,8 +5,10 @@ display_id: kernle.doctor
 module: health
 name: Kernle.doctor() · verify() · verify_memory(memory_type, memory_id) · find_orphaned_references()
 summary: >-
-  Checks the stack's integrity and setup, or one memory's provenance and
-  versions, and reports each finding with the call that fixes it. Read-only.
+  Checks the stack's integrity and setup, or one memory's provenance and versions, without
+  changing anything.
+notes: >-
+  Each finding names the call that fixes it.
 params:
   - { name: memory_type, type: str | None, source: "Caller, to check one memory", source_kind: parameter }
   - { name: memory_id, type: str | None, source: "Caller, to check one memory", source_kind: parameter }

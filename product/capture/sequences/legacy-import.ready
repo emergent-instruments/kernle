@@ -5,8 +5,9 @@ display_id: SEQ-CAPTURE-LEGACY
 module: capture
 title: Import stacks written by an earlier release
 summary: >-
-  Reads every stack from an earlier release's shared database into its own per-stack database,
-  keeping ids, provenance, dates, protection, and forgotten state, and leaving the earlier file
+  Reads every stack from an earlier release's shared database into its own per-stack database.
+notes: >-
+  Ids, provenance, dates, protection, and forgotten state are kept, and the earlier file is left
   unchanged.
 trigger:
   trigger_kind: call

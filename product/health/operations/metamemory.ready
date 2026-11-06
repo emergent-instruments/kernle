@@ -5,10 +5,10 @@ display_id: kernle.get_memory_confidence
 module: health
 name: Kernle.get_memory_confidence(memory_type, memory_id) · get_uncertain_memories · detect_knowledge_gaps(query) · find_contradictions · get_competence_boundaries · identify_learning_opportunities
 summary: >-
-  Reports how sure the agent can be of what it remembers: a memory's confidence
-  after decay, the uncertain memories, gaps around a topic, contradicting
-  beliefs, and where it is and is not competent. Changing a memory's confidence
-  or source goes through the memory module.
+  Reports how sure the agent can be of what it remembers, and where it is and is not competent.
+notes: >-
+  It covers a memory's confidence after decay, the uncertain memories, gaps around a topic, and
+  contradicting beliefs. Changing a memory's confidence or source goes through the memory module.
 params:
   - { name: memory_type, type: str | None, source: Caller, source_kind: parameter }
   - { name: memory_id, type: str | None, source: Caller, source_kind: parameter }

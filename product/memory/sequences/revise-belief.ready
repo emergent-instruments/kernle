@@ -5,8 +5,10 @@ display_id: SEQ-MEMORY-REVISE
 module: memory
 title: Revise, supersede, or reinforce a belief
 summary: >-
-  Changes a belief's confidence with a reason, replaces it with a newer belief, raises its
-  confidence when evidence agrees, or weighs one episode against the beliefs it relates to.
+  Revises a belief: changes its confidence, supersedes it, reinforces it, or weighs an episode
+  against related beliefs.
+notes: >-
+  Every confidence change carries a reason.
 trigger:
   trigger_kind: call
   text: An agent, processing, or sleep revises a belief, or asks which beliefs an episode supports or contradicts

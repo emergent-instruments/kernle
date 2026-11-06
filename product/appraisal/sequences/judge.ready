@@ -4,7 +4,11 @@ id: appraisal.seq.judge
 display_id: SEQ-APPRAISAL-JUDGE
 module: appraisal
 title: Judge the most salient episodes
-summary: During sleep, asks the bound model to refine the appraisal of the most salient episodes within the run's token allowance, keeping the heuristic result when judging fails.
+summary: >-
+  During sleep, asks the bound model to refine the appraisal of the most salient episodes within
+  the run's token allowance.
+notes: >-
+  When judging fails, the heuristic appraisal stays in force.
 trigger:
   trigger_kind: call
   text: A sleep run judges episodes with part of its model allowance

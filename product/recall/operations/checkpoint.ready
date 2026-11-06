@@ -5,9 +5,10 @@ display_id: kernle.checkpoint
 module: recall
 name: Kernle.checkpoint(task, pending, context)
 summary: >-
-  Saves, loads or clears the record of where the agent left off. Saving keeps
-  the latest few checkpoints and also captures the task as a raw entry so sleep
-  can learn from it.
+  Saves, loads, or clears the record of where the agent left off.
+notes: >-
+  Saving keeps the latest few checkpoints and also captures the task as a raw entry so sleep can
+  learn from it.
 params:
   - name: task
     type: str

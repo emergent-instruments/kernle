@@ -3,11 +3,12 @@ kind: module
 id: recall
 name: Recall
 summary: >-
-  Brings memory back into the agent's context: the working-memory load, search,
-  cues beside prompts, gut checks before tool calls, questions about what happened
-  when, checkpoints, always-loaded boot settings, recall feedback, and the search
-  index. It runs in the daemon, with a read-only direct path in the Python package
-  and the command line when the daemon is down.
+  Brings memory back into the agent's context through load, search, cues, gut checks, checkpoints,
+  and feedback.
+notes: >-
+  It also answers questions about what happened when, keeps always-loaded boot settings, and
+  maintains the search index. When the daemon is down, the Python package and the command line
+  read the stack directly and read-only.
 runs_in:
   - sys.daemon
   - sys.python

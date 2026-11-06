@@ -3,9 +3,8 @@ kind: module
 id: appraisal
 name: Appraisal
 summary: >-
-  Owns Kernle's computed emotion: the appraisal of every episode from observable signals, its
-  functional emotion label, judged refinement during sleep, emotion detection in text, and mood
-  summaries. Runs in the Kernle core and in sleep runs in the daemon.
+  Computes Kernle's emotion: the appraisal and label of every episode, judged refinement during
+  sleep, emotion in text, and mood summaries.
 runs_in:
   - sys.daemon
   - sys.python

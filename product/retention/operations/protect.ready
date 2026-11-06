@@ -5,9 +5,10 @@ display_id: kernle.protect
 module: retention
 name: Kernle.protect(memory_type, memory_id, protected) · weaken(memory_type, memory_id, amount)
 summary: >-
-  Protects a memory from fading and from automatic change, removes protection,
-  or weakens a memory so it fades sooner. Only the owner removes protection the
-  owner set, or weakens a protected memory.
+  Protects a memory from fading and automatic change, removes that protection, or weakens a memory
+  so it fades sooner.
+notes: >-
+  Only the owner removes protection the owner set, or weakens a protected memory.
 params:
   - { name: memory_type, type: str, source: Caller, source_kind: parameter }
   - { name: memory_id, type: str, source: Caller, source_kind: parameter }

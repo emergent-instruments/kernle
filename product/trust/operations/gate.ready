@@ -5,9 +5,11 @@ display_id: kernle.gate_memory_input
 module: trust
 name: Kernle.gate_memory_input(memory_type, content, sources, source_type)
 summary: >-
-  Decides whether a proposed memory change applies now, waits for review, or is quarantined,
-  and returns the trust tier it carries. Every write path calls it; agents may call it to ask
-  how a memory would be treated before writing it. Asking records nothing.
+  Decides whether a proposed memory change applies now, waits for review, or is quarantined, and
+  returns its trust tier.
+notes: >-
+  Every write path calls it; agents may call it to ask how a memory would be treated before
+  writing it. Asking records nothing.
 params:
   - name: memory_type
     type: str

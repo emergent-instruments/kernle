@@ -4,7 +4,11 @@ id: identity.op.drift
 display_id: kernle.detect_identity_drift
 module: identity
 name: Kernle.detect_identity_drift(days=30)
-summary: Reports how far the agent's recent memories have moved from its values and narrative, with examples. Reads only.
+summary: >-
+  Reports, without changing anything, how far the agent's recent memories have moved from its
+  values and narrative.
+notes: >-
+  The report includes examples.
 params:
   - name: days
     type: int
